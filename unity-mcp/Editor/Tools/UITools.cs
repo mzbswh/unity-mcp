@@ -106,7 +106,7 @@ namespace UnityMcp.Editor.Tools
             go.transform.SetParent(parent, false);
             var text = go.AddComponent<Text>();
             text.text = content;
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = 24;
             text.color = Color.white;
             text.alignment = TextAnchor.MiddleCenter;
@@ -142,7 +142,7 @@ namespace UnityMcp.Editor.Tools
             textGo.transform.SetParent(go.transform, false);
             var text = textGo.AddComponent<Text>();
             text.text = label;
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = 20;
             text.color = Color.black;
             text.alignment = TextAnchor.MiddleCenter;
@@ -185,7 +185,7 @@ namespace UnityMcp.Editor.Tools
             placeholder.transform.SetParent(go.transform, false);
             var phText = placeholder.AddComponent<Text>();
             phText.text = "Enter text...";
-            phText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            phText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             phText.fontSize = 18;
             phText.fontStyle = FontStyle.Italic;
             phText.color = new Color(0.5f, 0.5f, 0.5f);
@@ -200,7 +200,7 @@ namespace UnityMcp.Editor.Tools
             var textGo = new GameObject("Text");
             textGo.transform.SetParent(go.transform, false);
             var text = textGo.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = 18;
             text.color = Color.white;
             text.alignment = TextAnchor.MiddleLeft;
@@ -312,7 +312,7 @@ namespace UnityMcp.Editor.Tools
             labelGo.transform.SetParent(go.transform, false);
             var text = labelGo.AddComponent<Text>();
             text.text = label;
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = 18;
             text.color = Color.white;
             var labelRt = labelGo.GetComponent<RectTransform>();

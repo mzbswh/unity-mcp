@@ -8,6 +8,7 @@ namespace UnityMcp.Editor.Core
     [FilePath("UserSettings/UnityMcpSettings.asset", FilePathAttribute.Location.ProjectFolder)]
     public class McpSettings : ScriptableSingleton<McpSettings>
     {
+        public static new McpSettings Instance => instance;
         public enum ServerMode { BuiltIn, Python }
         public enum McpLogLevel { Debug, Info, Warning, Error, Off }
 
