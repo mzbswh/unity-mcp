@@ -23,6 +23,10 @@ namespace UnityMcp.Editor.Tools
             if (operations == null || operations.Count == 0)
                 return ToolResult.Error("No operations provided");
 
+            int max = McpSettings.Instance.MaxBatchOperations;
+            if (operations.Count > max)
+                return ToolResult.Error($"Too many operations: {operations.Count} (max {max}). Configure in Window > Unity MCP > Server > Advanced.");
+
             var registry = McpServer.Registry;
             var results = new List<object>();
             int succeeded = 0, failed = 0;

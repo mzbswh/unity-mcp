@@ -84,7 +84,7 @@ git clone https://github.com/mzbswh/unity-mcp.git
 - **双服务器架构** — Mode A（C# stdio Bridge，零依赖）或 Mode B（Python FastMCP，额外分析工具）
 - **多实例支持** — 同时运行多个 Unity Editor 实例
 - **自定义工具 API** — 用 C# 特性添加自定义工具，启动时自动发现
-- **域重载安全** — Unity 脚本重编译后自动恢复连接
+- **域重载安全** — Unity 脚本重编译后自动重连，Bridge 自动缓存并重放期间收到的请求，对 MCP 客户端近乎无感
 
 ---
 
@@ -336,6 +336,7 @@ docker run -it --rm \
 | Request Timeout | 60s | 工具执行最大超时 |
 | Log Level | Info | Debug / Info / Warning / Error / Off |
 | Audit Log | 关闭 | 记录每次工具调用及耗时 |
+| Max Batch Operations | 30 | 单次 `batch_execute` 调用允许的最大操作数 |
 
 ---
 
@@ -373,7 +374,14 @@ docker run -it --rm \
 <details>
 <summary><b>域重载导致断开连接</b></summary>
 
-这是预期行为。Transport 会在 Unity 重编译完成后自动重连。MCP 客户端下次发送请求时会自动恢复。
+这是预期行为。Unity 脚本重编译时 TCP 连接会短暂中断，但 Bridge 会自动处理：
+
+1. Unity 在域重载前发送 `notifications/reloading` 通知
+2. TCP 断开后 Bridge 自动进入指数退避重连（0s → 1s → 2s → 4s → ...）
+3. 重连期间 MCP 客户端发来的请求会被 Bridge 缓存在内存队列中
+4. Unity 重编译完成后 TCP 恢复，Bridge 自动重放缓存的请求
+
+整个过程对 MCP 客户端近乎透明，通常 2-5 秒内自动恢复。
 
 </details>
 

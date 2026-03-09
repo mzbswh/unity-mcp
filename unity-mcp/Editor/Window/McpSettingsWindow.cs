@@ -258,6 +258,13 @@ namespace UnityMcp.Editor.Window
                     settings.EnableAuditLog = audit;
                     McpLogger.AuditEnabled = audit;
                 }
+
+                EditorGUI.BeginChangeCheck();
+                int maxBatch = EditorGUILayout.IntField(
+                    new GUIContent("Max Batch Operations", "Maximum number of operations allowed in a single batch_execute call."),
+                    settings.MaxBatchOperations);
+                if (EditorGUI.EndChangeCheck())
+                    settings.MaxBatchOperations = Mathf.Max(1, maxBatch);
             }
             EditorGUILayout.EndVertical();
         }

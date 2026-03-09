@@ -84,7 +84,7 @@ If it returns the scene hierarchy, you're all set.
 - **Dual Server Architecture** — Mode A (C# stdio Bridge, zero dependencies) or Mode B (Python FastMCP, extra analysis tools)
 - **Multi-Instance** — Supports multiple Unity Editor instances simultaneously
 - **Custom Tool API** — Add your own tools with C# attributes, auto-discovered at startup
-- **Domain Reload Safe** — Automatically reconnects after Unity script recompilation
+- **Domain Reload Safe** — Automatically reconnects after Unity script recompilation; Bridge buffers and replays in-flight requests, making reloads nearly transparent to MCP clients
 
 ---
 
@@ -336,6 +336,7 @@ Access via `Window > Unity MCP`:
 | Request Timeout | 60s | Max tool execution timeout |
 | Log Level | Info | Debug / Info / Warning / Error / Off |
 | Audit Log | Off | Log each tool call with timing |
+| Max Batch Operations | 30 | Maximum operations allowed per `batch_execute` call |
 
 ---
 
@@ -373,7 +374,14 @@ Access via `Window > Unity MCP`:
 <details>
 <summary><b>Domain reload causes disconnection</b></summary>
 
-This is expected. Transport automatically reconnects after Unity script recompilation. The MCP client will recover on the next request.
+This is expected behavior. The TCP connection briefly drops during Unity script recompilation, but the Bridge handles it automatically:
+
+1. Unity sends a `notifications/reloading` notification before domain reload
+2. After TCP disconnects, Bridge enters exponential backoff reconnection (0s → 1s → 2s → 4s → ...)
+3. Requests from the MCP client during reconnection are buffered in an in-memory queue
+4. Once Unity finishes recompilation and TCP recovers, Bridge replays all buffered requests
+
+The entire process is nearly transparent to MCP clients, typically recovering within 2-5 seconds.
 
 </details>
 

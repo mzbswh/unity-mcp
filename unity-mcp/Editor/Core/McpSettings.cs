@@ -22,6 +22,7 @@ namespace UnityMcp.Editor.Core
         [SerializeField] private int requestTimeoutSeconds = 60;
         [SerializeField] private McpLogLevel logLevel = McpLogLevel.Info;
         [SerializeField] private bool enableAuditLog;
+        [SerializeField] private int maxBatchOperations = 30;
 
         public ServerMode Mode
         {
@@ -94,6 +95,12 @@ namespace UnityMcp.Editor.Core
         {
             get => enableAuditLog;
             set { enableAuditLog = value; Save(true); }
+        }
+
+        public int MaxBatchOperations
+        {
+            get => maxBatchOperations;
+            set { maxBatchOperations = value; Save(true); }
         }
 
         public string Version => McpConst.ServerVersion;
