@@ -4,144 +4,217 @@ using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityMcp.Editor.Core;
+using UnityMcp.Shared.Models;
 using UnityMcp.Shared.Utils;
 
 namespace UnityMcp.Editor.Window
 {
     public class McpSettingsWindow : EditorWindow
     {
-        private Vector2 _toolScrollPos;
-        private bool _showTools = true;
-        private bool _showAdvanced;
-        private bool _showQuickSetup;
+        // Styles
+        private GUIStyle _headerStyle;
+        private GUIStyle _subHeaderStyle;
+        private GUIStyle _boxStyle;
+        private GUIStyle _statusBoxStyle;
+        private GUIStyle _clientCardStyle;
+        private GUIStyle _clientCardConfiguredStyle;
+        private GUIStyle _wrappedLabelStyle;
+        private GUIStyle _versionStyle;
+        private bool _stylesInitialized;
+
+        // State
+        private int _selectedTab;
+        private readonly string[] _tabNames = { "Server", "Clients", "Tools" };
+        private Vector2 _scrollPos;
         private string _cachedDefaultBridgePath;
+
+        // Client config cache (refreshed periodically)
+        private double _lastClientCheckTime;
+        private const double ClientCheckInterval = 2.0;
+        private bool _claudeCodeConfigured;
+        private bool _cursorConfigured;
+        private bool _vscodeConfigured;
+        private bool _windsurfConfigured;
 
         [MenuItem("Window/Unity MCP")]
         public static void ShowWindow()
         {
             var window = GetWindow<McpSettingsWindow>("Unity MCP");
-            window.minSize = new Vector2(420, 500);
+            window.minSize = new Vector2(480, 400);
+        }
+
+        private void OnEnable()
+        {
+            RefreshClientStatus();
         }
 
         private void OnGUI()
         {
-            var settings = McpSettings.Instance;
+            InitializeStyles();
+
+            EditorGUILayout.BeginVertical();
 
             // Header
+            EditorGUILayout.Space(8);
+            EditorGUILayout.LabelField("Unity MCP", _headerStyle);
             EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("Unity MCP", EditorStyles.boldLabel);
+
+            // Status bar
+            DrawStatusBar();
+            EditorGUILayout.Space(6);
+
+            // Tabs
+            _selectedTab = GUILayout.Toolbar(_selectedTab, _tabNames, GUILayout.Height(24));
+            EditorGUILayout.Space(6);
+
+            // Tab content
+            _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
+            switch (_selectedTab)
+            {
+                case 0: DrawServerTab(); break;
+                case 1: DrawClientsTab(); break;
+                case 2: DrawToolsTab(); break;
+            }
+            EditorGUILayout.EndScrollView();
+
+            // Version footer
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.LabelField($"v{McpConst.ServerVersion}", _versionStyle);
             EditorGUILayout.Space(2);
 
-            DrawStatus();
-            EditorGUILayout.Space(6);
+            EditorGUILayout.EndVertical();
 
-            DrawServerMode(settings);
-            EditorGUILayout.Space(6);
-
-            DrawConnection(settings);
-            EditorGUILayout.Space(6);
-
-            DrawModeSpecific(settings);
-            EditorGUILayout.Space(6);
-
-            DrawAdvanced(settings);
-            EditorGUILayout.Space(6);
-
-            DrawRegisteredTools();
-            EditorGUILayout.Space(6);
-
-            DrawQuickSetup(settings);
+            // Periodic client status refresh
+            if (EditorApplication.timeSinceStartup - _lastClientCheckTime > ClientCheckInterval)
+                RefreshClientStatus();
         }
 
-        private void DrawStatus()
+        // ======================== Status Bar ========================
+
+        private void DrawStatusBar()
         {
             var transport = McpServer.Transport;
             bool isRunning = transport != null && transport.IsRunning;
             int clients = transport?.ClientCount ?? 0;
 
-            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal(_statusBoxStyle);
             {
-                var statusColor = isRunning ? Color.green : Color.red;
+                // Status dot
                 var oldColor = GUI.color;
-                GUI.color = statusColor;
-                GUILayout.Label("\u25CF", GUILayout.Width(14));
+                GUI.color = isRunning ? new Color(0.2f, 0.9f, 0.3f) : new Color(0.9f, 0.2f, 0.2f);
+                GUILayout.Label("\u25CF", GUILayout.Width(16));
                 GUI.color = oldColor;
 
+                // Status text
+                var statusStyle = new GUIStyle(EditorStyles.boldLabel)
+                {
+                    normal = { textColor = isRunning ? new Color(0.1f, 0.7f, 0.2f) : new Color(0.8f, 0.2f, 0.2f) }
+                };
                 string statusText = isRunning
-                    ? $"Running on TCP:{transport.Port}  |  {clients} client(s)"
+                    ? $"Running  |  Port {transport.Port}  |  {clients} client(s)"
                     : "Stopped";
-                EditorGUILayout.LabelField(statusText);
+                EditorGUILayout.LabelField(statusText, statusStyle);
 
-                if (GUILayout.Button(isRunning ? "Restart" : "Start", GUILayout.Width(60)))
+                // Control buttons
+                GUI.enabled = !isRunning;
+                if (GUILayout.Button("Start", GUILayout.Width(56), GUILayout.Height(22)))
+                    McpServer.Restart();
+                GUI.enabled = isRunning;
+                if (GUILayout.Button("Stop", GUILayout.Width(56), GUILayout.Height(22)))
+                    McpServer.Shutdown();
+                GUI.enabled = true;
+
+                if (GUILayout.Button("Restart", GUILayout.Width(56), GUILayout.Height(22)))
                     McpServer.Restart();
             }
             EditorGUILayout.EndHorizontal();
         }
 
-        private void DrawServerMode(McpSettings settings)
+        // ======================== Server Tab ========================
+
+        private void DrawServerTab()
         {
-            EditorGUILayout.LabelField("Server Mode", EditorStyles.boldLabel);
-            EditorGUI.BeginChangeCheck();
-            var mode = (McpSettings.ServerMode)EditorGUILayout.EnumPopup("Mode", settings.Mode);
-            if (EditorGUI.EndChangeCheck())
-                settings.Mode = mode;
-        }
+            var settings = McpSettings.Instance;
 
-        private void DrawConnection(McpSettings settings)
-        {
-            EditorGUILayout.LabelField("Connection", EditorStyles.boldLabel);
-
-            EditorGUI.BeginChangeCheck();
-            int port = EditorGUILayout.IntField("Port (-1 = auto)", settings.Port);
-            if (EditorGUI.EndChangeCheck())
-                settings.Port = port;
-
-            EditorGUI.BeginChangeCheck();
-            bool autoStart = EditorGUILayout.Toggle("Auto Start", settings.AutoStart);
-            if (EditorGUI.EndChangeCheck())
-                settings.AutoStart = autoStart;
-        }
-
-        private void DrawModeSpecific(McpSettings settings)
-        {
-            if (settings.Mode == McpSettings.ServerMode.BuiltIn)
+            // Server Mode
+            EditorGUILayout.LabelField("Server Mode", _subHeaderStyle);
+            EditorGUILayout.BeginVertical(_boxStyle);
             {
-                EditorGUILayout.LabelField("Built-in Server (C# Bridge)", EditorStyles.boldLabel);
+                EditorGUI.BeginChangeCheck();
+                var mode = (McpSettings.ServerMode)EditorGUILayout.EnumPopup("Mode", settings.Mode);
+                if (EditorGUI.EndChangeCheck())
+                    settings.Mode = mode;
+
+                EditorGUILayout.Space(2);
+
+                EditorGUI.BeginChangeCheck();
+                int port = EditorGUILayout.IntField(
+                    new GUIContent("Port", "TCP port for MCP communication. -1 = auto-assign from project path hash."),
+                    settings.Port);
+                if (EditorGUI.EndChangeCheck())
+                    settings.Port = port;
+
+                EditorGUI.BeginChangeCheck();
+                bool autoStart = EditorGUILayout.Toggle(
+                    new GUIContent("Auto Start", "Automatically start the MCP server when Unity opens."),
+                    settings.AutoStart);
+                if (EditorGUI.EndChangeCheck())
+                    settings.AutoStart = autoStart;
+            }
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space(4);
+
+            // Mode-specific settings
+            if (settings.Mode == McpSettings.ServerMode.BuiltIn)
+                DrawBuiltInSettings(settings);
+            else
+                DrawPythonSettings(settings);
+
+            EditorGUILayout.Space(4);
+
+            // Advanced
+            DrawAdvanced(settings);
+        }
+
+        private void DrawBuiltInSettings(McpSettings settings)
+        {
+            EditorGUILayout.LabelField("Built-in Server (C# Bridge)", _subHeaderStyle);
+            EditorGUILayout.BeginVertical(_boxStyle);
+            {
+                EditorGUILayout.BeginHorizontal();
                 EditorGUI.BeginChangeCheck();
                 string bridgePath = EditorGUILayout.TextField("Bridge Path", settings.BridgePath);
                 if (EditorGUI.EndChangeCheck())
                     settings.BridgePath = bridgePath;
 
-                if (GUILayout.Button("Browse...", GUILayout.Width(80)))
+                if (GUILayout.Button("...", GUILayout.Width(30)))
                 {
                     string path = EditorUtility.OpenFilePanel("Select Bridge Executable", "", "");
                     if (!string.IsNullOrEmpty(path))
                         settings.BridgePath = path;
                 }
-                // Check if bridge binary exists (cache default path to avoid per-frame IO)
+                EditorGUILayout.EndHorizontal();
+
                 if (_cachedDefaultBridgePath == null)
                     _cachedDefaultBridgePath = ServerProcessManager.GetDefaultBridgePathStatic();
-                string effectiveBridgePath = string.IsNullOrEmpty(bridgePath)
-                    ? _cachedDefaultBridgePath
-                    : bridgePath;
-                if (!File.Exists(effectiveBridgePath))
-                {
-                    EditorGUILayout.HelpBox(
-                        $"Bridge binary not found:\n{effectiveBridgePath}\n\n" +
-                        "Build it with: ./scripts/build_bridge.sh --current-only",
-                        MessageType.Warning);
-                }
-                else
-                {
-                    EditorGUILayout.HelpBox(
-                        "Leave Bridge Path empty to use the default bundled binary.",
-                        MessageType.Info);
-                }
-            }
-            else
-            {
-                EditorGUILayout.LabelField("Python Server (FastMCP)", EditorStyles.boldLabel);
+                string effectivePath = string.IsNullOrEmpty(settings.BridgePath) ? _cachedDefaultBridgePath : settings.BridgePath;
 
+                if (!File.Exists(effectivePath))
+                    EditorGUILayout.HelpBox(
+                        $"Bridge binary not found:\n{effectivePath}\n\nBuild with: ./scripts/build_bridge.sh --current-only",
+                        MessageType.Warning);
+                else
+                    EditorGUILayout.HelpBox("Leave empty to use the default bundled binary.", MessageType.Info);
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawPythonSettings(McpSettings settings)
+        {
+            EditorGUILayout.LabelField("Python Server (FastMCP)", _subHeaderStyle);
+            EditorGUILayout.BeginVertical(_boxStyle);
+            {
                 EditorGUI.BeginChangeCheck();
                 string pythonPath = EditorGUILayout.TextField("Python Path", settings.PythonPath);
                 if (EditorGUI.EndChangeCheck())
@@ -157,94 +230,203 @@ namespace UnityMcp.Editor.Window
                 if (EditorGUI.EndChangeCheck())
                     settings.UseUv = useUv;
             }
+            EditorGUILayout.EndVertical();
         }
 
         private void DrawAdvanced(McpSettings settings)
         {
-            _showAdvanced = EditorGUILayout.Foldout(_showAdvanced, "Advanced", true);
-            if (!_showAdvanced) return;
-
-            EditorGUI.indentLevel++;
-
-            EditorGUI.BeginChangeCheck();
-            int timeout = EditorGUILayout.IntField("Request Timeout (s)", settings.RequestTimeoutSeconds);
-            if (EditorGUI.EndChangeCheck())
-                settings.RequestTimeoutSeconds = Mathf.Max(1, timeout);
-
-            EditorGUI.BeginChangeCheck();
-            var logLevel = (McpSettings.McpLogLevel)EditorGUILayout.EnumPopup("Log Level", settings.LogLevel);
-            if (EditorGUI.EndChangeCheck())
+            EditorGUILayout.LabelField("Advanced", _subHeaderStyle);
+            EditorGUILayout.BeginVertical(_boxStyle);
             {
-                settings.LogLevel = logLevel;
-                McpLogger.CurrentLogLevel = (McpLogger.LogLevel)(int)logLevel;
-            }
-
-            EditorGUI.BeginChangeCheck();
-            bool audit = EditorGUILayout.Toggle("Enable Audit Log", settings.EnableAuditLog);
-            if (EditorGUI.EndChangeCheck())
-            {
-                settings.EnableAuditLog = audit;
-                McpLogger.AuditEnabled = audit;
-            }
-
-            EditorGUI.indentLevel--;
-        }
-
-        private void DrawRegisteredTools()
-        {
-            var registry = McpServer.Registry;
-            if (registry == null) return;
-
-            string header = $"Registered  —  Tools: {registry.ToolCount}  " +
-                            $"Resources: {registry.ResourceCount}  Prompts: {registry.PromptCount}";
-            _showTools = EditorGUILayout.Foldout(_showTools, header, true);
-            if (!_showTools) return;
-
-            _toolScrollPos = EditorGUILayout.BeginScrollView(_toolScrollPos, GUILayout.MaxHeight(200));
-            var tools = registry.GetToolList();
-            foreach (var tool in tools)
-            {
-                string name = tool["name"]?.ToString();
-                string desc = tool["description"]?.ToString();
-                bool enabled = registry.IsToolEnabled(name);
+                EditorGUI.BeginChangeCheck();
+                int timeout = EditorGUILayout.IntField("Request Timeout (s)", settings.RequestTimeoutSeconds);
+                if (EditorGUI.EndChangeCheck())
+                    settings.RequestTimeoutSeconds = Mathf.Max(1, timeout);
 
                 EditorGUI.BeginChangeCheck();
-                bool newEnabled = EditorGUILayout.ToggleLeft($"{name}  —  {desc}", enabled);
+                var logLevel = (McpSettings.McpLogLevel)EditorGUILayout.EnumPopup("Log Level", settings.LogLevel);
                 if (EditorGUI.EndChangeCheck())
-                    registry.SetToolEnabled(name, newEnabled);
+                {
+                    settings.LogLevel = logLevel;
+                    McpLogger.CurrentLogLevel = (McpLogger.LogLevel)(int)logLevel;
+                }
+
+                EditorGUI.BeginChangeCheck();
+                bool audit = EditorGUILayout.Toggle("Enable Audit Log", settings.EnableAuditLog);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    settings.EnableAuditLog = audit;
+                    McpLogger.AuditEnabled = audit;
+                }
             }
-            EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
         }
 
-        // ======================== Quick Setup ========================
+        // ======================== Clients Tab ========================
 
-        private void DrawQuickSetup(McpSettings settings)
+        private void DrawClientsTab()
         {
-            _showQuickSetup = EditorGUILayout.Foldout(_showQuickSetup, "Quick Setup", true);
-            if (!_showQuickSetup) return;
+            EditorGUILayout.LabelField("Client Configuration", _subHeaderStyle);
+            EditorGUILayout.BeginVertical(_boxStyle);
+            EditorGUILayout.LabelField(
+                "Click a client button to write the Unity MCP server entry into its config file. " +
+                "A green checkmark indicates the client is already configured.",
+                _wrappedLabelStyle);
+            EditorGUILayout.EndVertical();
 
-            EditorGUILayout.HelpBox(
-                "Auto-configure MCP client. Writes the Unity MCP server entry directly into the client's config file.",
-                MessageType.Info);
+            EditorGUILayout.Space(4);
 
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Claude Code"))
-                ConfigureClient(settings, "claude_code");
-            if (GUILayout.Button("Cursor"))
-                ConfigureClient(settings, "cursor");
-            EditorGUILayout.EndHorizontal();
+            var settings = McpSettings.Instance;
 
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("VS Code"))
-                ConfigureClient(settings, "vscode");
-            if (GUILayout.Button("Windsurf"))
-                ConfigureClient(settings, "windsurf");
+            DrawClientCard("Claude Code", "claude_code", _claudeCodeConfigured, settings);
+            DrawClientCard("Cursor", "cursor", _cursorConfigured, settings);
+            DrawClientCard("VS Code / Copilot", "vscode", _vscodeConfigured, settings);
+            DrawClientCard("Windsurf", "windsurf", _windsurfConfigured, settings);
+
+            EditorGUILayout.Space(8);
+
+            // Clipboard fallback
+            EditorGUILayout.LabelField("Manual Setup", _subHeaderStyle);
+            EditorGUILayout.BeginVertical(_boxStyle);
+            {
+                EditorGUILayout.LabelField("Copy the JSON config to clipboard for other clients.", _wrappedLabelStyle);
+                EditorGUILayout.Space(4);
+                if (GUILayout.Button("Copy Config to Clipboard", GUILayout.Height(28)))
+                    CopyConfigToClipboard(settings);
+            }
+            EditorGUILayout.EndVertical();
+
+            // Connected Clients
+            EditorGUILayout.Space(8);
+            DrawConnectedClients();
+        }
+
+        private void DrawClientCard(string label, string clientId, bool isConfigured, McpSettings settings)
+        {
+            var style = isConfigured ? _clientCardConfiguredStyle : _clientCardStyle;
+
+            EditorGUILayout.BeginHorizontal(style);
+            {
+                // Status icon
+                var oldColor = GUI.color;
+                GUI.color = isConfigured ? new Color(0.2f, 0.85f, 0.3f) : new Color(0.6f, 0.6f, 0.6f);
+                GUILayout.Label(isConfigured ? "\u2714" : "\u2716", GUILayout.Width(20));
+                GUI.color = oldColor;
+
+                // Client name
+                GUILayout.Label(label, EditorStyles.boldLabel);
+
+                GUILayout.FlexibleSpace();
+
+                // Status label
+                var statusLabelStyle = new GUIStyle(EditorStyles.miniLabel)
+                {
+                    normal = { textColor = isConfigured ? new Color(0.1f, 0.6f, 0.1f) : new Color(0.6f, 0.4f, 0.1f) }
+                };
+                GUILayout.Label(isConfigured ? "Configured" : "Not configured", statusLabelStyle);
+
+                // Configure button
+                if (GUILayout.Button(isConfigured ? "Update" : "Configure", GUILayout.Width(80), GUILayout.Height(22)))
+                {
+                    ConfigureClient(settings, clientId);
+                    RefreshClientStatus();
+                }
+            }
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(2);
-            if (GUILayout.Button("Copy JSON to Clipboard"))
-                CopyConfigToClipboard(settings);
         }
+
+        private void DrawConnectedClients()
+        {
+            var transport = McpServer.Transport;
+            int count = transport?.ClientCount ?? 0;
+
+            EditorGUILayout.LabelField($"Connected Clients ({count})", _subHeaderStyle);
+            EditorGUILayout.BeginVertical(_boxStyle);
+            {
+                if (count > 0)
+                {
+                    EditorGUILayout.LabelField(
+                        $"{count} client(s) currently connected to TCP port {transport.Port}.",
+                        _wrappedLabelStyle);
+                }
+                else
+                {
+                    var centeredStyle = new GUIStyle(EditorStyles.centeredGreyMiniLabel) { wordWrap = true };
+                    GUILayout.Label(
+                        "No clients connected.\nConfigure a client above, then invoke a tool from the MCP client to connect.",
+                        centeredStyle, GUILayout.ExpandWidth(true));
+                }
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        // ======================== Tools Tab ========================
+
+        private void DrawToolsTab()
+        {
+            var registry = McpServer.Registry;
+            if (registry == null)
+            {
+                EditorGUILayout.HelpBox("Server not initialized. Tools will appear after the server starts.", MessageType.Info);
+                return;
+            }
+
+            // Summary
+            EditorGUILayout.BeginVertical(_boxStyle);
+            {
+                EditorGUILayout.BeginHorizontal();
+                DrawCountBadge("Tools", registry.ToolCount);
+                DrawCountBadge("Resources", registry.ResourceCount);
+                DrawCountBadge("Prompts", registry.PromptCount);
+                EditorGUILayout.EndHorizontal();
+            }
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space(4);
+
+            // Tool list
+            EditorGUILayout.LabelField("Registered Tools", _subHeaderStyle);
+            EditorGUILayout.BeginVertical(_boxStyle);
+            {
+                var tools = registry.GetToolList();
+                foreach (var tool in tools)
+                {
+                    string name = tool["name"]?.ToString();
+                    string desc = tool["description"]?.ToString();
+                    if (string.IsNullOrEmpty(name)) continue;
+
+                    bool enabled = registry.IsToolEnabled(name);
+                    EditorGUI.BeginChangeCheck();
+                    bool newEnabled = EditorGUILayout.ToggleLeft(
+                        $"  {name}",
+                        enabled);
+                    if (EditorGUI.EndChangeCheck())
+                        registry.SetToolEnabled(name, newEnabled);
+
+                    if (!string.IsNullOrEmpty(desc))
+                    {
+                        EditorGUI.indentLevel += 2;
+                        EditorGUILayout.LabelField(desc, EditorStyles.miniLabel);
+                        EditorGUI.indentLevel -= 2;
+                    }
+
+                    EditorGUILayout.Space(1);
+                }
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawCountBadge(string label, int count)
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.MinWidth(80));
+            EditorGUILayout.LabelField(count.ToString(), new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
+            EditorGUILayout.LabelField(label, new GUIStyle(EditorStyles.centeredGreyMiniLabel));
+            EditorGUILayout.EndVertical();
+        }
+
+        // ======================== Client Configuration Logic ========================
 
         private void ConfigureClient(McpSettings settings, string client)
         {
@@ -280,18 +462,17 @@ namespace UnityMcp.Editor.Window
                 if (success)
                 {
                     McpLogger.Info($"Configured {client}: {configPath}");
-                    ShowNotification(new GUIContent($"{client} configured!"));
+                    EditorUtility.DisplayDialog("Success",
+                        $"Unity MCP has been configured for {client}.\n\nConfig file:\n{configPath}", "OK");
                 }
             }
             catch (Exception ex)
             {
                 McpLogger.Error($"Failed to configure {client}: {ex.Message}");
-                EditorUtility.DisplayDialog("Quick Setup Error",
+                EditorUtility.DisplayDialog("Configuration Error",
                     $"Failed to configure {client}:\n{ex.Message}", "OK");
             }
         }
-
-        // --- Build the server entry JObject ---
 
         private static JObject BuildServerEntry(McpSettings settings)
         {
@@ -311,7 +492,6 @@ namespace UnityMcp.Editor.Window
                 };
             }
 
-            // Python mode
             string script = settings.PythonServerScript;
             if (string.IsNullOrEmpty(script))
                 script = "<path-to-server-script>";
@@ -334,7 +514,7 @@ namespace UnityMcp.Editor.Window
             };
         }
 
-        // --- Config file paths ---
+        // ======================== Config File Paths ========================
 
         private static string GetClaudeCodeConfigPath()
         {
@@ -358,11 +538,10 @@ namespace UnityMcp.Editor.Window
             return Path.Combine(dir, "mcp_config.json");
         }
 
-        // --- Write config: Claude Code (special structure) ---
+        // ======================== Config Writers ========================
 
         private static bool WriteClaudeCodeConfig(string configPath, JObject serverEntry)
         {
-            // Claude Code: ~/.claude.json -> projects.<projectPath>.mcpServers.unity
             string projectPath = Application.dataPath.Replace("/Assets", "");
 
             JObject root;
@@ -371,30 +550,26 @@ namespace UnityMcp.Editor.Window
             else
                 root = new JObject();
 
-            // Ensure projects.<projectPath>.mcpServers exists
             if (root["projects"] == null)
                 root["projects"] = new JObject();
-
             var projects = (JObject)root["projects"];
+
             if (projects[projectPath] == null)
                 projects[projectPath] = new JObject();
-
             var project = (JObject)projects[projectPath];
+
             if (project["mcpServers"] == null)
                 project["mcpServers"] = new JObject();
-
             var mcpServers = (JObject)project["mcpServers"];
+
             mcpServers["unity"] = serverEntry;
 
             File.WriteAllText(configPath, root.ToString(Newtonsoft.Json.Formatting.Indented));
             return true;
         }
 
-        // --- Write config: Cursor / VS Code / Windsurf (standard structure) ---
-
         private static bool WriteMcpServersConfig(string configPath, string serversKey, JObject serverEntry)
         {
-            // Format: { "<serversKey>": { "unity": { ... } } }
             JObject root;
             if (File.Exists(configPath))
                 root = JObject.Parse(File.ReadAllText(configPath));
@@ -403,15 +578,12 @@ namespace UnityMcp.Editor.Window
 
             if (root[serversKey] == null)
                 root[serversKey] = new JObject();
-
             var servers = (JObject)root[serversKey];
             servers["unity"] = serverEntry;
 
             File.WriteAllText(configPath, root.ToString(Newtonsoft.Json.Formatting.Indented));
             return true;
         }
-
-        // --- Fallback: copy to clipboard ---
 
         private void CopyConfigToClipboard(McpSettings settings)
         {
@@ -421,8 +593,106 @@ namespace UnityMcp.Editor.Window
                 ["mcpServers"] = new JObject { ["unity"] = serverEntry }
             };
             EditorGUIUtility.systemCopyBuffer = config.ToString(Newtonsoft.Json.Formatting.Indented);
-            McpLogger.Info("Copied MCP config JSON to clipboard");
-            ShowNotification(new GUIContent("Config copied to clipboard!"));
+            ShowNotification(new GUIContent("Copied to clipboard!"));
+        }
+
+        // ======================== Client Status Detection ========================
+
+        private void RefreshClientStatus()
+        {
+            _lastClientCheckTime = EditorApplication.timeSinceStartup;
+            _claudeCodeConfigured = CheckClaudeCodeConfigured();
+            _cursorConfigured = CheckMcpConfigured(GetProjectConfigPath(".cursor", "mcp.json"), "mcpServers");
+            _vscodeConfigured = CheckMcpConfigured(GetProjectConfigPath(".vscode", "mcp.json"), "servers");
+            _windsurfConfigured = CheckMcpConfigured(GetWindsurfConfigPath(), "mcpServers");
+            Repaint();
+        }
+
+        private static bool CheckClaudeCodeConfigured()
+        {
+            try
+            {
+                string path = GetClaudeCodeConfigPath();
+                if (!File.Exists(path)) return false;
+
+                var root = JObject.Parse(File.ReadAllText(path));
+                string projectPath = Application.dataPath.Replace("/Assets", "");
+                return root["projects"]?[projectPath]?["mcpServers"]?["unity"] != null;
+            }
+            catch { return false; }
+        }
+
+        private static bool CheckMcpConfigured(string configPath, string serversKey)
+        {
+            try
+            {
+                if (!File.Exists(configPath)) return false;
+                var root = JObject.Parse(File.ReadAllText(configPath));
+                return root[serversKey]?["unity"] != null;
+            }
+            catch { return false; }
+        }
+
+        // ======================== Style Initialization ========================
+
+        private void InitializeStyles()
+        {
+            if (_stylesInitialized) return;
+
+            _headerStyle = new GUIStyle(EditorStyles.largeLabel)
+            {
+                fontSize = 20,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                margin = new RectOffset(0, 0, 4, 4)
+            };
+
+            _subHeaderStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 13,
+                margin = new RectOffset(0, 0, 6, 3)
+            };
+
+            _boxStyle = new GUIStyle(EditorStyles.helpBox)
+            {
+                padding = new RectOffset(10, 10, 8, 8),
+                margin = new RectOffset(0, 0, 2, 2)
+            };
+
+            _statusBoxStyle = new GUIStyle(EditorStyles.helpBox)
+            {
+                padding = new RectOffset(8, 8, 6, 6),
+                margin = new RectOffset(4, 4, 0, 0)
+            };
+
+            _clientCardStyle = new GUIStyle(EditorStyles.helpBox)
+            {
+                padding = new RectOffset(8, 8, 6, 6),
+                margin = new RectOffset(0, 0, 1, 1)
+            };
+
+            // Configured client card with a subtle green tint
+            _clientCardConfiguredStyle = new GUIStyle(_clientCardStyle);
+            var greenTex = new Texture2D(1, 1);
+            greenTex.SetPixel(0, 0, EditorGUIUtility.isProSkin
+                ? new Color(0.15f, 0.28f, 0.15f, 1f)
+                : new Color(0.82f, 0.95f, 0.82f, 1f));
+            greenTex.Apply();
+            _clientCardConfiguredStyle.normal.background = greenTex;
+
+            _wrappedLabelStyle = new GUIStyle(EditorStyles.label)
+            {
+                wordWrap = true,
+                richText = true
+            };
+
+            _versionStyle = new GUIStyle(EditorStyles.miniLabel)
+            {
+                alignment = TextAnchor.MiddleRight,
+                margin = new RectOffset(0, 6, 0, 2)
+            };
+
+            _stylesInitialized = true;
         }
     }
 }
