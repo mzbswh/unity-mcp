@@ -1,0 +1,28 @@
+{
+  "name": "com.mzbswh.unity-mcp",
+  "version": "1.0.0",
+  "displayName": "Unity MCP",
+  "description": "Model Context Protocol server for Unity Editor, enabling AI tool integration.",
+  "unity": "2021.2",
+  "documentationUrl": "https://github.com/nicekuo/unity-mcp#readme",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai",
+    "llm",
+    "editor"
+  ],
+  "author": {
+    "name": "mzbswh"
+  },
+  "samples": [
+    {
+      "displayName": "Custom Tools Example",
+      "description": "Example showing how to create custom MCP tools.",
+      "path": "Samples~/CustomTools"
+    }
+  ],
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  }
+}

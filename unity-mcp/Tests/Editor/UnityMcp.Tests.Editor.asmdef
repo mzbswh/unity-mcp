@@ -1,0 +1,23 @@
+{
+  "name": "UnityMcp.Tests.Editor",
+  "rootNamespace": "UnityMcp.Tests.Editor",
+  "references": [
+    "UnityMcp.Shared",
+    "UnityMcp.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

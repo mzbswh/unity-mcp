@@ -1,0 +1,15 @@
+[project]
+name = "unity-mcp-server"
+version = "1.0.0"
+description = "Python MCP server for Unity MCP (Mode B)"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+unity-mcp-server = "unity_mcp_server.server:main"
