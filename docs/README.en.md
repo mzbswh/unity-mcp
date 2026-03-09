@@ -223,6 +223,62 @@ Python server adds two local tools:
 
 All Unity tools/resources/prompts are dynamically discovered and forwarded.
 
+### Docker Deployment
+
+Run the Python server in a container (useful for CI/CD or isolated environments):
+
+**Using docker compose:**
+
+```bash
+cd unity-server
+
+# Use default port 52345
+docker compose up -d
+
+# Specify a custom port
+UNITY_MCP_PORT=53000 docker compose up -d
+```
+
+**Manual build and run:**
+
+```bash
+cd unity-server
+docker build -t unity-mcp-server .
+docker run -it --rm \
+  -e UNITY_MCP_HOST=host.docker.internal \
+  -e UNITY_MCP_PORT=52345 \
+  --add-host=host.docker.internal:host-gateway \
+  unity-mcp-server
+```
+
+**MCP client config (Docker mode):**
+
+```json
+{
+  "mcpServers": {
+    "unity": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm",
+        "-e", "UNITY_MCP_HOST=host.docker.internal",
+        "-e", "UNITY_MCP_PORT=52345",
+        "--add-host=host.docker.internal:host-gateway",
+        "unity-mcp-server"
+      ]
+    }
+  }
+}
+```
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `UNITY_MCP_HOST` | `host.docker.internal` | Unity Editor host address. Use `host.docker.internal` to reach the host from inside the container |
+| `UNITY_MCP_PORT` | `52345` | Unity Editor TCP port. Must match the port shown in `Window > Unity MCP` |
+| `UNITY_MCP_TIMEOUT` | `60` | Request timeout in seconds |
+
+> **Note:** `host.docker.internal` works out of the box on Docker Desktop (macOS/Windows). On Linux, use `--add-host=host.docker.internal:host-gateway` (Docker 20.10+) or `--network=host`.
+
 ## Settings
 
 Access via `Window > Unity MCP`:

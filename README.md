@@ -225,6 +225,62 @@ Python 服务器额外提供两个本地工具：
 
 所有 Unity 工具/资源/提示词会被动态发现并转发。
 
+### Docker 部署
+
+如果你希望在容器中运行 Python 服务器（适用于 CI/CD 或隔离环境）：
+
+**使用 docker compose：**
+
+```bash
+cd unity-server
+
+# 使用默认端口 52345
+docker compose up -d
+
+# 指定自定义端口
+UNITY_MCP_PORT=53000 docker compose up -d
+```
+
+**手动构建运行：**
+
+```bash
+cd unity-server
+docker build -t unity-mcp-server .
+docker run -it --rm \
+  -e UNITY_MCP_HOST=host.docker.internal \
+  -e UNITY_MCP_PORT=52345 \
+  --add-host=host.docker.internal:host-gateway \
+  unity-mcp-server
+```
+
+**MCP 客户端配置（Docker 模式）：**
+
+```json
+{
+  "mcpServers": {
+    "unity": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm",
+        "-e", "UNITY_MCP_HOST=host.docker.internal",
+        "-e", "UNITY_MCP_PORT=52345",
+        "--add-host=host.docker.internal:host-gateway",
+        "unity-mcp-server"
+      ]
+    }
+  }
+}
+```
+
+**环境变量说明：**
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `UNITY_MCP_HOST` | `host.docker.internal` | Unity Editor 的主机地址。容器内使用 `host.docker.internal` 访问宿主机 |
+| `UNITY_MCP_PORT` | `52345` | Unity Editor 的 TCP 端口，需与 `Window > Unity MCP` 中显示的端口一致 |
+| `UNITY_MCP_TIMEOUT` | `60` | 请求超时时间（秒） |
+
+> **注意**：`host.docker.internal` 在 Docker Desktop（macOS/Windows）中开箱即用。Linux 上需要 `--add-host=host.docker.internal:host-gateway`（Docker 20.10+）或直接使用 `--network=host`。
+
 ## 设置
 
 通过 `Window > Unity MCP` 访问：
