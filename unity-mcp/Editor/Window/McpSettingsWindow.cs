@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityMcp.Editor.Core;
@@ -214,91 +216,213 @@ namespace UnityMcp.Editor.Window
             EditorGUILayout.EndScrollView();
         }
 
+        // ======================== Quick Setup ========================
+
         private void DrawQuickSetup(McpSettings settings)
         {
             _showQuickSetup = EditorGUILayout.Foldout(_showQuickSetup, "Quick Setup", true);
             if (!_showQuickSetup) return;
 
             EditorGUILayout.HelpBox(
-                "Copy MCP client configuration to clipboard for your AI tool.",
+                "Auto-configure MCP client. Writes the Unity MCP server entry directly into the client's config file.",
                 MessageType.Info);
 
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Claude Code"))
-                CopyConfig(settings, "claude");
+                ConfigureClient(settings, "claude_code");
             if (GUILayout.Button("Cursor"))
-                CopyConfig(settings, "cursor");
+                ConfigureClient(settings, "cursor");
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("VS Code"))
-                CopyConfig(settings, "vscode");
+                ConfigureClient(settings, "vscode");
             if (GUILayout.Button("Windsurf"))
-                CopyConfig(settings, "windsurf");
+                ConfigureClient(settings, "windsurf");
             EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(2);
+            if (GUILayout.Button("Copy JSON to Clipboard"))
+                CopyConfigToClipboard(settings);
         }
 
-        private void CopyConfig(McpSettings settings, string client)
+        private void ConfigureClient(McpSettings settings, string client)
         {
-            string config;
+            try
+            {
+                var serverEntry = BuildServerEntry(settings);
+                string configPath;
+                bool success;
+
+                switch (client)
+                {
+                    case "claude_code":
+                        configPath = GetClaudeCodeConfigPath();
+                        success = WriteClaudeCodeConfig(configPath, serverEntry);
+                        break;
+                    case "cursor":
+                        configPath = GetProjectConfigPath(".cursor", "mcp.json");
+                        success = WriteMcpServersConfig(configPath, "mcpServers", serverEntry);
+                        break;
+                    case "vscode":
+                        configPath = GetProjectConfigPath(".vscode", "mcp.json");
+                        success = WriteMcpServersConfig(configPath, "servers", serverEntry);
+                        break;
+                    case "windsurf":
+                        configPath = GetWindsurfConfigPath();
+                        success = WriteMcpServersConfig(configPath, "mcpServers", serverEntry);
+                        break;
+                    default:
+                        McpLogger.Error($"Unknown client: {client}");
+                        return;
+                }
+
+                if (success)
+                {
+                    McpLogger.Info($"Configured {client}: {configPath}");
+                    ShowNotification(new GUIContent($"{client} configured!"));
+                }
+            }
+            catch (Exception ex)
+            {
+                McpLogger.Error($"Failed to configure {client}: {ex.Message}");
+                EditorUtility.DisplayDialog("Quick Setup Error",
+                    $"Failed to configure {client}:\n{ex.Message}", "OK");
+            }
+        }
+
+        // --- Build the server entry JObject ---
+
+        private static JObject BuildServerEntry(McpSettings settings)
+        {
             if (settings.Mode == McpSettings.ServerMode.BuiltIn)
             {
                 string bridgePath = settings.BridgePath;
                 if (string.IsNullOrEmpty(bridgePath))
                     bridgePath = ServerProcessManager.GetDefaultBridgePathStatic();
-                // Normalize path separators for cross-platform JSON configs
                 bridgePath = bridgePath.Replace("\\", "/");
 
-                config = $@"{{
-  ""mcpServers"": {{
-    ""unity"": {{
-      ""command"": ""{EscapeJson(bridgePath)}"",
-      ""args"": [""{settings.Port}""],
-      ""env"": {{
-        ""UNITY_MCP_PORT"": ""{settings.Port}""
-      }}
-    }}
-  }}
-}}";
+                return new JObject
+                {
+                    ["type"] = "stdio",
+                    ["command"] = bridgePath,
+                    ["args"] = new JArray { settings.Port.ToString() },
+                    ["env"] = new JObject { ["UNITY_MCP_PORT"] = settings.Port.ToString() }
+                };
             }
-            else
+
+            // Python mode
+            string script = settings.PythonServerScript;
+            if (string.IsNullOrEmpty(script))
+                script = "<path-to-server-script>";
+
+            if (settings.UseUv)
+                return new JObject
+                {
+                    ["type"] = "stdio",
+                    ["command"] = "uv",
+                    ["args"] = new JArray { "run", script },
+                    ["env"] = new JObject { ["UNITY_MCP_PORT"] = settings.Port.ToString() }
+                };
+
+            return new JObject
             {
-                string script = settings.PythonServerScript;
-                if (string.IsNullOrEmpty(script))
-                    script = "<path-to-server-script>";
-
-                if (settings.UseUv)
-                    config = $@"{{
-  ""mcpServers"": {{
-    ""unity"": {{
-      ""command"": ""uv"",
-      ""args"": [""run"", ""{EscapeJson(script)}""],
-      ""env"": {{
-        ""UNITY_MCP_PORT"": ""{settings.Port}""
-      }}
-    }}
-  }}
-}}";
-                else
-                    config = $@"{{
-  ""mcpServers"": {{
-    ""unity"": {{
-      ""command"": ""{EscapeJson(settings.PythonPath)}"",
-      ""args"": [""{EscapeJson(script)}""],
-      ""env"": {{
-        ""UNITY_MCP_PORT"": ""{settings.Port}""
-      }}
-    }}
-  }}
-}}";
-            }
-
-            EditorGUIUtility.systemCopyBuffer = config;
-            McpLogger.Info($"Copied {client} MCP config to clipboard");
-            ShowNotification(new GUIContent($"Copied {client} config!"));
+                ["type"] = "stdio",
+                ["command"] = settings.PythonPath,
+                ["args"] = new JArray { script },
+                ["env"] = new JObject { ["UNITY_MCP_PORT"] = settings.Port.ToString() }
+            };
         }
 
-        private static string EscapeJson(string s) =>
-            s?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
+        // --- Config file paths ---
+
+        private static string GetClaudeCodeConfigPath()
+        {
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return Path.Combine(home, ".claude.json");
+        }
+
+        private static string GetProjectConfigPath(string folder, string file)
+        {
+            string projectRoot = Application.dataPath.Replace("/Assets", "");
+            string dir = Path.Combine(projectRoot, folder);
+            Directory.CreateDirectory(dir);
+            return Path.Combine(dir, file);
+        }
+
+        private static string GetWindsurfConfigPath()
+        {
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string dir = Path.Combine(home, ".codeium", "windsurf");
+            Directory.CreateDirectory(dir);
+            return Path.Combine(dir, "mcp_config.json");
+        }
+
+        // --- Write config: Claude Code (special structure) ---
+
+        private static bool WriteClaudeCodeConfig(string configPath, JObject serverEntry)
+        {
+            // Claude Code: ~/.claude.json -> projects.<projectPath>.mcpServers.unity
+            string projectPath = Application.dataPath.Replace("/Assets", "");
+
+            JObject root;
+            if (File.Exists(configPath))
+                root = JObject.Parse(File.ReadAllText(configPath));
+            else
+                root = new JObject();
+
+            // Ensure projects.<projectPath>.mcpServers exists
+            if (root["projects"] == null)
+                root["projects"] = new JObject();
+
+            var projects = (JObject)root["projects"];
+            if (projects[projectPath] == null)
+                projects[projectPath] = new JObject();
+
+            var project = (JObject)projects[projectPath];
+            if (project["mcpServers"] == null)
+                project["mcpServers"] = new JObject();
+
+            var mcpServers = (JObject)project["mcpServers"];
+            mcpServers["unity"] = serverEntry;
+
+            File.WriteAllText(configPath, root.ToString(Newtonsoft.Json.Formatting.Indented));
+            return true;
+        }
+
+        // --- Write config: Cursor / VS Code / Windsurf (standard structure) ---
+
+        private static bool WriteMcpServersConfig(string configPath, string serversKey, JObject serverEntry)
+        {
+            // Format: { "<serversKey>": { "unity": { ... } } }
+            JObject root;
+            if (File.Exists(configPath))
+                root = JObject.Parse(File.ReadAllText(configPath));
+            else
+                root = new JObject();
+
+            if (root[serversKey] == null)
+                root[serversKey] = new JObject();
+
+            var servers = (JObject)root[serversKey];
+            servers["unity"] = serverEntry;
+
+            File.WriteAllText(configPath, root.ToString(Newtonsoft.Json.Formatting.Indented));
+            return true;
+        }
+
+        // --- Fallback: copy to clipboard ---
+
+        private void CopyConfigToClipboard(McpSettings settings)
+        {
+            var serverEntry = BuildServerEntry(settings);
+            var config = new JObject
+            {
+                ["mcpServers"] = new JObject { ["unity"] = serverEntry }
+            };
+            EditorGUIUtility.systemCopyBuffer = config.ToString(Newtonsoft.Json.Formatting.Indented);
+            McpLogger.Info("Copied MCP config JSON to clipboard");
+            ShowNotification(new GUIContent("Config copied to clipboard!"));
+        }
     }
 }
