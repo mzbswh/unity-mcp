@@ -4,10 +4,11 @@ WORKDIR /app
 
 # Install dependencies first (cache layer)
 COPY pyproject.toml .
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir "mcp>=1.0.0"
 
-# Copy source code
+# Copy source code and install package
 COPY unity_mcp_server/ unity_mcp_server/
+RUN pip install --no-cache-dir --no-deps .
 
 # Default environment
 ENV UNITY_MCP_HOST=host.docker.internal
