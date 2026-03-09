@@ -81,7 +81,7 @@ git clone https://github.com/mzbswh/unity-mcp.git
 - **40+ 提示词模板** — Unity 最佳实践指南（架构、脚本、性能、Shader、XR、ECS、网络等）
 - **批量执行** — 单次请求执行多个工具操作，支持原子回滚
 - **运行时模式** — 可选的运行时 MCP 服务器，控制运行中的游戏
-- **双服务器架构** — Mode A（C# stdio Bridge，零依赖）或 Mode B（Python FastMCP，额外分析工具）
+- **双服务器架构** — Mode A（C# stdio Bridge，轻量）或 Mode B（Python FastMCP，额外分析工具）
 - **多实例支持** — 同时运行多个 Unity Editor 实例
 - **自定义工具 API** — 用 C# 特性添加自定义工具，启动时自动发现
 - **域重载安全** — Unity 脚本重编译后自动重连，Bridge 自动缓存并重放期间收到的请求，对 MCP 客户端近乎无感
@@ -259,9 +259,10 @@ unity-mcp/
 
 | | Mode A: Built-in (C# Bridge) | Mode B: Python (FastMCP) |
 |---|---|---|
-| **外部依赖** | 无（Bridge 已预编译打包） | Python 3.10+, `mcp>=1.0.0` |
+| **外部依赖** | [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Python 3.10+, `mcp>=1.0.0` |
+| **Bridge 体积** | 轻量（framework-dependent） | — |
 | **额外工具** | — | `analyze_script`, `validate_assets` |
-| **适合场景** | 开箱即用，轻量 | 需要 Python 分析工具或自定义集成 |
+| **适合场景** | 轻量，快速启动 | 需要 Python 分析工具或自定义集成 |
 
 ---
 
@@ -280,14 +281,25 @@ unity-mcp/
 <details>
 <summary><b>安装和配置</b></summary>
 
-```bash
-cd unity-server
-pip install -e .
-# 或
-uv pip install -e .
+在 Unity 中 `Window > Unity MCP`，将 Server Mode 设为 **Python**，然后使用 Clients 标签页配置客户端。
+
+MCP 客户端配置示例（以 Cursor 为例）：
+
+```json
+{
+  "mcpServers": {
+    "unity": {
+      "command": "uvx",
+      "args": ["unity-mcp-server"],
+      "env": {
+        "UNITY_MCP_PORT": "52345"
+      }
+    }
+  }
+}
 ```
 
-在 Unity 中 `Window > Unity MCP`，将 Server Mode 设为 **Python**，配置路径后使用 Clients 标签页配置客户端。
+> `uvx` 会自动从 PyPI 下载并运行，无需手动安装。也可以用 `pip install unity-mcp-server` 安装后直接运行 `unity-mcp-server`。
 
 Python 服务器额外提供：
 - `analyze_script` — C# 脚本静态分析
@@ -390,7 +402,7 @@ docker run -it --rm \
 ## 系统要求
 
 - **Unity** 2021.2+
-- **Mode A**：无额外依赖（Bridge 已预编译打包于 `Bridge~/`）
+- **Mode A**：[.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)（Bridge 已预编译打包于 `Bridge~/`，轻量）
 - **Mode B**：Python 3.10+，`mcp>=1.0.0`
 - **依赖**：`com.unity.nuget.newtonsoft-json` 3.2.1+（自动解析）
 - **重新构建 Bridge**（可选）：[.NET 8+ SDK](https://dotnet.microsoft.com/download)，运行 `./scripts/build_bridge.sh --current-only`

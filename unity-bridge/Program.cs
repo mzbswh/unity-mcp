@@ -6,7 +6,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
 
 /// <summary>
 /// Stdio-to-TCP bridge for MCP clients.
@@ -153,8 +153,8 @@ class Program
             {
                 try
                 {
-                    var obj = JObject.Parse(json);
-                    var method = obj["method"]?.ToString() ?? "";
+                    using var doc = JsonDocument.Parse(json);
+                    var method = doc.RootElement.TryGetProperty("method", out var m) ? m.GetString() ?? "" : "";
 
                     // Internal Unity notification — don't forward to MCP client
                     if (method == "notifications/reloading")
@@ -187,8 +187,8 @@ class Program
         byte msgType = MsgTypeRequest;
         try
         {
-            var obj = JObject.Parse(jsonLine);
-            if (obj["id"] == null) msgType = MsgTypeNotification;
+            using var doc = JsonDocument.Parse(jsonLine);
+            if (!doc.RootElement.TryGetProperty("id", out _)) msgType = MsgTypeNotification;
         }
         catch { }
 

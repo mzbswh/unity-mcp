@@ -81,7 +81,7 @@ If it returns the scene hierarchy, you're all set.
 - **40+ Prompt Templates** — Unity best-practice guides (architecture, scripting, performance, shaders, XR, ECS, networking, etc.)
 - **Batch Execute** — Run multiple tool operations in a single request with atomic rollback
 - **Runtime Mode** — Optional runtime MCP server for controlling the running game
-- **Dual Server Architecture** — Mode A (C# stdio Bridge, zero dependencies) or Mode B (Python FastMCP, extra analysis tools)
+- **Dual Server Architecture** — Mode A (C# stdio Bridge, lightweight) or Mode B (Python FastMCP, extra analysis tools)
 - **Multi-Instance** — Supports multiple Unity Editor instances simultaneously
 - **Custom Tool API** — Add your own tools with C# attributes, auto-discovered at startup
 - **Domain Reload Safe** — Automatically reconnects after Unity script recompilation; Bridge buffers and replays in-flight requests, making reloads nearly transparent to MCP clients
@@ -259,9 +259,10 @@ unity-mcp/
 
 | | Mode A: Built-in (C# Bridge) | Mode B: Python (FastMCP) |
 |---|---|---|
-| **Dependencies** | None (Bridge is pre-built and bundled) | Python 3.10+, `mcp>=1.0.0` |
+| **Dependencies** | [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Python 3.10+, `mcp>=1.0.0` |
+| **Bridge Size** | lightweight (framework-dependent) | — |
 | **Extra Tools** | — | `analyze_script`, `validate_assets` |
-| **Best For** | Out-of-the-box, lightweight | Python analysis tools or custom integration |
+| **Best For** | Lightweight, fast startup | Python analysis tools or custom integration |
 
 ---
 
@@ -280,14 +281,25 @@ Runtime server listens on `port + 1`.
 <details>
 <summary><b>Installation & Configuration</b></summary>
 
-```bash
-cd unity-server
-pip install -e .
-# or
-uv pip install -e .
+In Unity, open `Window > Unity MCP`, set Server Mode to **Python**, then use the Clients tab to configure your client.
+
+MCP client config example (Cursor):
+
+```json
+{
+  "mcpServers": {
+    "unity": {
+      "command": "uvx",
+      "args": ["unity-mcp-server"],
+      "env": {
+        "UNITY_MCP_PORT": "52345"
+      }
+    }
+  }
+}
 ```
 
-In Unity, open `Window > Unity MCP`, set Server Mode to **Python**, configure paths, then use the Clients tab.
+> `uvx` automatically downloads and runs from PyPI — no manual install needed. You can also `pip install unity-mcp-server` and run `unity-mcp-server` directly.
 
 Extra Python tools:
 - `analyze_script` — C# script static analysis
@@ -390,7 +402,7 @@ The entire process is nearly transparent to MCP clients, typically recovering wi
 ## Requirements
 
 - **Unity** 2021.2+
-- **Mode A**: No extra dependencies (Bridge is pre-built in `Bridge~/`)
+- **Mode A**: [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) (Bridge is pre-built in `Bridge~/`, lightweight)
 - **Mode B**: Python 3.10+, `mcp>=1.0.0`
 - **Dependency**: `com.unity.nuget.newtonsoft-json` 3.2.1+ (auto-resolved)
 - **Rebuild Bridge** (optional): [.NET 8+ SDK](https://dotnet.microsoft.com/download), run `./scripts/build_bridge.sh --current-only`
