@@ -236,24 +236,29 @@ namespace UnityMcp.Editor.Core
         public static string GetDefaultBridgePathStatic()
         {
             string rid = GetBridgeRid();
-
-            // Look for unity-bridge/ as sibling of the package directory
             var packagePath = Path.GetFullPath("Packages/com.mzbswh.unity-mcp");
+
+            // 1. Bundled inside the UPM package (Bridge~/{rid}/) — works with git URL installs
+            var bundledPath = Path.Combine(packagePath, "Bridge~", rid);
+            if (File.Exists(bundledPath)) return bundledPath;
+
+            // 2. Sibling unity-bridge/ directory (local/clone installs)
             var repoRoot = Path.GetDirectoryName(packagePath);
-            var bridgePath = Path.Combine(repoRoot, "unity-bridge", "bin", rid);
-            if (File.Exists(bridgePath)) return bridgePath;
+            var siblingPath = Path.Combine(repoRoot, "unity-bridge", "bin", rid);
+            if (File.Exists(siblingPath)) return siblingPath;
 
-            // Fallback: look relative to project root
-            var projectBridgePath = Path.GetFullPath(Path.Combine("unity-bridge", "bin", rid));
-            if (File.Exists(projectBridgePath)) return projectBridgePath;
+            // 3. Fallback: project root
+            var projectPath = Path.GetFullPath(Path.Combine("unity-bridge", "bin", rid));
+            if (File.Exists(projectPath)) return projectPath;
 
-            // Not found — return the expected path anyway so error messages are useful
+            // Not found
             McpLogger.Warning(
                 $"Bridge binary not found at expected locations.\n" +
-                $"  Expected: {bridgePath}\n" +
-                $"  Fallback: {projectBridgePath}\n" +
-                $"  Run: ./scripts/build_bridge.sh --current-only");
-            return projectBridgePath;
+                $"  Bundled:  {bundledPath}\n" +
+                $"  Sibling:  {siblingPath}\n" +
+                $"  Project:  {projectPath}\n" +
+                $"  Run: ./scripts/build_bridge.sh");
+            return bundledPath;
         }
 
         private static int? GetPidListeningOnPort(int port)

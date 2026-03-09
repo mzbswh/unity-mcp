@@ -103,3 +103,7 @@ McpProjects/*
 # Bridge build artifacts (use build_bridge.sh to rebuild)
 unity-bridge/bin/
 unity-bridge/obj/
+
+# NOTE: unity-mcp/Bridge~/ is NOT ignored — it contains bundled bridge
+# binaries that must be committed for git URL installs to work.
+# Run ./scripts/build_bridge.sh to populate it before publishing.

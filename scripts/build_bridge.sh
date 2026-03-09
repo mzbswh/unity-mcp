@@ -11,6 +11,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BRIDGE_DIR="$ROOT_DIR/unity-bridge"
 PROJECT="$BRIDGE_DIR/unity-mcp-bridge.csproj"
+# Output into the UPM package so git URL installs include the binary
+PACKAGE_BRIDGE_DIR="$ROOT_DIR/unity-mcp/Bridge~"
 
 if ! command -v dotnet &> /dev/null; then
     echo "Error: .NET SDK not found. Install from https://dotnet.microsoft.com/download"
@@ -53,6 +55,11 @@ for rid in "${RIDS[@]}"; do
     if [[ -n "$BINARY" ]]; then
         SIZE=$(du -h "$BINARY" | cut -f1)
         echo "[$rid] OK -> $BINARY ($SIZE)"
+
+        # Copy into UPM package for git URL installs
+        mkdir -p "$PACKAGE_BRIDGE_DIR/$rid"
+        cp "$BINARY" "$PACKAGE_BRIDGE_DIR/$rid/"
+        echo "[$rid] Copied to unity-mcp/Bridge~/$rid/"
     else
         echo "[$rid] FAILED - no binary produced"
         exit 1
@@ -60,4 +67,6 @@ for rid in "${RIDS[@]}"; do
 done
 
 echo ""
-echo "=== Done. Binaries are in unity-bridge/bin/ ==="
+echo "=== Done ==="
+echo "  Build output:   unity-bridge/bin/"
+echo "  UPM package:    unity-mcp/Bridge~/"

@@ -57,13 +57,17 @@ git clone https://github.com/mzbswh/unity-mcp.git
 
 Then in Unity: `Window > Package Manager > + > Add package from disk`, select `unity-mcp/package.json`.
 
-### 2. Build the Bridge (Mode A)
+### 2. Bridge Binary (Mode A)
 
-Requires [.NET 8+ SDK](https://dotnet.microsoft.com/download):
+The bridge binary is pre-built and bundled inside the UPM package (`Bridge~/` directory). **No extra steps needed when installing via Git URL.**
+
+If you're developing locally or need to rebuild, install [.NET 8+ SDK](https://dotnet.microsoft.com/download):
 
 ```bash
 ./scripts/build_bridge.sh --current-only
 ```
+
+Build output is automatically copied to `unity-mcp/Bridge~/`.
 
 ### 3. Configure Your MCP Client
 

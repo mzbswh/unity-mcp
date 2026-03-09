@@ -59,13 +59,17 @@ git clone https://github.com/mzbswh/unity-mcp.git
 
 然后在 Unity 中：`Window > Package Manager > + > Add package from disk`，选择 `unity-mcp/package.json`。
 
-### 2. 构建 Bridge（Mode A）
+### 2. Bridge 二进制文件（Mode A）
 
-需要 [.NET 8+ SDK](https://dotnet.microsoft.com/download)：
+Bridge 二进制文件已预编译并打包在 UPM 包内（`Bridge~/` 目录），**通过 Git URL 安装时无需额外操作**。
+
+如果你是本地开发或需要重新构建，需要 [.NET 8+ SDK](https://dotnet.microsoft.com/download)：
 
 ```bash
 ./scripts/build_bridge.sh --current-only
 ```
+
+构建产物会自动复制到 `unity-mcp/Bridge~/` 目录。
 
 ### 3. 配置 MCP 客户端
 
