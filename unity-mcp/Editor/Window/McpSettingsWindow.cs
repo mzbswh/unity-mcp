@@ -663,17 +663,13 @@ namespace UnityMcp.Editor.Window
         private static string GetProjectConfigPath(string folder, string file)
         {
             string projectRoot = Application.dataPath.Replace("/Assets", "");
-            string dir = Path.Combine(projectRoot, folder);
-            Directory.CreateDirectory(dir);
-            return Path.Combine(dir, file);
+            return Path.Combine(projectRoot, folder, file);
         }
 
         private static string GetWindsurfConfigPath()
         {
             string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            string dir = Path.Combine(home, ".codeium", "windsurf");
-            Directory.CreateDirectory(dir);
-            return Path.Combine(dir, "mcp_config.json");
+            return Path.Combine(home, ".codeium", "windsurf", "mcp_config.json");
         }
 
         // ======================== Config Writers ========================
@@ -708,6 +704,11 @@ namespace UnityMcp.Editor.Window
 
         private static bool WriteMcpServersConfig(string configPath, string serversKey, JObject serverEntry)
         {
+            // Ensure directory exists only when actually writing
+            string dir = Path.GetDirectoryName(configPath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
             JObject root;
             if (File.Exists(configPath))
                 root = JObject.Parse(File.ReadAllText(configPath));
