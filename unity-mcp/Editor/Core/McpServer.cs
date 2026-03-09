@@ -77,7 +77,7 @@ namespace UnityMcp.Editor.Core
             EditorApplication.delayCall += Initialize;
         }
 
-        private static void Shutdown()
+        public static void Shutdown()
         {
             // Unregister instance
             int port = EditorPrefs.GetInt("UnityMcp_Port", 0);
