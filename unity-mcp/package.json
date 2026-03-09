@@ -4,7 +4,7 @@
   "displayName": "Unity MCP",
   "description": "Model Context Protocol server for Unity Editor, enabling AI tool integration.",
   "unity": "2021.2",
-  "documentationUrl": "https://github.com/nicekuo/unity-mcp#readme",
+  "documentationUrl": "https://github.com/mzbswh/unity-mcp#readme",
   "license": "MIT",
   "keywords": [
     "mcp",
