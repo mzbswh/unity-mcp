@@ -4,7 +4,7 @@ services:
     environment:
       # host.docker.internal lets the container reach Unity on the host machine
       - UNITY_MCP_HOST=host.docker.internal
-      - UNITY_MCP_PORT=${UNITY_MCP_PORT:-52345}
+      - UNITY_MCP_PORT=${UNITY_MCP_PORT:-51279}
       - UNITY_MCP_TIMEOUT=${UNITY_MCP_TIMEOUT:-60}
     # stdio mode: MCP client connects via stdin/stdout
     stdin_open: true

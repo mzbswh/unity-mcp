@@ -230,7 +230,7 @@ class Program
     {
         var envPort = Environment.GetEnvironmentVariable("UNITY_MCP_PORT");
         if (envPort != null && int.TryParse(envPort, out int p)) return p;
-        Console.Error.WriteLine("[unity-mcp-bridge] Warning: UNITY_MCP_PORT not set. Using default 52345.");
-        return 52345;
+        Console.Error.WriteLine("[unity-mcp-bridge] Warning: UNITY_MCP_PORT not set. Using default 51279.");
+        return 51279;
     }
 }

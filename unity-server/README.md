@@ -21,10 +21,7 @@ Add to your MCP client config (e.g. `.cursor/mcp.json`, `.vscode/mcp.json`):
   "mcpServers": {
     "unity": {
       "command": "uvx",
-      "args": ["unity-mcp-server"],
-      "env": {
-        "UNITY_MCP_PORT": "52345"
-      }
+      "args": ["unity-mcp-server"]
     }
   }
 }
@@ -41,7 +38,7 @@ Ask your AI assistant: *"List all GameObjects in my Unity scene"*
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `UNITY_MCP_HOST` | `127.0.0.1` | Unity Editor host address |
-| `UNITY_MCP_PORT` | `52345` | Unity Editor TCP port |
+| `UNITY_MCP_PORT` | `51279` | Unity Editor TCP port |
 | `UNITY_MCP_TIMEOUT` | `60` | Request timeout (seconds) |
 
 ## Extra Tools

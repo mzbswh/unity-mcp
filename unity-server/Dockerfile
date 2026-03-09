@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir --no-deps .
 
 # Default environment
 ENV UNITY_MCP_HOST=host.docker.internal
-ENV UNITY_MCP_PORT=52345
+ENV UNITY_MCP_PORT=51279
 ENV UNITY_MCP_TIMEOUT=60
 
 ENTRYPOINT ["unity-mcp-server"]

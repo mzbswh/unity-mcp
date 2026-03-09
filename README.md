@@ -290,16 +290,14 @@ MCP 客户端配置示例（以 Cursor 为例）：
   "mcpServers": {
     "unity": {
       "command": "uvx",
-      "args": ["unity-mcp-server"],
-      "env": {
-        "UNITY_MCP_PORT": "52345"
-      }
+      "args": ["unity-mcp-server"]
     }
   }
 }
 ```
 
 > `uvx` 会自动从 PyPI 下载并运行，无需手动安装。也可以用 `pip install unity-mcp-server` 安装后直接运行 `unity-mcp-server`。
+> 默认连接端口 51279，多实例场景可通过 `env` 字段指定 `UNITY_MCP_PORT`。
 
 Python 服务器额外提供：
 - `analyze_script` — C# 脚本静态分析
@@ -321,7 +319,7 @@ UNITY_MCP_PORT=53000 docker compose up -d
 docker build -t unity-mcp-server .
 docker run -it --rm \
   -e UNITY_MCP_HOST=host.docker.internal \
-  -e UNITY_MCP_PORT=52345 \
+  -e UNITY_MCP_PORT=51279 \
   --add-host=host.docker.internal:host-gateway \
   unity-mcp-server
 ```
@@ -329,7 +327,7 @@ docker run -it --rm \
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
 | `UNITY_MCP_HOST` | `host.docker.internal` | Unity Editor 主机地址 |
-| `UNITY_MCP_PORT` | `52345` | Unity Editor TCP 端口 |
+| `UNITY_MCP_PORT` | `51279` | Unity Editor TCP 端口 |
 | `UNITY_MCP_TIMEOUT` | `60` | 请求超时时间（秒） |
 
 </details>

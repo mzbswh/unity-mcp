@@ -13,7 +13,7 @@ namespace UnityMcp.Editor.Core
         public enum McpLogLevel { Debug, Info, Warning, Error, Off }
 
         [SerializeField] private ServerMode serverMode = ServerMode.BuiltIn;
-        [SerializeField] private int port = -1;
+        [SerializeField] private int port = PortResolver.DefaultPort;
         [SerializeField] private string bridgePath = "";
         [SerializeField] private string pythonPath = "python3";
         [SerializeField] private string pythonServerScript = "";
@@ -32,19 +32,8 @@ namespace UnityMcp.Editor.Core
 
         public int Port
         {
-            get => port > 0 ? port : ResolvePort();
+            get => port > 0 ? port : PortResolver.DefaultPort;
             set { port = value; Save(true); }
-        }
-
-        /// <summary>
-        /// Resolves the port from the project path and persists it.
-        /// Called lazily when Port is accessed with no explicit value set.
-        /// </summary>
-        private int ResolvePort()
-        {
-            port = PortResolver.GetPort(Application.dataPath);
-            Save(true);
-            return port;
         }
 
         public string BridgePath
