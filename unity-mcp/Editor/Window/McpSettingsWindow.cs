@@ -367,6 +367,7 @@ namespace UnityMcp.Editor.Window
         private bool _showToolsFoldout = true;
         private bool _showResourcesFoldout = true;
         private bool _showPromptsFoldout = true;
+        private bool _allToolsSelected = true;
 
         private void DrawToolsTab()
         {
@@ -377,28 +378,19 @@ namespace UnityMcp.Editor.Window
                 return;
             }
 
-            // Summary badges
-            EditorGUILayout.BeginVertical(_boxStyle);
-            {
-                EditorGUILayout.BeginHorizontal();
-                DrawCountBadge("Tools", registry.ToolCount);
-                DrawCountBadge("Resources", registry.ResourceCount);
-                DrawCountBadge("Prompts", registry.PromptCount);
-                EditorGUILayout.EndHorizontal();
-            }
-            EditorGUILayout.EndVertical();
+            // Summary badges — stretch to fill width
+            EditorGUILayout.BeginHorizontal();
+            DrawCountBadge("Tools", registry.ToolCount);
+            DrawCountBadge("Resources", registry.ResourceCount);
+            DrawCountBadge("Prompts", registry.PromptCount);
+            EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(4);
 
-            // Tools section
             DrawToolsSection(registry);
             EditorGUILayout.Space(4);
-
-            // Resources section
             DrawResourcesSection(registry);
             EditorGUILayout.Space(4);
-
-            // Prompts section
             DrawPromptsSection(registry);
         }
 
@@ -407,45 +399,77 @@ namespace UnityMcp.Editor.Window
             _showToolsFoldout = EditorGUILayout.Foldout(_showToolsFoldout, $"Tools ({registry.ToolCount})", true, EditorStyles.foldoutHeader);
             if (!_showToolsFoldout) return;
 
+            // Select All
+            EditorGUILayout.BeginHorizontal();
+            EditorGUI.BeginChangeCheck();
+            _allToolsSelected = EditorGUILayout.ToggleLeft("Select All", _allToolsSelected, EditorStyles.miniLabel);
+            if (EditorGUI.EndChangeCheck())
+                registry.SetAllToolsEnabled(_allToolsSelected);
+            EditorGUILayout.EndHorizontal();
+
             EditorGUILayout.BeginVertical(_boxStyle);
             {
-                string lastGroup = null;
-                foreach (var (name, description, group) in registry.GetAllToolEntries())
+                bool hasBuiltIn = false;
+                bool hasCustom = false;
+
+                // Built-in tools
+                foreach (var (name, description, group, builtIn) in registry.GetAllToolEntries())
                 {
-                    // Group header
-                    string displayGroup = string.IsNullOrEmpty(group) ? "General" : group;
-                    if (displayGroup != lastGroup)
+                    if (!builtIn) { hasCustom = true; continue; }
+                    if (!hasBuiltIn)
                     {
-                        if (lastGroup != null) EditorGUILayout.Space(4);
-                        EditorGUILayout.LabelField(displayGroup, EditorStyles.boldLabel);
-                        lastGroup = displayGroup;
+                        EditorGUILayout.LabelField("Built-in", _subHeaderStyle);
+                        hasBuiltIn = true;
                     }
-
-                    // Toggle
-                    bool enabled = registry.IsToolEnabled(name);
-                    EditorGUI.BeginChangeCheck();
-                    EditorGUILayout.BeginHorizontal();
-                    bool newEnabled = EditorGUILayout.ToggleLeft(name, enabled);
-                    EditorGUILayout.EndHorizontal();
-                    if (EditorGUI.EndChangeCheck())
-                        registry.SetToolEnabled(name, newEnabled);
-
-                    // Description
-                    if (!string.IsNullOrEmpty(description))
-                    {
-                        EditorGUI.indentLevel += 2;
-                        var descStyle = new GUIStyle(EditorStyles.miniLabel)
-                        {
-                            wordWrap = true,
-                            normal = { textColor = enabled ? EditorStyles.miniLabel.normal.textColor
-                                                          : new Color(0.5f, 0.5f, 0.5f) }
-                        };
-                        EditorGUILayout.LabelField(description, descStyle);
-                        EditorGUI.indentLevel -= 2;
-                    }
+                    DrawToolRow(registry, name, description);
                 }
+
+                // Custom tools
+                bool firstCustom = true;
+                foreach (var (name, description, group, builtIn) in registry.GetAllToolEntries())
+                {
+                    if (builtIn) continue;
+                    if (firstCustom)
+                    {
+                        if (hasBuiltIn) EditorGUILayout.Space(4);
+                        EditorGUILayout.LabelField("Custom", _subHeaderStyle);
+                        firstCustom = false;
+                    }
+                    DrawToolRow(registry, name, description);
+                }
+
+                if (!hasBuiltIn && !hasCustom)
+                    EditorGUILayout.LabelField("No tools registered.", EditorStyles.centeredGreyMiniLabel);
             }
             EditorGUILayout.EndVertical();
+        }
+
+        private static void DrawToolRow(ToolRegistry registry, string name, string description)
+        {
+            bool enabled = registry.IsToolEnabled(name);
+            EditorGUILayout.BeginHorizontal();
+            {
+                EditorGUI.BeginChangeCheck();
+                bool newEnabled = EditorGUILayout.Toggle(enabled, GUILayout.Width(16));
+                if (EditorGUI.EndChangeCheck())
+                    registry.SetToolEnabled(name, newEnabled);
+
+                // Name (bold when enabled, grey when disabled)
+                var nameStyle = enabled ? EditorStyles.miniLabel : new GUIStyle(EditorStyles.miniLabel)
+                    { normal = { textColor = new Color(0.5f, 0.5f, 0.5f) } };
+                EditorGUILayout.LabelField(name, nameStyle, GUILayout.Width(200));
+
+                // Description (truncated, shown as tooltip on hover)
+                if (!string.IsNullOrEmpty(description))
+                {
+                    var descStyle = new GUIStyle(EditorStyles.miniLabel)
+                    {
+                        normal = { textColor = new Color(0.55f, 0.55f, 0.55f) }
+                    };
+                    EditorGUILayout.LabelField(new GUIContent(description, description), descStyle);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
         }
 
         private void DrawResourcesSection(ToolRegistry registry)
@@ -455,22 +479,38 @@ namespace UnityMcp.Editor.Window
 
             EditorGUILayout.BeginVertical(_boxStyle);
             {
-                foreach (var (name, description) in registry.GetAllResourceEntries())
+                bool hasBuiltIn = false, hasCustom = false;
+                foreach (var (name, description, builtIn) in registry.GetAllResourceEntries())
                 {
-                    EditorGUILayout.LabelField(name, EditorStyles.boldLabel);
-                    if (!string.IsNullOrEmpty(description))
-                    {
-                        EditorGUI.indentLevel += 2;
-                        EditorGUILayout.LabelField(description, _wrappedLabelStyle);
-                        EditorGUI.indentLevel -= 2;
-                    }
-                    EditorGUILayout.Space(2);
+                    if (builtIn) hasBuiltIn = true; else hasCustom = true;
                 }
 
-                if (registry.ResourceCount == 0)
+                if (hasBuiltIn) DrawResourceGroup(registry, "Built-in", true);
+                if (hasCustom)
+                {
+                    if (hasBuiltIn) EditorGUILayout.Space(4);
+                    DrawResourceGroup(registry, "Custom", false);
+                }
+
+                if (!hasBuiltIn && !hasCustom)
                     EditorGUILayout.LabelField("No resources registered.", EditorStyles.centeredGreyMiniLabel);
             }
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawResourceGroup(ToolRegistry registry, string header, bool filterBuiltIn)
+        {
+            EditorGUILayout.LabelField(header, _subHeaderStyle);
+            foreach (var (name, description, builtIn) in registry.GetAllResourceEntries())
+            {
+                if (builtIn != filterBuiltIn) continue;
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(name, EditorStyles.miniLabel, GUILayout.Width(200));
+                if (!string.IsNullOrEmpty(description))
+                    EditorGUILayout.LabelField(new GUIContent(description, description),
+                        new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(0.55f, 0.55f, 0.55f) } });
+                EditorGUILayout.EndHorizontal();
+            }
         }
 
         private void DrawPromptsSection(ToolRegistry registry)
@@ -480,29 +520,47 @@ namespace UnityMcp.Editor.Window
 
             EditorGUILayout.BeginVertical(_boxStyle);
             {
-                foreach (var (name, description) in registry.GetAllPromptEntries())
+                bool hasBuiltIn = false, hasCustom = false;
+                foreach (var (name, description, builtIn) in registry.GetAllPromptEntries())
                 {
-                    EditorGUILayout.LabelField(name, EditorStyles.boldLabel);
-                    if (!string.IsNullOrEmpty(description))
-                    {
-                        EditorGUI.indentLevel += 2;
-                        EditorGUILayout.LabelField(description, _wrappedLabelStyle);
-                        EditorGUI.indentLevel -= 2;
-                    }
-                    EditorGUILayout.Space(2);
+                    if (builtIn) hasBuiltIn = true; else hasCustom = true;
                 }
 
-                if (registry.PromptCount == 0)
+                if (hasBuiltIn) DrawPromptGroup(registry, "Built-in", true);
+                if (hasCustom)
+                {
+                    if (hasBuiltIn) EditorGUILayout.Space(4);
+                    DrawPromptGroup(registry, "Custom", false);
+                }
+
+                if (!hasBuiltIn && !hasCustom)
                     EditorGUILayout.LabelField("No prompts registered.", EditorStyles.centeredGreyMiniLabel);
             }
             EditorGUILayout.EndVertical();
         }
 
+        private void DrawPromptGroup(ToolRegistry registry, string header, bool filterBuiltIn)
+        {
+            EditorGUILayout.LabelField(header, _subHeaderStyle);
+            foreach (var (name, description, builtIn) in registry.GetAllPromptEntries())
+            {
+                if (builtIn != filterBuiltIn) continue;
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(name, EditorStyles.miniLabel, GUILayout.Width(200));
+                if (!string.IsNullOrEmpty(description))
+                    EditorGUILayout.LabelField(new GUIContent(description, description),
+                        new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(0.55f, 0.55f, 0.55f) } });
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
         private void DrawCountBadge(string label, int count)
         {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.MinWidth(80));
-            EditorGUILayout.LabelField(count.ToString(), new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
-            EditorGUILayout.LabelField(label, new GUIStyle(EditorStyles.centeredGreyMiniLabel));
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField(count.ToString(),
+                new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
+            EditorGUILayout.LabelField(label,
+                new GUIStyle(EditorStyles.centeredGreyMiniLabel));
             EditorGUILayout.EndVertical();
         }
 

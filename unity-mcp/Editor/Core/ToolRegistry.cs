@@ -305,34 +305,50 @@ namespace UnityMcp.Editor.Core
 
         // --- Editor window queries (include disabled items) ---
 
-        /// <summary>Returns all registered tool names and descriptions (regardless of enabled state).</summary>
-        public IEnumerable<(string name, string description, string group)> GetAllToolEntries()
+        private static readonly HashSet<string> BuiltInAssemblies = new()
+        {
+            "UnityMcp.Editor", "UnityMcp.Shared", "UnityMcp.Runtime"
+        };
+
+        private static bool IsBuiltIn(MethodInfo method)
+        {
+            return BuiltInAssemblies.Contains(method.DeclaringType?.Assembly.GetName().Name ?? "");
+        }
+
+        /// <summary>Returns all registered tool entries (regardless of enabled state).</summary>
+        public IEnumerable<(string name, string description, string group, bool builtIn)> GetAllToolEntries()
         {
             foreach (var kv in _tools)
             {
                 var attr = kv.Value.Attribute;
-                yield return (attr.Name, attr.Description, attr.Group ?? "");
+                yield return (attr.Name, attr.Description, attr.Group ?? "", IsBuiltIn(kv.Value.Method));
             }
         }
 
-        /// <summary>Returns all registered resource names and descriptions.</summary>
-        public IEnumerable<(string name, string description)> GetAllResourceEntries()
+        /// <summary>Returns all registered resource entries.</summary>
+        public IEnumerable<(string name, string description, bool builtIn)> GetAllResourceEntries()
         {
             foreach (var kv in _resources)
             {
                 var attr = kv.Value.Attribute;
-                yield return (attr.Name, attr.Description);
+                yield return (attr.Name, attr.Description, IsBuiltIn(kv.Value.Method));
             }
         }
 
-        /// <summary>Returns all registered prompt names and descriptions.</summary>
-        public IEnumerable<(string name, string description)> GetAllPromptEntries()
+        /// <summary>Returns all registered prompt entries.</summary>
+        public IEnumerable<(string name, string description, bool builtIn)> GetAllPromptEntries()
         {
             foreach (var kv in _prompts)
             {
                 var attr = kv.Value.Attribute;
-                yield return (attr.Name, attr.Description);
+                yield return (attr.Name, attr.Description, IsBuiltIn(kv.Value.Method));
             }
+        }
+
+        public void SetAllToolsEnabled(bool enabled)
+        {
+            foreach (var name in _tools.Keys)
+                SetToolEnabled(name, enabled);
         }
 
         // --- URI template helpers ---
