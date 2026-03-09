@@ -303,6 +303,38 @@ namespace UnityMcp.Editor.Core
             return _tools.TryGetValue(toolName, out var entry) && entry.Attribute.AutoRegister;
         }
 
+        // --- Editor window queries (include disabled items) ---
+
+        /// <summary>Returns all registered tool names and descriptions (regardless of enabled state).</summary>
+        public IEnumerable<(string name, string description, string group)> GetAllToolEntries()
+        {
+            foreach (var kv in _tools)
+            {
+                var attr = kv.Value.Attribute;
+                yield return (attr.Name, attr.Description, attr.Group ?? "");
+            }
+        }
+
+        /// <summary>Returns all registered resource names and descriptions.</summary>
+        public IEnumerable<(string name, string description)> GetAllResourceEntries()
+        {
+            foreach (var kv in _resources)
+            {
+                var attr = kv.Value.Attribute;
+                yield return (attr.Name, attr.Description);
+            }
+        }
+
+        /// <summary>Returns all registered prompt names and descriptions.</summary>
+        public IEnumerable<(string name, string description)> GetAllPromptEntries()
+        {
+            foreach (var kv in _prompts)
+            {
+                var attr = kv.Value.Attribute;
+                yield return (attr.Name, attr.Description);
+            }
+        }
+
         // --- URI template helpers ---
 
         private static Regex BuildUriRegex(string template)

@@ -364,6 +364,10 @@ namespace UnityMcp.Editor.Window
 
         // ======================== Tools Tab ========================
 
+        private bool _showToolsFoldout = true;
+        private bool _showResourcesFoldout = true;
+        private bool _showPromptsFoldout = true;
+
         private void DrawToolsTab()
         {
             var registry = McpServer.Registry;
@@ -373,7 +377,7 @@ namespace UnityMcp.Editor.Window
                 return;
             }
 
-            // Summary
+            // Summary badges
             EditorGUILayout.BeginVertical(_boxStyle);
             {
                 EditorGUILayout.BeginHorizontal();
@@ -386,34 +390,110 @@ namespace UnityMcp.Editor.Window
 
             EditorGUILayout.Space(4);
 
-            // Tool list
-            EditorGUILayout.LabelField("Registered Tools", _subHeaderStyle);
+            // Tools section
+            DrawToolsSection(registry);
+            EditorGUILayout.Space(4);
+
+            // Resources section
+            DrawResourcesSection(registry);
+            EditorGUILayout.Space(4);
+
+            // Prompts section
+            DrawPromptsSection(registry);
+        }
+
+        private void DrawToolsSection(ToolRegistry registry)
+        {
+            _showToolsFoldout = EditorGUILayout.Foldout(_showToolsFoldout, $"Tools ({registry.ToolCount})", true, EditorStyles.foldoutHeader);
+            if (!_showToolsFoldout) return;
+
             EditorGUILayout.BeginVertical(_boxStyle);
             {
-                var tools = registry.GetToolList();
-                foreach (var tool in tools)
+                string lastGroup = null;
+                foreach (var (name, description, group) in registry.GetAllToolEntries())
                 {
-                    string name = tool["name"]?.ToString();
-                    string desc = tool["description"]?.ToString();
-                    if (string.IsNullOrEmpty(name)) continue;
+                    // Group header
+                    string displayGroup = string.IsNullOrEmpty(group) ? "General" : group;
+                    if (displayGroup != lastGroup)
+                    {
+                        if (lastGroup != null) EditorGUILayout.Space(4);
+                        EditorGUILayout.LabelField(displayGroup, EditorStyles.boldLabel);
+                        lastGroup = displayGroup;
+                    }
 
+                    // Toggle
                     bool enabled = registry.IsToolEnabled(name);
                     EditorGUI.BeginChangeCheck();
-                    bool newEnabled = EditorGUILayout.ToggleLeft(
-                        $"  {name}",
-                        enabled);
+                    EditorGUILayout.BeginHorizontal();
+                    bool newEnabled = EditorGUILayout.ToggleLeft(name, enabled);
+                    EditorGUILayout.EndHorizontal();
                     if (EditorGUI.EndChangeCheck())
                         registry.SetToolEnabled(name, newEnabled);
 
-                    if (!string.IsNullOrEmpty(desc))
+                    // Description
+                    if (!string.IsNullOrEmpty(description))
                     {
                         EditorGUI.indentLevel += 2;
-                        EditorGUILayout.LabelField(desc, EditorStyles.miniLabel);
+                        var descStyle = new GUIStyle(EditorStyles.miniLabel)
+                        {
+                            wordWrap = true,
+                            normal = { textColor = enabled ? EditorStyles.miniLabel.normal.textColor
+                                                          : new Color(0.5f, 0.5f, 0.5f) }
+                        };
+                        EditorGUILayout.LabelField(description, descStyle);
                         EditorGUI.indentLevel -= 2;
                     }
-
-                    EditorGUILayout.Space(1);
                 }
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawResourcesSection(ToolRegistry registry)
+        {
+            _showResourcesFoldout = EditorGUILayout.Foldout(_showResourcesFoldout, $"Resources ({registry.ResourceCount})", true, EditorStyles.foldoutHeader);
+            if (!_showResourcesFoldout) return;
+
+            EditorGUILayout.BeginVertical(_boxStyle);
+            {
+                foreach (var (name, description) in registry.GetAllResourceEntries())
+                {
+                    EditorGUILayout.LabelField(name, EditorStyles.boldLabel);
+                    if (!string.IsNullOrEmpty(description))
+                    {
+                        EditorGUI.indentLevel += 2;
+                        EditorGUILayout.LabelField(description, _wrappedLabelStyle);
+                        EditorGUI.indentLevel -= 2;
+                    }
+                    EditorGUILayout.Space(2);
+                }
+
+                if (registry.ResourceCount == 0)
+                    EditorGUILayout.LabelField("No resources registered.", EditorStyles.centeredGreyMiniLabel);
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawPromptsSection(ToolRegistry registry)
+        {
+            _showPromptsFoldout = EditorGUILayout.Foldout(_showPromptsFoldout, $"Prompts ({registry.PromptCount})", true, EditorStyles.foldoutHeader);
+            if (!_showPromptsFoldout) return;
+
+            EditorGUILayout.BeginVertical(_boxStyle);
+            {
+                foreach (var (name, description) in registry.GetAllPromptEntries())
+                {
+                    EditorGUILayout.LabelField(name, EditorStyles.boldLabel);
+                    if (!string.IsNullOrEmpty(description))
+                    {
+                        EditorGUI.indentLevel += 2;
+                        EditorGUILayout.LabelField(description, _wrappedLabelStyle);
+                        EditorGUI.indentLevel -= 2;
+                    }
+                    EditorGUILayout.Space(2);
+                }
+
+                if (registry.PromptCount == 0)
+                    EditorGUILayout.LabelField("No prompts registered.", EditorStyles.centeredGreyMiniLabel);
             }
             EditorGUILayout.EndVertical();
         }
