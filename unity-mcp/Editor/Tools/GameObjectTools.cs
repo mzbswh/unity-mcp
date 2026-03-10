@@ -232,6 +232,97 @@ namespace UnityMcp.Editor.Tools
             return null;
         }
 
+        [McpTool("gameobject_look_at", "Make a GameObject look at a target position or another GameObject",
+            Group = "gameobject")]
+        public static ToolResult LookAt(
+            [Desc("Name or path of the GameObject")] string target,
+            [Desc("Instance ID")] int? instanceId = null,
+            [Desc("World position to look at {x,y,z}")] Vector3? lookAtPosition = null,
+            [Desc("Name or path of the GameObject to look at")] string lookAtTarget = null,
+            [Desc("Up vector (defaults to Vector3.up)")] Vector3? worldUp = null)
+        {
+            var go = FindGameObject(target, instanceId);
+            if (go == null)
+                return ToolResult.Error($"GameObject not found: {target ?? instanceId?.ToString()}");
+
+            Vector3 point;
+            if (lookAtPosition.HasValue)
+            {
+                point = lookAtPosition.Value;
+            }
+            else if (!string.IsNullOrEmpty(lookAtTarget))
+            {
+                var targetGo = FindGameObject(lookAtTarget, null);
+                if (targetGo == null)
+                    return ToolResult.Error($"Look-at target not found: {lookAtTarget}");
+                point = targetGo.transform.position;
+            }
+            else
+            {
+                return ToolResult.Error("Provide either lookAtPosition or lookAtTarget");
+            }
+
+            UndoHelper.RecordObject(go.transform, "LookAt");
+            go.transform.LookAt(point, worldUp ?? Vector3.up);
+
+            return ToolResult.Text($"'{go.name}' now looking at ({point.x}, {point.y}, {point.z})");
+        }
+
+        [McpTool("gameobject_move_relative", "Move a GameObject by a relative offset (in world or local space)",
+            Group = "gameobject")]
+        public static ToolResult MoveRelative(
+            [Desc("Name or path of the GameObject")] string target,
+            [Desc("Instance ID")] int? instanceId = null,
+            [Desc("Offset to move {x,y,z}")] Vector3? offset = null,
+            [Desc("Use local space instead of world space")] bool localSpace = false)
+        {
+            var go = FindGameObject(target, instanceId);
+            if (go == null)
+                return ToolResult.Error($"GameObject not found: {target ?? instanceId?.ToString()}");
+
+            if (!offset.HasValue)
+                return ToolResult.Error("Offset is required");
+
+            UndoHelper.RecordObject(go.transform, "Move Relative");
+
+            if (localSpace)
+                go.transform.Translate(offset.Value, Space.Self);
+            else
+                go.transform.Translate(offset.Value, Space.World);
+
+            var pos = go.transform.position;
+            return ToolResult.Json(new
+            {
+                success = true,
+                gameObject = go.name,
+                newPosition = new { x = pos.x, y = pos.y, z = pos.z }
+            });
+        }
+
+        [McpTool("gameobject_set_sibling_index", "Set the sibling index (order among siblings) of a GameObject in the hierarchy",
+            Group = "gameobject")]
+        public static ToolResult SetSiblingIndex(
+            [Desc("Name or path of the GameObject")] string target,
+            [Desc("Instance ID")] int? instanceId = null,
+            [Desc("New sibling index (0-based). Use -1 to move to last.")] int index = 0)
+        {
+            var go = FindGameObject(target, instanceId);
+            if (go == null)
+                return ToolResult.Error($"GameObject not found: {target ?? instanceId?.ToString()}");
+
+            UndoHelper.RecordObject(go.transform, "Set Sibling Index");
+
+            if (index < 0)
+                go.transform.SetAsLastSibling();
+            else
+                go.transform.SetSiblingIndex(index);
+
+            EditorUtility.SetDirty(go);
+            return ToolResult.Text($"'{go.name}' sibling index set to {go.transform.GetSiblingIndex()}");
+        }
+
+        // --- Helpers ---
+
         internal static string GetPath(GameObject go)
         {
             var path = go.name;

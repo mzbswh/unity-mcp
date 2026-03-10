@@ -55,5 +55,75 @@ namespace UnityMcp.Editor.Tools
                 message = $"Installed {pkg.displayName} ({pkg.name}@{pkg.version})"
             });
         }
+
+        [McpTool("package_remove", "Remove an installed UPM package",
+            Group = "package")]
+        public static ToolResult Remove(
+            [Desc("Package name (e.g. 'com.unity.textmeshpro')")] string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return ToolResult.Error("Package name is required");
+
+            var request = Client.Remove(name);
+            while (!request.IsCompleted) { }
+
+            if (request.Status == StatusCode.Failure)
+                return ToolResult.Error($"Failed to remove package: {request.Error?.message}");
+
+            return ToolResult.Text($"Removed package: {name}");
+        }
+
+        [McpTool("package_search", "Search for available UPM packages",
+            Group = "package", ReadOnly = true)]
+        public static ToolResult Search(
+            [Desc("Search query (package name or keyword)")] string query = null)
+        {
+            var request = string.IsNullOrEmpty(query) ? Client.SearchAll() : Client.Search(query);
+            while (!request.IsCompleted) { }
+
+            if (request.Status == StatusCode.Failure)
+                return ToolResult.Error($"Search failed: {request.Error?.message}");
+
+            var packages = request.Result.Select(p => new
+            {
+                name = p.name,
+                version = p.versions.latest,
+                displayName = p.displayName,
+                description = p.description?.Length > 100
+                    ? p.description.Substring(0, 100) + "..."
+                    : p.description,
+            }).ToArray();
+
+            return ToolResult.Json(new { count = packages.Length, packages });
+        }
+
+        [McpTool("package_get_info", "Get detailed info about an installed package",
+            Group = "package", ReadOnly = true)]
+        public static ToolResult GetInfo(
+            [Desc("Package name (e.g. 'com.unity.textmeshpro')")] string name)
+        {
+            var listRequest = Client.List(true);
+            while (!listRequest.IsCompleted) { }
+
+            if (listRequest.Status == StatusCode.Failure)
+                return ToolResult.Error($"Failed: {listRequest.Error?.message}");
+
+            var pkg = listRequest.Result.FirstOrDefault(p => p.name == name);
+            if (pkg == null)
+                return ToolResult.Error($"Package not found: {name}");
+
+            return ToolResult.Json(new
+            {
+                name = pkg.name,
+                version = pkg.version,
+                displayName = pkg.displayName,
+                description = pkg.description,
+                source = pkg.source.ToString(),
+                status = pkg.status.ToString(),
+                category = pkg.category,
+                dependencies = pkg.dependencies.Select(d => new { name = d.name, version = d.version }).ToArray(),
+                resolvedPath = pkg.resolvedPath,
+            });
+        }
     }
 }

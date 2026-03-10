@@ -88,7 +88,7 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Json(new { gameObject = go.name, component = type, fields });
         }
 
-        [McpTool("component_modify", "Modify serialized field values of a component. Supports int, float, bool, string, enum, Vector2/3/4, Quaternion, Rect, Bounds, Color, ObjectReference (pass asset path like 'Assets/Materials/X.mat'), and arrays (pass JSON array).",
+        [McpTool("component_modify", "Modify serialized field values of a component. Supports int, float, bool, string, enum, Vector2/3/4, Quaternion, Rect, Bounds, Color, ObjectReference (pass asset path like 'Assets/Materials/X.mat'), and arrays (pass JSON array). Field names are matched flexibly: you can use the C# property name (e.g. 'sprite'), the serialized field name (e.g. 'm_Sprite'), or camelCase (e.g. 'color'). Use component_get to see available field names.",
             Group = "component")]
         public static ToolResult Modify(
             [Desc("Name or path of the target GameObject")] string target,
@@ -109,22 +109,100 @@ namespace UnityMcp.Editor.Tools
 
             var so = new SerializedObject(component);
             int modified = 0;
+            var errors = new JArray();
 
             foreach (var kv in fields)
             {
-                var prop = so.FindProperty(kv.Key);
-                if (prop == null) continue;
+                var prop = FindPropertyFuzzy(so, kv.Key);
+                if (prop == null)
+                {
+                    errors.Add($"Field '{kv.Key}' not found on {type}");
+                    continue;
+                }
                 SetSerializedProperty(prop, kv.Value);
                 modified++;
             }
 
             so.ApplyModifiedProperties();
+
+            if (errors.Count > 0)
+                return ToolResult.Json(new { message = $"Modified {modified} fields on {type} of '{go.name}'", errors });
             return ToolResult.Text($"Modified {modified} fields on {type} of '{go.name}'");
+        }
+
+        [McpTool("component_copy_values", "Copy all serialized property values from one component to another component of the same type (on a different GameObject)",
+            Group = "component")]
+        public static ToolResult CopyValues(
+            [Desc("Name or path of the source GameObject")] string source,
+            [Desc("Component type name on the source")] string type,
+            [Desc("Name or path of the destination GameObject")] string destination)
+        {
+            var srcGo = GameObjectTools.FindGameObject(source, null);
+            if (srcGo == null)
+                return ToolResult.Error($"Source GameObject not found: {source}");
+
+            var dstGo = GameObjectTools.FindGameObject(destination, null);
+            if (dstGo == null)
+                return ToolResult.Error($"Destination GameObject not found: {destination}");
+
+            var compType = ResolveComponentType(type);
+            if (compType == null)
+                return ToolResult.Error($"Unknown component type: {type}");
+
+            var srcComp = srcGo.GetComponent(compType);
+            if (srcComp == null)
+                return ToolResult.Error($"Component '{type}' not found on source '{source}'");
+
+            var dstComp = dstGo.GetComponent(compType);
+            if (dstComp == null)
+            {
+                // Add component if it doesn't exist on destination
+                dstComp = Undo.AddComponent(dstGo, compType);
+            }
+            else
+            {
+                Undo.RecordObject(dstComp, "Copy Component Values");
+            }
+
+            EditorUtility.CopySerialized(srcComp, dstComp);
+            return ToolResult.Text($"Copied {type} values from '{srcGo.name}' to '{dstGo.name}'");
         }
 
         // --- Helpers ---
 
-        private static Type ResolveComponentType(string typeName)
+        /// <summary>
+        /// Finds a SerializedProperty by name with fuzzy matching.
+        /// Tries: exact name → m_ + PascalCase → case-insensitive scan of all visible properties.
+        /// </summary>
+        internal static SerializedProperty FindPropertyFuzzy(SerializedObject so, string name)
+        {
+            // 1. Exact match
+            var prop = so.FindProperty(name);
+            if (prop != null) return prop;
+
+            // 2. Try m_ + PascalCase (e.g. "sprite" → "m_Sprite", "color" → "m_Color")
+            if (!name.StartsWith("m_"))
+            {
+                string pascal = char.ToUpperInvariant(name[0]) + name.Substring(1);
+                prop = so.FindProperty("m_" + pascal);
+                if (prop != null) return prop;
+            }
+
+            // 3. Case-insensitive scan of all visible properties
+            string lower = name.Replace("_", "").ToLowerInvariant();
+            var iter = so.GetIterator();
+            iter.Next(true);
+            while (iter.NextVisible(false))
+            {
+                string iterLower = iter.name.Replace("_", "").Replace("m_", "").ToLowerInvariant();
+                if (iterLower == lower || iter.name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return so.FindProperty(iter.name);
+            }
+
+            return null;
+        }
+
+        internal static Type ResolveComponentType(string typeName)
         {
             // Search all loaded assemblies for a Component with the given name
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
@@ -198,7 +276,7 @@ namespace UnityMcp.Editor.Tools
             }
         }
 
-        private static void SetSerializedProperty(SerializedProperty prop, JToken value)
+        internal static void SetSerializedProperty(SerializedProperty prop, JToken value)
         {
             // Handle arrays: value should be a JArray, or a single value wrapped into one
             if (prop.isArray && prop.propertyType != SerializedPropertyType.String)
@@ -285,12 +363,29 @@ namespace UnityMcp.Editor.Tools
                 case SerializedPropertyType.ObjectReference:
                     var path = value.Value<string>();
                     if (string.IsNullOrEmpty(path))
+                    {
                         prop.objectReferenceValue = null;
+                    }
                     else
                     {
                         var asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path);
                         if (asset != null)
+                        {
+                            // Try direct assignment first
                             prop.objectReferenceValue = asset;
+                            // If the property rejected it (e.g. expects Sprite but got Texture2D),
+                            // search sub-assets for a compatible type
+                            if (prop.objectReferenceValue == null)
+                            {
+                                var allAssets = AssetDatabase.LoadAllAssetsAtPath(path);
+                                foreach (var sub in allAssets)
+                                {
+                                    if (sub == asset) continue;
+                                    prop.objectReferenceValue = sub;
+                                    if (prop.objectReferenceValue != null) break;
+                                }
+                            }
+                        }
                     }
                     break;
             }

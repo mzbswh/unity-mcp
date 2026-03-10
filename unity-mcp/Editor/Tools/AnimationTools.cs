@@ -185,7 +185,15 @@ namespace UnityMcp.Editor.Tools
                     name = s.state.name,
                     hasMotion = s.state.motion != null,
                     motionName = s.state.motion?.name,
-                    speed = s.state.speed
+                    speed = s.state.speed,
+                    transitions = s.state.transitions.Select(t => new
+                    {
+                        destinationState = t.destinationState?.name,
+                        hasExitTime = t.hasExitTime,
+                        exitTime = t.exitTime,
+                        duration = t.duration,
+                        conditionCount = t.conditions.Length,
+                    })
                 })
             });
 
@@ -205,6 +213,283 @@ namespace UnityMcp.Editor.Tools
                 parameterCount = controller.parameters.Length,
                 layers,
                 parameters
+            });
+        }
+
+        [McpTool("animation_add_transition", "Add a transition between two states in an AnimatorController",
+            Group = "animation")]
+        public static ToolResult AddTransition(
+            [Desc("Controller asset path")] string path,
+            [Desc("Source state name (or 'AnyState' / 'Entry')")] string from,
+            [Desc("Destination state name (or 'Exit')")] string to,
+            [Desc("Has exit time")] bool hasExitTime = true,
+            [Desc("Exit time (0-1)")] float exitTime = 0.9f,
+            [Desc("Transition duration in seconds")] float duration = 0.25f,
+            [Desc("Layer index")] int layer = 0,
+            [Desc("Conditions as array of {parameter, mode, threshold}. Mode: If, IfNot, Greater, Less, Equals, NotEqual")] Newtonsoft.Json.Linq.JArray conditions = null)
+        {
+            var pv = PathValidator.QuickValidate(path);
+            if (!pv.IsValid) return ToolResult.Error(pv.Error);
+
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
+            if (controller == null)
+                return ToolResult.Error($"AnimatorController not found: {path}");
+
+            if (layer >= controller.layers.Length)
+                return ToolResult.Error($"Layer {layer} does not exist");
+
+            var sm = controller.layers[layer].stateMachine;
+
+            // Find destination state
+            AnimatorState destState = null;
+            bool toExit = to?.ToLower() == "exit";
+            if (!toExit)
+            {
+                destState = sm.states.FirstOrDefault(s => s.state.name == to).state;
+                if (destState == null)
+                    return ToolResult.Error($"Destination state '{to}' not found in layer {layer}");
+            }
+
+            AnimatorStateTransition transition;
+            string fromLower = from?.ToLower();
+
+            if (fromLower == "anystate")
+            {
+                transition = toExit ? null : sm.AddAnyStateTransition(destState);
+                if (transition == null)
+                    return ToolResult.Error("Cannot add AnyState → Exit transition");
+            }
+            else if (fromLower == "entry")
+            {
+                if (destState == null)
+                    return ToolResult.Error("Entry → Exit is not valid");
+                sm.defaultState = destState;
+                return ToolResult.Text($"Set default state to '{to}' in layer {layer}");
+            }
+            else
+            {
+                var srcState = sm.states.FirstOrDefault(s => s.state.name == from).state;
+                if (srcState == null)
+                    return ToolResult.Error($"Source state '{from}' not found in layer {layer}");
+
+                transition = toExit
+                    ? srcState.AddExitTransition()
+                    : srcState.AddTransition(destState);
+            }
+
+            transition.hasExitTime = hasExitTime;
+            transition.exitTime = exitTime;
+            transition.duration = duration;
+            transition.hasFixedDuration = true;
+
+            // Add conditions
+            if (conditions != null)
+            {
+                foreach (var c in conditions)
+                {
+                    string paramName = c["parameter"]?.ToString();
+                    string modeStr = c["mode"]?.ToString() ?? "If";
+                    float threshold = c["threshold"]?.Value<float>() ?? 0f;
+
+                    if (string.IsNullOrEmpty(paramName)) continue;
+
+                    if (System.Enum.TryParse<AnimatorConditionMode>(modeStr, true, out var mode))
+                        transition.AddCondition(mode, threshold, paramName);
+                }
+            }
+
+            EditorUtility.SetDirty(controller);
+            AssetDatabase.SaveAssets();
+
+            return ToolResult.Json(new
+            {
+                success = true,
+                from,
+                to,
+                hasExitTime,
+                duration,
+                conditionCount = transition.conditions.Length,
+                message = $"Added transition: {from} → {to}"
+            });
+        }
+
+        [McpTool("animation_add_layer", "Add a new layer to an AnimatorController",
+            Group = "animation")]
+        public static ToolResult AddLayer(
+            [Desc("Controller asset path")] string path,
+            [Desc("Layer name")] string layerName,
+            [Desc("Layer weight (0-1)")] float weight = 1f,
+            [Desc("Blending mode: Override, Additive")] string blendingMode = "Override")
+        {
+            var pv = PathValidator.QuickValidate(path);
+            if (!pv.IsValid) return ToolResult.Error(pv.Error);
+
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
+            if (controller == null)
+                return ToolResult.Error($"AnimatorController not found: {path}");
+
+            var newLayer = new AnimatorControllerLayer
+            {
+                name = layerName,
+                defaultWeight = weight,
+                stateMachine = new AnimatorStateMachine { name = layerName, hideFlags = HideFlags.HideInHierarchy },
+            };
+
+            if (System.Enum.TryParse<AnimatorLayerBlendingMode>(blendingMode, true, out var bm))
+                newLayer.blendingMode = bm;
+
+            // State machine must be added as sub-asset
+            AssetDatabase.AddObjectToAsset(newLayer.stateMachine, path);
+            controller.AddLayer(newLayer);
+
+            EditorUtility.SetDirty(controller);
+            AssetDatabase.SaveAssets();
+
+            return ToolResult.Json(new
+            {
+                success = true,
+                layerName,
+                layerIndex = controller.layers.Length - 1,
+                weight,
+                message = $"Added layer '{layerName}' at index {controller.layers.Length - 1}"
+            });
+        }
+
+        [McpTool("animation_create_blend_tree", "Create a BlendTree in an AnimatorController state",
+            Group = "animation")]
+        public static ToolResult CreateBlendTree(
+            [Desc("Controller asset path")] string path,
+            [Desc("State name to attach the blend tree to (will be created if it doesn't exist)")] string stateName,
+            [Desc("Blend parameter name")] string parameter,
+            [Desc("Blend type: Simple1D, SimpleDirectional2D, FreeformDirectional2D, FreeformCartesian2D")] string blendType = "Simple1D",
+            [Desc("Second parameter name (for 2D blend trees)")] string parameter2 = null,
+            [Desc("Motions as array of {clipPath, threshold} (1D) or {clipPath, positionX, positionY} (2D)")] Newtonsoft.Json.Linq.JArray motions = null,
+            [Desc("Layer index")] int layer = 0)
+        {
+            var pv = PathValidator.QuickValidate(path);
+            if (!pv.IsValid) return ToolResult.Error(pv.Error);
+
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
+            if (controller == null)
+                return ToolResult.Error($"AnimatorController not found: {path}");
+
+            if (layer >= controller.layers.Length)
+                return ToolResult.Error($"Layer {layer} does not exist");
+
+            // Ensure parameter exists
+            if (!controller.parameters.Any(p => p.name == parameter))
+                controller.AddParameter(parameter, AnimatorControllerParameterType.Float);
+            if (!string.IsNullOrEmpty(parameter2) && !controller.parameters.Any(p => p.name == parameter2))
+                controller.AddParameter(parameter2, AnimatorControllerParameterType.Float);
+
+            var sm = controller.layers[layer].stateMachine;
+
+            BlendTree blendTree;
+            var existingState = sm.states.FirstOrDefault(s => s.state.name == stateName).state;
+
+            if (existingState != null)
+            {
+                blendTree = new BlendTree { name = stateName };
+                existingState.motion = blendTree;
+                AssetDatabase.AddObjectToAsset(blendTree, path);
+            }
+            else
+            {
+                existingState = controller.CreateBlendTreeInController(stateName, out blendTree, layer);
+            }
+
+            blendTree.blendParameter = parameter;
+            if (!string.IsNullOrEmpty(parameter2))
+                blendTree.blendParameterY = parameter2;
+
+            if (System.Enum.TryParse<BlendTreeType>(blendType, true, out var bt))
+                blendTree.blendType = bt;
+
+            // Add motions
+            int added = 0;
+            if (motions != null)
+            {
+                foreach (var m in motions)
+                {
+                    string clipPath = m["clipPath"]?.ToString();
+                    if (string.IsNullOrEmpty(clipPath)) continue;
+
+                    var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+                    if (clip == null) continue;
+
+                    float threshold = m["threshold"]?.Value<float>() ?? added;
+                    float posX = m["positionX"]?.Value<float>() ?? 0;
+                    float posY = m["positionY"]?.Value<float>() ?? 0;
+
+                    if (bt == BlendTreeType.Simple1D)
+                        blendTree.AddChild(clip, threshold);
+                    else
+                        blendTree.AddChild(clip, new Vector2(posX, posY));
+
+                    added++;
+                }
+            }
+
+            EditorUtility.SetDirty(controller);
+            AssetDatabase.SaveAssets();
+
+            return ToolResult.Json(new
+            {
+                success = true,
+                stateName,
+                parameter,
+                blendType,
+                motionCount = added,
+                message = $"Created BlendTree '{stateName}' with {added} motions"
+            });
+        }
+
+        [McpTool("animation_set_clip_curve", "Add or modify animation curves on an AnimationClip",
+            Group = "animation")]
+        public static ToolResult SetClipCurve(
+            [Desc("AnimationClip asset path")] string path,
+            [Desc("Relative path of the target object (empty for root)")] string relativePath,
+            [Desc("Component type (e.g. Transform, SpriteRenderer)")] string componentType,
+            [Desc("Property name (e.g. localPosition.x, m_Color.r)")] string propertyName,
+            [Desc("Keyframes as [{time, value}] or [{time, value, inTangent, outTangent}]")] Newtonsoft.Json.Linq.JArray keyframes)
+        {
+            var pv = PathValidator.QuickValidate(path);
+            if (!pv.IsValid) return ToolResult.Error(pv.Error);
+
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+            if (clip == null)
+                return ToolResult.Error($"AnimationClip not found: {path}");
+
+            if (keyframes == null || keyframes.Count == 0)
+                return ToolResult.Error("At least one keyframe is required");
+
+            var type = ComponentTools.ResolveComponentType(componentType);
+            if (type == null && componentType != "Transform")
+                return ToolResult.Error($"Component type not found: {componentType}");
+            if (componentType == "Transform") type = typeof(Transform);
+
+            var keys = keyframes.Select(k => new Keyframe(
+                k["time"]?.Value<float>() ?? 0f,
+                k["value"]?.Value<float>() ?? 0f,
+                k["inTangent"]?.Value<float>() ?? 0f,
+                k["outTangent"]?.Value<float>() ?? 0f
+            )).ToArray();
+
+            var curve = new AnimationCurve(keys);
+            clip.SetCurve(relativePath ?? "", type, propertyName, curve);
+
+            EditorUtility.SetDirty(clip);
+            AssetDatabase.SaveAssets();
+
+            return ToolResult.Json(new
+            {
+                success = true,
+                path,
+                relativePath,
+                componentType,
+                propertyName,
+                keyframeCount = keys.Length,
+                message = $"Set {keys.Length} keyframes on '{propertyName}'"
             });
         }
     }

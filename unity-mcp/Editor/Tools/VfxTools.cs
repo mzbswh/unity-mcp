@@ -273,5 +273,187 @@ namespace UnityMcp.Editor.Tools
                     break;
             }
         }
+
+        [McpTool("vfx_create_line", "Create a LineRenderer on a new or existing GameObject",
+            Group = "vfx")]
+        public static ToolResult CreateLine(
+            [Desc("Name of the GameObject")] string name = "Line",
+            [Desc("Target existing GameObject (null = create new)")] string target = null,
+            [Desc("Points as array of {x,y,z}")] Vector3[] points = null,
+            [Desc("Start width")] float startWidth = 0.1f,
+            [Desc("End width")] float endWidth = 0.1f,
+            [Desc("Start color")] Color? startColor = null,
+            [Desc("End color")] Color? endColor = null,
+            [Desc("Material asset path")] string material = null,
+            [Desc("Use world space")] bool useWorldSpace = true)
+        {
+            GameObject go;
+            if (!string.IsNullOrEmpty(target))
+            {
+                go = GameObjectTools.FindGameObject(target, null);
+                if (go == null)
+                    return ToolResult.Error($"GameObject not found: {target}");
+            }
+            else
+            {
+                go = new GameObject(name);
+                UndoHelper.RegisterCreatedObject(go, "Create LineRenderer");
+            }
+
+            var lr = go.GetComponent<LineRenderer>();
+            if (lr == null) lr = go.AddComponent<LineRenderer>();
+
+            lr.startWidth = startWidth;
+            lr.endWidth = endWidth;
+            lr.useWorldSpace = useWorldSpace;
+
+            if (startColor.HasValue || endColor.HasValue)
+            {
+                var gradient = new Gradient();
+                gradient.SetKeys(
+                    new[] { new GradientColorKey(startColor ?? Color.white, 0), new GradientColorKey(endColor ?? Color.white, 1) },
+                    new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(1, 1) });
+                lr.colorGradient = gradient;
+            }
+
+            if (!string.IsNullOrEmpty(material))
+            {
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(material);
+                if (mat != null) lr.sharedMaterial = mat;
+            }
+
+            if (points != null && points.Length > 0)
+            {
+                lr.positionCount = points.Length;
+                lr.SetPositions(points);
+            }
+
+            return ToolResult.Json(new
+            {
+                success = true,
+                instanceId = go.GetInstanceID(),
+                name = go.name,
+                pointCount = lr.positionCount,
+                message = $"Created LineRenderer on '{go.name}'"
+            });
+        }
+
+        [McpTool("vfx_modify_line", "Modify a LineRenderer's properties",
+            Group = "vfx")]
+        public static ToolResult ModifyLine(
+            [Desc("Name or path of the GameObject")] string target,
+            [Desc("Points as array of {x,y,z}")] Vector3[] points = null,
+            [Desc("Start width")] float? startWidth = null,
+            [Desc("End width")] float? endWidth = null,
+            [Desc("Start color")] Color? startColor = null,
+            [Desc("End color")] Color? endColor = null,
+            [Desc("Material asset path")] string material = null,
+            [Desc("Use world space")] bool? useWorldSpace = null,
+            [Desc("Loop the line")] bool? loop = null,
+            [Desc("Corner vertices")] int? cornerVertices = null,
+            [Desc("End cap vertices")] int? endCapVertices = null)
+        {
+            var go = GameObjectTools.FindGameObject(target, null);
+            if (go == null)
+                return ToolResult.Error($"GameObject not found: {target}");
+
+            var lr = go.GetComponent<LineRenderer>();
+            if (lr == null)
+                return ToolResult.Error($"No LineRenderer on '{target}'");
+
+            Undo.RecordObject(lr, "Modify LineRenderer");
+            int modified = 0;
+
+            if (startWidth.HasValue) { lr.startWidth = startWidth.Value; modified++; }
+            if (endWidth.HasValue) { lr.endWidth = endWidth.Value; modified++; }
+            if (useWorldSpace.HasValue) { lr.useWorldSpace = useWorldSpace.Value; modified++; }
+            if (loop.HasValue) { lr.loop = loop.Value; modified++; }
+            if (cornerVertices.HasValue) { lr.numCornerVertices = cornerVertices.Value; modified++; }
+            if (endCapVertices.HasValue) { lr.numCapVertices = endCapVertices.Value; modified++; }
+
+            if (startColor.HasValue || endColor.HasValue)
+            {
+                var gradient = new Gradient();
+                gradient.SetKeys(
+                    new[] { new GradientColorKey(startColor ?? Color.white, 0), new GradientColorKey(endColor ?? Color.white, 1) },
+                    new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(1, 1) });
+                lr.colorGradient = gradient;
+                modified++;
+            }
+
+            if (!string.IsNullOrEmpty(material))
+            {
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(material);
+                if (mat != null) { lr.sharedMaterial = mat; modified++; }
+            }
+
+            if (points != null && points.Length > 0)
+            {
+                lr.positionCount = points.Length;
+                lr.SetPositions(points);
+                modified++;
+            }
+
+            EditorUtility.SetDirty(lr);
+            return ToolResult.Text($"Modified {modified} properties on LineRenderer '{target}'");
+        }
+
+        [McpTool("vfx_create_trail", "Create a TrailRenderer on a new or existing GameObject",
+            Group = "vfx")]
+        public static ToolResult CreateTrail(
+            [Desc("Name of the GameObject")] string name = "Trail",
+            [Desc("Target existing GameObject (null = create new)")] string target = null,
+            [Desc("Trail time (seconds)")] float time = 1f,
+            [Desc("Start width")] float startWidth = 0.5f,
+            [Desc("End width")] float endWidth = 0f,
+            [Desc("Start color")] Color? startColor = null,
+            [Desc("End color")] Color? endColor = null,
+            [Desc("Material asset path")] string material = null,
+            [Desc("Min vertex distance")] float minVertexDistance = 0.1f)
+        {
+            GameObject go;
+            if (!string.IsNullOrEmpty(target))
+            {
+                go = GameObjectTools.FindGameObject(target, null);
+                if (go == null)
+                    return ToolResult.Error($"GameObject not found: {target}");
+            }
+            else
+            {
+                go = new GameObject(name);
+                UndoHelper.RegisterCreatedObject(go, "Create TrailRenderer");
+            }
+
+            var tr = go.GetComponent<TrailRenderer>();
+            if (tr == null) tr = go.AddComponent<TrailRenderer>();
+
+            tr.time = time;
+            tr.startWidth = startWidth;
+            tr.endWidth = endWidth;
+            tr.minVertexDistance = minVertexDistance;
+
+            if (startColor.HasValue || endColor.HasValue)
+            {
+                var gradient = new Gradient();
+                gradient.SetKeys(
+                    new[] { new GradientColorKey(startColor ?? Color.white, 0), new GradientColorKey(endColor ?? Color.white, 1) },
+                    new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) });
+                tr.colorGradient = gradient;
+            }
+
+            if (!string.IsNullOrEmpty(material))
+            {
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(material);
+                if (mat != null) tr.sharedMaterial = mat;
+            }
+
+            return ToolResult.Json(new
+            {
+                success = true,
+                instanceId = go.GetInstanceID(),
+                name = go.name,
+                message = $"Created TrailRenderer on '{go.name}'"
+            });
+        }
     }
 }

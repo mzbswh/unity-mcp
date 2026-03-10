@@ -350,5 +350,179 @@ namespace UnityMcp.Editor.Tools
 
             return go;
         }
+
+        [McpTool("ui_set_rect_transform", "Set RectTransform properties on a UI element (anchors, pivot, size, position)",
+            Group = "ui")]
+        public static ToolResult SetRectTransform(
+            [Desc("Name or path of the UI element")] string target,
+            [Desc("Anchor min (e.g. {x:0, y:0})")] Vector2? anchorMin = null,
+            [Desc("Anchor max (e.g. {x:1, y:1})")] Vector2? anchorMax = null,
+            [Desc("Pivot point (e.g. {x:0.5, y:0.5})")] Vector2? pivot = null,
+            [Desc("Anchored position (offset from anchor)")] Vector2? anchoredPosition = null,
+            [Desc("Size delta (width/height relative to anchors)")] Vector2? sizeDelta = null,
+            [Desc("Offset from bottom-left anchor (anchorMin)")] Vector2? offsetMin = null,
+            [Desc("Offset from top-right anchor (anchorMax)")] Vector2? offsetMax = null,
+            [Desc("Anchor preset: TopLeft, TopCenter, TopRight, MiddleLeft, MiddleCenter, MiddleRight, BottomLeft, BottomCenter, BottomRight, TopStretch, MiddleStretch, BottomStretch, StretchLeft, StretchCenter, StretchRight, StretchAll")] string anchorPreset = null)
+        {
+            var go = GameObjectTools.FindGameObject(target, null);
+            if (go == null)
+                return ToolResult.Error($"GameObject not found: {target}");
+
+            var rt = go.GetComponent<RectTransform>();
+            if (rt == null)
+                return ToolResult.Error($"No RectTransform on '{target}'");
+
+            Undo.RecordObject(rt, "Set RectTransform");
+            int modified = 0;
+
+            if (!string.IsNullOrEmpty(anchorPreset))
+            {
+                ApplyAnchorPreset(rt, anchorPreset);
+                modified++;
+            }
+
+            if (anchorMin.HasValue) { rt.anchorMin = anchorMin.Value; modified++; }
+            if (anchorMax.HasValue) { rt.anchorMax = anchorMax.Value; modified++; }
+            if (pivot.HasValue) { rt.pivot = pivot.Value; modified++; }
+            if (anchoredPosition.HasValue) { rt.anchoredPosition = anchoredPosition.Value; modified++; }
+            if (sizeDelta.HasValue) { rt.sizeDelta = sizeDelta.Value; modified++; }
+            if (offsetMin.HasValue) { rt.offsetMin = offsetMin.Value; modified++; }
+            if (offsetMax.HasValue) { rt.offsetMax = offsetMax.Value; modified++; }
+
+            EditorUtility.SetDirty(go);
+            return ToolResult.Text($"Modified {modified} RectTransform properties on '{go.name}'");
+        }
+
+        [McpTool("ui_get_rect_transform", "Get RectTransform properties of a UI element",
+            Group = "ui", ReadOnly = true)]
+        public static ToolResult GetRectTransform(
+            [Desc("Name or path of the UI element")] string target)
+        {
+            var go = GameObjectTools.FindGameObject(target, null);
+            if (go == null)
+                return ToolResult.Error($"GameObject not found: {target}");
+
+            var rt = go.GetComponent<RectTransform>();
+            if (rt == null)
+                return ToolResult.Error($"No RectTransform on '{target}'");
+
+            return ToolResult.Json(new
+            {
+                name = go.name,
+                anchorMin = new { x = rt.anchorMin.x, y = rt.anchorMin.y },
+                anchorMax = new { x = rt.anchorMax.x, y = rt.anchorMax.y },
+                pivot = new { x = rt.pivot.x, y = rt.pivot.y },
+                anchoredPosition = new { x = rt.anchoredPosition.x, y = rt.anchoredPosition.y },
+                sizeDelta = new { x = rt.sizeDelta.x, y = rt.sizeDelta.y },
+                offsetMin = new { x = rt.offsetMin.x, y = rt.offsetMin.y },
+                offsetMax = new { x = rt.offsetMax.x, y = rt.offsetMax.y },
+                rect = new { x = rt.rect.x, y = rt.rect.y, width = rt.rect.width, height = rt.rect.height },
+            });
+        }
+
+        [McpTool("ui_add_layout", "Add a layout component to a UI element",
+            Group = "ui")]
+        public static ToolResult AddLayout(
+            [Desc("Name or path of the UI element")] string target,
+            [Desc("Layout type: HorizontalLayoutGroup, VerticalLayoutGroup, GridLayoutGroup, ContentSizeFitter, LayoutElement")] string type,
+            [Desc("Spacing (for layout groups)")] float? spacing = null,
+            [Desc("Padding (left,right,top,bottom)")] int[] padding = null,
+            [Desc("Child alignment: UpperLeft, UpperCenter, UpperRight, MiddleLeft, MiddleCenter, MiddleRight, LowerLeft, LowerCenter, LowerRight")] string childAlignment = null,
+            [Desc("Cell size for GridLayoutGroup")] Vector2? cellSize = null,
+            [Desc("Horizontal fit mode for ContentSizeFitter: Unconstrained, MinSize, PreferredSize")] string horizontalFit = null,
+            [Desc("Vertical fit mode for ContentSizeFitter")] string verticalFit = null)
+        {
+            var go = GameObjectTools.FindGameObject(target, null);
+            if (go == null)
+                return ToolResult.Error($"GameObject not found: {target}");
+
+            Component comp;
+            switch (type?.ToLower().Replace(" ", ""))
+            {
+                case "horizontallayoutgroup":
+                    var hlg = Undo.AddComponent<HorizontalLayoutGroup>(go);
+                    if (spacing.HasValue) hlg.spacing = spacing.Value;
+                    if (padding != null && padding.Length >= 4)
+                        hlg.padding = new RectOffset(padding[0], padding[1], padding[2], padding[3]);
+                    if (!string.IsNullOrEmpty(childAlignment) && System.Enum.TryParse<TextAnchor>(childAlignment, true, out var ha))
+                        hlg.childAlignment = ha;
+                    comp = hlg;
+                    break;
+                case "verticallayoutgroup":
+                    var vlg = Undo.AddComponent<VerticalLayoutGroup>(go);
+                    if (spacing.HasValue) vlg.spacing = spacing.Value;
+                    if (padding != null && padding.Length >= 4)
+                        vlg.padding = new RectOffset(padding[0], padding[1], padding[2], padding[3]);
+                    if (!string.IsNullOrEmpty(childAlignment) && System.Enum.TryParse<TextAnchor>(childAlignment, true, out var va))
+                        vlg.childAlignment = va;
+                    comp = vlg;
+                    break;
+                case "gridlayoutgroup":
+                    var glg = Undo.AddComponent<GridLayoutGroup>(go);
+                    if (spacing.HasValue) glg.spacing = new Vector2(spacing.Value, spacing.Value);
+                    if (cellSize.HasValue) glg.cellSize = cellSize.Value;
+                    if (padding != null && padding.Length >= 4)
+                        glg.padding = new RectOffset(padding[0], padding[1], padding[2], padding[3]);
+                    if (!string.IsNullOrEmpty(childAlignment) && System.Enum.TryParse<TextAnchor>(childAlignment, true, out var ga))
+                        glg.childAlignment = ga;
+                    comp = glg;
+                    break;
+                case "contentsizefitter":
+                    var csf = Undo.AddComponent<ContentSizeFitter>(go);
+                    if (!string.IsNullOrEmpty(horizontalFit) && System.Enum.TryParse<ContentSizeFitter.FitMode>(horizontalFit, true, out var hf))
+                        csf.horizontalFit = hf;
+                    if (!string.IsNullOrEmpty(verticalFit) && System.Enum.TryParse<ContentSizeFitter.FitMode>(verticalFit, true, out var vf))
+                        csf.verticalFit = vf;
+                    comp = csf;
+                    break;
+                case "layoutelement":
+                    var le = Undo.AddComponent<LayoutElement>(go);
+                    comp = le;
+                    break;
+                default:
+                    return ToolResult.Error($"Unknown layout type: {type}");
+            }
+
+            return ToolResult.Text($"Added {comp.GetType().Name} to '{go.name}'");
+        }
+
+        private static void ApplyAnchorPreset(RectTransform rt, string preset)
+        {
+            switch (preset?.ToLower().Replace(" ", ""))
+            {
+                case "topleft":
+                    rt.anchorMin = new Vector2(0, 1); rt.anchorMax = new Vector2(0, 1); break;
+                case "topcenter":
+                    rt.anchorMin = new Vector2(0.5f, 1); rt.anchorMax = new Vector2(0.5f, 1); break;
+                case "topright":
+                    rt.anchorMin = new Vector2(1, 1); rt.anchorMax = new Vector2(1, 1); break;
+                case "middleleft":
+                    rt.anchorMin = new Vector2(0, 0.5f); rt.anchorMax = new Vector2(0, 0.5f); break;
+                case "middlecenter":
+                    rt.anchorMin = new Vector2(0.5f, 0.5f); rt.anchorMax = new Vector2(0.5f, 0.5f); break;
+                case "middleright":
+                    rt.anchorMin = new Vector2(1, 0.5f); rt.anchorMax = new Vector2(1, 0.5f); break;
+                case "bottomleft":
+                    rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.zero; break;
+                case "bottomcenter":
+                    rt.anchorMin = new Vector2(0.5f, 0); rt.anchorMax = new Vector2(0.5f, 0); break;
+                case "bottomright":
+                    rt.anchorMin = new Vector2(1, 0); rt.anchorMax = new Vector2(1, 0); break;
+                case "topstretch":
+                    rt.anchorMin = new Vector2(0, 1); rt.anchorMax = new Vector2(1, 1); break;
+                case "middlestretch":
+                    rt.anchorMin = new Vector2(0, 0.5f); rt.anchorMax = new Vector2(1, 0.5f); break;
+                case "bottomstretch":
+                    rt.anchorMin = new Vector2(0, 0); rt.anchorMax = new Vector2(1, 0); break;
+                case "stretchleft":
+                    rt.anchorMin = new Vector2(0, 0); rt.anchorMax = new Vector2(0, 1); break;
+                case "stretchcenter":
+                    rt.anchorMin = new Vector2(0.5f, 0); rt.anchorMax = new Vector2(0.5f, 1); break;
+                case "stretchright":
+                    rt.anchorMin = new Vector2(1, 0); rt.anchorMax = new Vector2(1, 1); break;
+                case "stretchall":
+                    rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; break;
+            }
+        }
     }
 }

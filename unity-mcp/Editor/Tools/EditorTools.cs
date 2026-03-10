@@ -146,5 +146,83 @@ namespace UnityMcp.Editor.Tools
             Selection.objects = objects.ToArray();
             return ToolResult.Text($"Selected {objects.Count} object(s)");
         }
+
+        [McpTool("editor_undo", "Perform Undo (like Ctrl+Z)",
+            Group = "editor")]
+        public static ToolResult Undo()
+        {
+            Undo.PerformUndo();
+            return ToolResult.Text("Undo performed");
+        }
+
+        [McpTool("editor_redo", "Perform Redo (like Ctrl+Y)",
+            Group = "editor")]
+        public static ToolResult Redo()
+        {
+            Undo.PerformRedo();
+            return ToolResult.Text("Redo performed");
+        }
+
+        [McpTool("editor_open_window", "Open a Unity Editor window by type name",
+            Group = "editor")]
+        public static ToolResult OpenWindow(
+            [Desc("Window type: Inspector, Hierarchy, Project, Console, Scene, Game, Animation, Animator, Profiler, AssetStore, PackageManager, Lighting, Occlusion, Navigation, AudioMixer, VersionControl, SpriteEditor, SpritePacker, TileMap")] string windowType)
+        {
+            if (string.IsNullOrEmpty(windowType))
+                return ToolResult.Error("Window type is required");
+
+            // Map common names to menu paths
+            string menuPath = windowType.ToLower() switch
+            {
+                "inspector" => "Window/General/Inspector",
+                "hierarchy" => "Window/General/Hierarchy",
+                "project" => "Window/General/Project",
+                "console" => "Window/General/Console",
+                "scene" => "Window/General/Scene",
+                "game" => "Window/General/Game",
+                "animation" => "Window/Animation/Animation",
+                "animator" => "Window/Animation/Animator",
+                "profiler" => "Window/Analysis/Profiler",
+                "assetstore" => "Window/Asset Store",
+                "packagemanager" => "Window/Package Manager",
+                "lighting" => "Window/Rendering/Lighting",
+                "occlusion" => "Window/Rendering/Occlusion Culling",
+                "navigation" => "Window/AI/Navigation",
+                "audiomixer" => "Window/Audio/Audio Mixer",
+                "versioncontrol" => "Window/Version Control",
+                "spriteeditor" => "Window/2D/Sprite Editor",
+                "spritepacker" => "Window/2D/Sprite Packer",
+                "tilemap" => "Window/2D/Tile Palette",
+                _ => null,
+            };
+
+            if (menuPath != null)
+            {
+                bool executed = EditorApplication.ExecuteMenuItem(menuPath);
+                if (executed)
+                    return ToolResult.Text($"Opened window: {windowType}");
+            }
+
+            // Fallback: try to find the EditorWindow type by name
+            var type = System.Type.GetType($"UnityEditor.{windowType}, UnityEditor");
+            if (type == null)
+            {
+                foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    type = asm.GetTypes().FirstOrDefault(t =>
+                        t.Name.Equals(windowType, System.StringComparison.OrdinalIgnoreCase) &&
+                        typeof(EditorWindow).IsAssignableFrom(t));
+                    if (type != null) break;
+                }
+            }
+
+            if (type != null)
+            {
+                EditorWindow.GetWindow(type);
+                return ToolResult.Text($"Opened window: {type.Name}");
+            }
+
+            return ToolResult.Error($"Unknown window type: {windowType}");
+        }
     }
 }

@@ -403,5 +403,116 @@ namespace UnityMcp.Editor.Tools
             }
             return true;
         }
+
+        [McpTool("shader_get_properties", "Get all properties of a shader (name, type, description, default value)",
+            Group = "material", ReadOnly = true)]
+        public static ToolResult GetShaderProperties(
+            [Desc("Shader name (e.g. 'Standard', 'Universal Render Pipeline/Lit')")] string shaderName = null,
+            [Desc("Or material asset path to get shader from")] string materialPath = null)
+        {
+            Shader shader = null;
+            if (!string.IsNullOrEmpty(materialPath))
+            {
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+                if (mat == null)
+                    return ToolResult.Error($"Material not found: {materialPath}");
+                shader = mat.shader;
+            }
+            else if (!string.IsNullOrEmpty(shaderName))
+            {
+                shader = Shader.Find(shaderName);
+            }
+
+            if (shader == null)
+                return ToolResult.Error($"Shader not found: {shaderName ?? materialPath}");
+
+            int count = ShaderUtil.GetPropertyCount(shader);
+            var properties = new object[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                var propType = ShaderUtil.GetPropertyType(shader, i);
+                properties[i] = new
+                {
+                    name = ShaderUtil.GetPropertyName(shader, i),
+                    description = ShaderUtil.GetPropertyDescription(shader, i),
+                    type = propType.ToString(),
+                    hidden = ShaderUtil.IsShaderPropertyHidden(shader, i),
+                    textureDimension = propType == ShaderUtil.ShaderPropertyType.TexEnv
+                        ? ShaderUtil.GetTexDim(shader, i).ToString() : null,
+                    rangeLimits = propType == ShaderUtil.ShaderPropertyType.Range
+                        ? new { min = ShaderUtil.GetRangeLimits(shader, i, 1), max = ShaderUtil.GetRangeLimits(shader, i, 2) }
+                        : null,
+                };
+            }
+
+            return ToolResult.Json(new
+            {
+                shaderName = shader.name,
+                propertyCount = count,
+                properties
+            });
+        }
+
+        [McpTool("material_get_keywords", "Get enabled shader keywords on a material",
+            Group = "material", ReadOnly = true)]
+        public static ToolResult GetKeywords(
+            [Desc("Material asset path")] string path)
+        {
+            var pv = PathValidator.QuickValidate(path);
+            if (!pv.IsValid) return ToolResult.Error(pv.Error);
+
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+                return ToolResult.Error($"Material not found: {path}");
+
+            return ToolResult.Json(new
+            {
+                path,
+                shader = material.shader.name,
+                enabledKeywords = material.shaderKeywords,
+                renderQueue = material.renderQueue,
+                enableInstancing = material.enableInstancing,
+                doubleSidedGI = material.doubleSidedGI,
+                globalIlluminationFlags = material.globalIlluminationFlags.ToString(),
+            });
+        }
+
+        [McpTool("material_set_keywords", "Enable or disable shader keywords on a material",
+            Group = "material")]
+        public static ToolResult SetKeywords(
+            [Desc("Material asset path")] string path,
+            [Desc("Keywords to enable")] string[] enable = null,
+            [Desc("Keywords to disable")] string[] disable = null,
+            [Desc("Render queue value (-1 for shader default)")] int? renderQueue = null,
+            [Desc("Enable GPU instancing")] bool? enableInstancing = null)
+        {
+            var pv = PathValidator.QuickValidate(path);
+            if (!pv.IsValid) return ToolResult.Error(pv.Error);
+
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+                return ToolResult.Error($"Material not found: {path}");
+
+            Undo.RecordObject(material, "Set Material Keywords");
+            int modified = 0;
+
+            if (enable != null)
+            {
+                foreach (var kw in enable)
+                { material.EnableKeyword(kw); modified++; }
+            }
+            if (disable != null)
+            {
+                foreach (var kw in disable)
+                { material.DisableKeyword(kw); modified++; }
+            }
+            if (renderQueue.HasValue) { material.renderQueue = renderQueue.Value; modified++; }
+            if (enableInstancing.HasValue) { material.enableInstancing = enableInstancing.Value; modified++; }
+
+            EditorUtility.SetDirty(material);
+            AssetDatabase.SaveAssets();
+            return ToolResult.Text($"Modified {modified} keyword/settings on '{material.name}'");
+        }
     }
 }
