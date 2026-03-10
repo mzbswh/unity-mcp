@@ -1,3 +1,4 @@
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,6 +11,33 @@ namespace UnityMcp.Editor.Tools
     [McpToolGroup("UI")]
     public static class UITools
     {
+        private static MethodInfo _findFirstObjectByTypeMethod;
+        private static bool _findMethodChecked;
+
+        private static T FindFirstObjectByTypeCompat<T>() where T : Object
+        {
+            if (!_findMethodChecked)
+            {
+                _findFirstObjectByTypeMethod = typeof(Object).GetMethod(
+                    "FindFirstObjectByType",
+                    BindingFlags.Public | BindingFlags.Static,
+                    null,
+                    System.Type.EmptyTypes,
+                    null);
+                _findMethodChecked = true;
+            }
+
+            if (_findFirstObjectByTypeMethod != null)
+            {
+                var generic = _findFirstObjectByTypeMethod.MakeGenericMethod(typeof(T));
+                return generic.Invoke(null, null) as T;
+            }
+
+#pragma warning disable CS0618
+            return Object.FindObjectOfType<T>();
+#pragma warning restore CS0618
+        }
+
         [McpTool("ui_create_element", "Create a UI element (requires Canvas in scene)",
             Group = "ui")]
         public static ToolResult CreateElement(
@@ -19,7 +47,7 @@ namespace UnityMcp.Editor.Tools
             [Desc("Text content (for text/button)")] string text = null)
         {
             // Ensure Canvas exists
-            var canvas = Object.FindFirstObjectByType<Canvas>();
+            var canvas = FindFirstObjectByTypeCompat<Canvas>();
             if (canvas == null && type.ToLower() != "canvas")
             {
                 return ToolResult.Error("No Canvas found in scene. Create a canvas first with type='canvas'.");
@@ -90,7 +118,7 @@ namespace UnityMcp.Editor.Tools
             go.AddComponent<GraphicRaycaster>();
 
             // Ensure EventSystem exists
-            if (Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
+            if (FindFirstObjectByTypeCompat<UnityEngine.EventSystems.EventSystem>() == null)
             {
                 var eventSystem = new GameObject("EventSystem");
                 eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
