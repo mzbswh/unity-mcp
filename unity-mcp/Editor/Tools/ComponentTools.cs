@@ -180,9 +180,14 @@ namespace UnityMcp.Editor.Tools
             var prop = so.FindProperty(name);
             if (prop != null) return prop;
 
-            // 2. Try m_ + PascalCase (e.g. "sprite" → "m_Sprite", "color" → "m_Color")
+            // 2. Try m_ + variations (covers both Unity style "m_Sprite" and TMP style "m_text")
             if (!name.StartsWith("m_"))
             {
+                // Try m_ + original name (e.g. "text" → "m_text", "fontSize" → "m_fontSize")
+                prop = so.FindProperty("m_" + name);
+                if (prop != null) return prop;
+
+                // Try m_ + PascalCase (e.g. "sprite" → "m_Sprite", "color" → "m_Color")
                 string pascal = char.ToUpperInvariant(name[0]) + name.Substring(1);
                 prop = so.FindProperty("m_" + pascal);
                 if (prop != null) return prop;
