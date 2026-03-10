@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
@@ -127,25 +126,18 @@ namespace UnityMcp.Editor.Tools
 
         private static Type ResolveComponentType(string typeName)
         {
-            // Try UnityEngine namespace first
-            var type = Type.GetType($"UnityEngine.{typeName}, UnityEngine.CoreModule");
-            if (type != null) return type;
-
-            type = Type.GetType($"UnityEngine.{typeName}, UnityEngine.PhysicsModule");
-            if (type != null) return type;
-
-            type = Type.GetType($"UnityEngine.{typeName}, UnityEngine.AudioModule");
-            if (type != null) return type;
-
-            type = Type.GetType($"UnityEngine.{typeName}, UnityEngine.UIModule");
-            if (type != null) return type;
-
-            // Search all loaded assemblies
+            // Search all loaded assemblies for a Component with the given name
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
             {
-                type = asm.GetTypes().FirstOrDefault(t =>
-                    t.Name == typeName && typeof(Component).IsAssignableFrom(t));
-                if (type != null) return type;
+                Type[] types;
+                try { types = asm.GetTypes(); }
+                catch (ReflectionTypeLoadException ex) { types = ex.Types; }
+
+                foreach (var t in types)
+                {
+                    if (t != null && t.Name == typeName && typeof(Component).IsAssignableFrom(t))
+                        return t;
+                }
             }
 
             return null;

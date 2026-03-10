@@ -37,6 +37,10 @@ namespace UnityMcp.Editor.Core
             UnityEditor.Compilation.CompilationPipeline.compilationFinished += _ =>
             {
                 s_mainThreadId = Thread.CurrentThread.ManagedThreadId;
+                // Flush queued actions immediately after compilation.
+                // During compilation, EditorApplication.update is paused,
+                // so requests pile up and appear to hang.
+                ProcessQueue();
             };
         }
 

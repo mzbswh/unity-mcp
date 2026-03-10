@@ -111,11 +111,21 @@ namespace UnityMcp.Shared.Utils
             if (underlying != null)
                 return ConvertParameter(token, underlying, paramName);
 
-            // JObject / JArray passthrough
+            // JObject / JArray passthrough (also handle stringified JSON from MCP clients)
             if (targetType == typeof(JObject))
-                return token as JObject ?? token.ToObject<JObject>();
+            {
+                if (token is JObject jo) return jo;
+                if (token.Type == JTokenType.String)
+                    return JObject.Parse(token.Value<string>());
+                return token.ToObject<JObject>();
+            }
             if (targetType == typeof(JArray))
-                return token as JArray ?? token.ToObject<JArray>();
+            {
+                if (token is JArray ja) return ja;
+                if (token.Type == JTokenType.String)
+                    return JArray.Parse(token.Value<string>());
+                return token.ToObject<JArray>();
+            }
 
             // Standard types (string, int, float, bool, arrays, objects)
             return token.ToObject(targetType);
