@@ -218,7 +218,8 @@ namespace UnityMcp.Editor.Tools
             if (fogEndDistance.HasValue) { RenderSettings.fogEndDistance = fogEndDistance.Value; modified++; }
             if (reflectionIntensity.HasValue) { RenderSettings.reflectionIntensity = reflectionIntensity.Value; modified++; }
 
-            EditorUtility.SetDirty(RenderSettings.GetRenderSettings());
+            var rs = UnityEngine.Resources.FindObjectsOfTypeAll<RenderSettings>();
+            if (rs.Length > 0) EditorUtility.SetDirty(rs[0]);
             return ToolResult.Text($"Modified {modified} environment settings");
         }
 
