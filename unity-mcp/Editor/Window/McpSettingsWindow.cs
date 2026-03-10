@@ -208,6 +208,13 @@ namespace UnityMcp.Editor.Window
                         MessageType.Warning);
                 else
                     EditorGUILayout.HelpBox("Leave empty to use the default bundled binary.", MessageType.Info);
+
+                if (GUILayout.Button("Update Package (re-resolve)"))
+                {
+                    UnityEditor.PackageManager.Client.Resolve();
+                    _cachedDefaultBridgePath = null;
+                    McpLogger.Info("Package re-resolve requested. Unity will refresh package cache.");
+                }
             }
             EditorGUILayout.EndVertical();
         }
