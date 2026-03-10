@@ -188,17 +188,17 @@ namespace UnityMcp.Editor.Core
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = "uname",
-                        Arguments = "-m",
+                        FileName = "sysctl",
+                        Arguments = "-n hw.optional.arm64",
                         RedirectStandardOutput = true,
                         UseShellExecute = false,
                         CreateNoWindow = true
                     }
                 };
                 proc.Start();
-                string arch = proc.StandardOutput.ReadToEnd().Trim();
+                string result = proc.StandardOutput.ReadToEnd().Trim();
                 proc.WaitForExit();
-                return arch == "arm64" || arch == "aarch64";
+                return result == "1";
             }
             catch
             {
