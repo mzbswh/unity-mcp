@@ -56,11 +56,6 @@ namespace UnityMcp.Editor.Window
 
             EditorGUILayout.BeginVertical();
 
-            // Header
-            EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField("Unity MCP", _headerStyle);
-            EditorGUILayout.Space(4);
-
             // Status bar
             DrawStatusBar();
             EditorGUILayout.Space(6);
