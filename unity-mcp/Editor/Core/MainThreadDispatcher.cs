@@ -29,6 +29,7 @@ namespace UnityMcp.Editor.Core
     {
         private static readonly ConcurrentQueue<Action> s_queue = new();
         private static int s_mainThreadId;
+        private static volatile bool s_hasPending;
 
         static MainThreadDispatcher()
         {
@@ -37,9 +38,6 @@ namespace UnityMcp.Editor.Core
             UnityEditor.Compilation.CompilationPipeline.compilationFinished += _ =>
             {
                 s_mainThreadId = Thread.CurrentThread.ManagedThreadId;
-                // Flush queued actions immediately after compilation.
-                // During compilation, EditorApplication.update is paused,
-                // so requests pile up and appear to hang.
                 ProcessQueue();
             };
         }
@@ -70,9 +68,8 @@ namespace UnityMcp.Editor.Core
                 finally { cts.Dispose(); }
             });
 
-            // Nudge Unity to run an update cycle soon.
-            // Without this, idle editor may delay ProcessQueue by up to 1s+.
-            EditorApplication.QueuePlayerLoopUpdate();
+            // Signal that work is pending so delayCall fast-path kicks in
+            s_hasPending = true;
 
             return tcs.Task;
         }
@@ -90,6 +87,13 @@ namespace UnityMcp.Editor.Core
                 try { action(); }
                 catch (Exception ex) { Debug.LogException(ex); }
             }
+
+            // If items remain, schedule another drain via delayCall
+            // (fires sooner than next EditorApplication.update when editor is idle)
+            if (!s_queue.IsEmpty)
+                EditorApplication.delayCall += ProcessQueue;
+
+            s_hasPending = !s_queue.IsEmpty;
         }
     }
 }
