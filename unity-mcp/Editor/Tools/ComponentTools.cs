@@ -58,7 +58,7 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Text($"Removed {type} from '{go.name}'");
         }
 
-        [McpTool("component_get", "Get serialized field values of a component",
+        [McpTool("component_get", "Get serialized field values of a component. ObjectReference fields return asset paths, array fields return JSON arrays.",
             Group = "component", ReadOnly = true)]
         public static ToolResult Get(
             [Desc("Name or path of the target GameObject")] string target,
@@ -88,12 +88,12 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Json(new { gameObject = go.name, component = type, fields });
         }
 
-        [McpTool("component_modify", "Modify serialized field values of a component",
+        [McpTool("component_modify", "Modify serialized field values of a component. Supports int, float, bool, string, enum, Vector2/3/4, Quaternion, Rect, Bounds, Color, ObjectReference (pass asset path like 'Assets/Materials/X.mat'), and arrays (pass JSON array).",
             Group = "component")]
         public static ToolResult Modify(
             [Desc("Name or path of the target GameObject")] string target,
             [Desc("Component type name")] string type,
-            [Desc("Fields to set as {fieldName: value} object")] JObject fields)
+            [Desc("Fields to set as {fieldName: value}. Use asset paths for ObjectReference fields, arrays for array fields.")] JObject fields)
         {
             var go = GameObjectTools.FindGameObject(target, null);
             if (go == null)
@@ -145,6 +145,15 @@ namespace UnityMcp.Editor.Tools
 
         private static JToken SerializedPropertyToToken(SerializedProperty prop)
         {
+            // Handle arrays
+            if (prop.isArray && prop.propertyType != SerializedPropertyType.String)
+            {
+                var arr = new JArray();
+                for (int i = 0; i < prop.arraySize; i++)
+                    arr.Add(SerializedPropertyToToken(prop.GetArrayElementAtIndex(i)));
+                return arr;
+            }
+
             switch (prop.propertyType)
             {
                 case SerializedPropertyType.Integer: return prop.intValue;
@@ -161,12 +170,29 @@ namespace UnityMcp.Editor.Tools
                 case SerializedPropertyType.Vector3:
                     var v3 = prop.vector3Value;
                     return new JObject { ["x"] = v3.x, ["y"] = v3.y, ["z"] = v3.z };
+                case SerializedPropertyType.Vector4:
+                    var v4 = prop.vector4Value;
+                    return new JObject { ["x"] = v4.x, ["y"] = v4.y, ["z"] = v4.z, ["w"] = v4.w };
+                case SerializedPropertyType.Quaternion:
+                    var q = prop.quaternionValue;
+                    return new JObject { ["x"] = q.x, ["y"] = q.y, ["z"] = q.z, ["w"] = q.w };
+                case SerializedPropertyType.Rect:
+                    var r = prop.rectValue;
+                    return new JObject { ["x"] = r.x, ["y"] = r.y, ["width"] = r.width, ["height"] = r.height };
+                case SerializedPropertyType.Bounds:
+                    var b = prop.boundsValue;
+                    return new JObject
+                    {
+                        ["center"] = new JObject { ["x"] = b.center.x, ["y"] = b.center.y, ["z"] = b.center.z },
+                        ["size"] = new JObject { ["x"] = b.size.x, ["y"] = b.size.y, ["z"] = b.size.z }
+                    };
                 case SerializedPropertyType.Color:
                     var c = prop.colorValue;
                     return new JObject { ["r"] = c.r, ["g"] = c.g, ["b"] = c.b, ["a"] = c.a };
                 case SerializedPropertyType.ObjectReference:
-                    return prop.objectReferenceValue != null
-                        ? prop.objectReferenceValue.name : null;
+                    if (prop.objectReferenceValue == null) return null;
+                    var assetPath = AssetDatabase.GetAssetPath(prop.objectReferenceValue);
+                    return !string.IsNullOrEmpty(assetPath) ? assetPath : prop.objectReferenceValue.name;
                 default:
                     return prop.propertyType.ToString();
             }
@@ -174,6 +200,16 @@ namespace UnityMcp.Editor.Tools
 
         private static void SetSerializedProperty(SerializedProperty prop, JToken value)
         {
+            // Handle arrays: value should be a JArray, or a single value wrapped into one
+            if (prop.isArray && prop.propertyType != SerializedPropertyType.String)
+            {
+                var arr = value is JArray ja ? ja : new JArray { value };
+                prop.arraySize = arr.Count;
+                for (int i = 0; i < arr.Count; i++)
+                    SetSerializedProperty(prop.GetArrayElementAtIndex(i), arr[i]);
+                return;
+            }
+
             switch (prop.propertyType)
             {
                 case SerializedPropertyType.Integer:
@@ -204,12 +240,55 @@ namespace UnityMcp.Editor.Tools
                         value["y"]?.Value<float>() ?? 0f,
                         value["z"]?.Value<float>() ?? 0f);
                     break;
+                case SerializedPropertyType.Vector4:
+                    prop.vector4Value = new Vector4(
+                        value["x"]?.Value<float>() ?? 0f,
+                        value["y"]?.Value<float>() ?? 0f,
+                        value["z"]?.Value<float>() ?? 0f,
+                        value["w"]?.Value<float>() ?? 0f);
+                    break;
+                case SerializedPropertyType.Quaternion:
+                    prop.quaternionValue = new Quaternion(
+                        value["x"]?.Value<float>() ?? 0f,
+                        value["y"]?.Value<float>() ?? 0f,
+                        value["z"]?.Value<float>() ?? 0f,
+                        value["w"]?.Value<float>() ?? 1f);
+                    break;
+                case SerializedPropertyType.Rect:
+                    prop.rectValue = new Rect(
+                        value["x"]?.Value<float>() ?? 0f,
+                        value["y"]?.Value<float>() ?? 0f,
+                        value["width"]?.Value<float>() ?? 0f,
+                        value["height"]?.Value<float>() ?? 0f);
+                    break;
+                case SerializedPropertyType.Bounds:
+                    prop.boundsValue = new Bounds(
+                        new Vector3(
+                            value["center"]?["x"]?.Value<float>() ?? 0f,
+                            value["center"]?["y"]?.Value<float>() ?? 0f,
+                            value["center"]?["z"]?.Value<float>() ?? 0f),
+                        new Vector3(
+                            value["size"]?["x"]?.Value<float>() ?? 0f,
+                            value["size"]?["y"]?.Value<float>() ?? 0f,
+                            value["size"]?["z"]?.Value<float>() ?? 0f));
+                    break;
                 case SerializedPropertyType.Color:
                     prop.colorValue = new Color(
                         value["r"]?.Value<float>() ?? 0f,
                         value["g"]?.Value<float>() ?? 0f,
                         value["b"]?.Value<float>() ?? 0f,
                         value["a"]?.Value<float>() ?? 1f);
+                    break;
+                case SerializedPropertyType.ObjectReference:
+                    var path = value.Value<string>();
+                    if (string.IsNullOrEmpty(path))
+                        prop.objectReferenceValue = null;
+                    else
+                    {
+                        var asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path);
+                        if (asset != null)
+                            prop.objectReferenceValue = asset;
+                    }
                     break;
             }
         }
