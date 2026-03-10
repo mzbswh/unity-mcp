@@ -120,7 +120,19 @@ namespace UnityMcp.Editor.Core
             {
                 _serverProcess = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
                 _serverProcess.Exited += OnProcessExited;
+                _serverProcess.OutputDataReceived += (sender, args) =>
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                        McpLogger.Info($"[Bridge] {args.Data}");
+                };
+                _serverProcess.ErrorDataReceived += (sender, args) =>
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                        McpLogger.Error($"[Bridge] {args.Data}");
+                };
                 _serverProcess.Start();
+                _serverProcess.BeginOutputReadLine();
+                _serverProcess.BeginErrorReadLine();
                 EditorPrefs.SetInt(PidPrefKey, _serverProcess.Id);
                 McpLogger.Info($"Started {_settings.Mode} server (PID: {_serverProcess.Id})");
             }
@@ -179,6 +191,7 @@ namespace UnityMcp.Editor.Core
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
         }
 
