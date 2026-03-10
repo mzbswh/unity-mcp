@@ -107,8 +107,15 @@ namespace UnityMcp.Editor.Window
                 {
                     normal = { textColor = isRunning ? new Color(0.1f, 0.7f, 0.2f) : new Color(0.8f, 0.2f, 0.2f) }
                 };
+                string clientNames = "";
+                if (clients > 0)
+                {
+                    var connectedClients = transport.ConnectedClients;
+                    clientNames = string.Join(", ", connectedClients.Select(c => c.Name));
+                }
                 string statusText = isRunning
-                    ? $"Running  |  Port {transport.Port}  |  {clients} client(s)"
+                    ? $"Running  |  Port {transport.Port}  |  {clients} client(s)" +
+                      (string.IsNullOrEmpty(clientNames) ? "" : $" [{clientNames}]")
                     : "Stopped";
                 EditorGUILayout.LabelField(statusText, statusStyle);
 
@@ -373,9 +380,29 @@ namespace UnityMcp.Editor.Window
             {
                 if (count > 0)
                 {
-                    EditorGUILayout.LabelField(
-                        $"{count} client(s) currently connected to TCP port {transport.Port}.",
-                        _wrappedLabelStyle);
+                    var clients = transport.ConnectedClients;
+                    foreach (var info in clients)
+                    {
+                        EditorGUILayout.BeginHorizontal();
+                        {
+                            var oldColor = GUI.color;
+                            GUI.color = new Color(0.2f, 0.9f, 0.3f);
+                            GUILayout.Label("\u25CF", GUILayout.Width(14));
+                            GUI.color = oldColor;
+
+                            string version = string.IsNullOrEmpty(info.Version) ? "" : $" v{info.Version}";
+                            string duration = FormatDuration(DateTime.Now - info.ConnectedAt);
+                            EditorGUILayout.LabelField($"{info.Name}{version}",
+                                EditorStyles.boldLabel, GUILayout.MinWidth(120));
+                            var dimStyle = new GUIStyle(EditorStyles.miniLabel)
+                            {
+                                normal = { textColor = new Color(0.5f, 0.5f, 0.5f) }
+                            };
+                            EditorGUILayout.LabelField($"{info.Endpoint}  ·  {duration}",
+                                dimStyle, GUILayout.MinWidth(100));
+                        }
+                        EditorGUILayout.EndHorizontal();
+                    }
                 }
                 else
                 {
@@ -386,6 +413,14 @@ namespace UnityMcp.Editor.Window
                 }
             }
             EditorGUILayout.EndVertical();
+        }
+
+        private static string FormatDuration(TimeSpan duration)
+        {
+            if (duration.TotalSeconds < 60) return $"{(int)duration.TotalSeconds}s";
+            if (duration.TotalMinutes < 60) return $"{(int)duration.TotalMinutes}m";
+            if (duration.TotalHours < 24) return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+            return $"{(int)duration.TotalDays}d {duration.Hours}h";
         }
 
         // ======================== Tools Tab ========================

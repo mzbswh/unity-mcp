@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityMcp.Shared.Interfaces;
 using UnityMcp.Shared.Models;
 
@@ -21,6 +22,7 @@ namespace UnityMcp.Runtime.Core
         private readonly List<TcpClient> _clients = new();
         private readonly object _clientsLock = new();
         private readonly ConcurrentDictionary<TcpClient, object> _writeLocks = new();
+        private readonly ConcurrentDictionary<TcpClient, ConnectedClientInfo> _clientInfos = new();
 
         public int Port { get; }
         public bool IsRunning { get; private set; }
@@ -28,6 +30,23 @@ namespace UnityMcp.Runtime.Core
         public int ClientCount
         {
             get { lock (_clientsLock) return _clients.Count; }
+        }
+
+        public IReadOnlyList<ConnectedClientInfo> ConnectedClients
+        {
+            get
+            {
+                lock (_clientsLock)
+                {
+                    var list = new List<ConnectedClientInfo>();
+                    foreach (var client in _clients)
+                    {
+                        if (_clientInfos.TryGetValue(client, out var info))
+                            list.Add(info);
+                    }
+                    return list;
+                }
+            }
         }
 
         public RuntimeTcpTransport(int port, RuntimeRequestHandler handler)
@@ -59,6 +78,7 @@ namespace UnityMcp.Runtime.Core
                 _clients.Clear();
             }
             _writeLocks.Clear();
+            _clientInfos.Clear();
             _cts?.Dispose();
             _cts = null;
             _listener = null;
@@ -82,6 +102,13 @@ namespace UnityMcp.Runtime.Core
                 {
                     var client = await _listener.AcceptTcpClientAsync();
                     _writeLocks[client] = new object();
+                    var endpoint = client.Client.RemoteEndPoint;
+                    _clientInfos[client] = new ConnectedClientInfo
+                    {
+                        Name = endpoint?.ToString() ?? "Unknown",
+                        Endpoint = endpoint?.ToString(),
+                        ConnectedAt = DateTime.Now
+                    };
                     lock (_clientsLock) _clients.Add(client);
                     _ = HandleClient(client, ct);
                 }
@@ -125,6 +152,7 @@ namespace UnityMcp.Runtime.Core
                         continue;
                     }
 
+                    TryExtractClientInfo(client, json);
                     var response = await _handler.HandleRequest(json);
                     var respBytes = Encoding.UTF8.GetBytes(response);
                     SendFrame(client, McpConst.MsgTypeResponse, respBytes);
@@ -137,6 +165,7 @@ namespace UnityMcp.Runtime.Core
             finally
             {
                 _writeLocks.TryRemove(client, out _);
+                _clientInfos.TryRemove(client, out _);
                 lock (_clientsLock) _clients.Remove(client);
                 try { client.Close(); } catch { }
             }
@@ -163,6 +192,23 @@ namespace UnityMcp.Runtime.Core
                 }
                 catch (Exception ex) { UnityEngine.Debug.LogWarning($"[MCP Runtime] SendFrame error: {ex.Message}"); }
             }
+        }
+
+        private void TryExtractClientInfo(TcpClient client, string json)
+        {
+            try
+            {
+                var req = JObject.Parse(json);
+                if (req["method"]?.ToString() != "initialize") return;
+                var ci = req["params"]?["clientInfo"];
+                if (ci == null) return;
+                if (_clientInfos.TryGetValue(client, out var info))
+                {
+                    info.Name = ci["name"]?.ToString() ?? info.Name;
+                    info.Version = ci["version"]?.ToString();
+                }
+            }
+            catch { /* ignore parse errors */ }
         }
 
         private static async Task ReadExactAsync(

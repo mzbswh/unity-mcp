@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityMcp.Shared.Interfaces;
 using UnityMcp.Shared.Models;
 using UnityMcp.Shared.Utils;
@@ -22,6 +23,7 @@ namespace UnityMcp.Editor.Core
         private readonly object _clientsLock = new();
         // Per-client write lock to prevent concurrent SendFrame from corrupting the TCP stream
         private readonly ConcurrentDictionary<TcpClient, object> _writeLocks = new();
+        private readonly ConcurrentDictionary<TcpClient, ConnectedClientInfo> _clientInfos = new();
         private Timer _heartbeatTimer;
 
         public int Port { get; }
@@ -30,6 +32,23 @@ namespace UnityMcp.Editor.Core
         public int ClientCount
         {
             get { lock (_clientsLock) return _clients.Count; }
+        }
+
+        public IReadOnlyList<ConnectedClientInfo> ConnectedClients
+        {
+            get
+            {
+                lock (_clientsLock)
+                {
+                    var list = new List<ConnectedClientInfo>();
+                    foreach (var client in _clients)
+                    {
+                        if (_clientInfos.TryGetValue(client, out var info))
+                            list.Add(info);
+                    }
+                    return list;
+                }
+            }
         }
 
         public TcpTransport(int port, RequestHandler handler)
@@ -63,6 +82,7 @@ namespace UnityMcp.Editor.Core
                 _clients.Clear();
             }
             _writeLocks.Clear();
+            _clientInfos.Clear();
             _heartbeatTimer?.Dispose();
             _heartbeatTimer = null;
             _cts?.Dispose();
@@ -96,8 +116,14 @@ namespace UnityMcp.Editor.Core
                     // Enable TCP keepalive to help detect dead connections
                     client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
                     _writeLocks[client] = new object();
-                    lock (_clientsLock) _clients.Add(client);
                     var endpoint = client.Client.RemoteEndPoint;
+                    _clientInfos[client] = new ConnectedClientInfo
+                    {
+                        Name = endpoint?.ToString() ?? "Unknown",
+                        Endpoint = endpoint?.ToString(),
+                        ConnectedAt = DateTime.Now
+                    };
+                    lock (_clientsLock) _clients.Add(client);
                     McpLogger.Info($"Bridge connected from {endpoint}");
                     _ = HandleClient(client, ct);
                 }
@@ -144,6 +170,9 @@ namespace UnityMcp.Editor.Core
                         continue;
                     }
 
+                    // Extract client info from initialize request
+                    TryExtractClientInfo(client, json);
+
                     var response = await _handler.HandleRequest(json);
                     McpLogger.Debug($"-> {response}");
 
@@ -159,6 +188,7 @@ namespace UnityMcp.Editor.Core
             {
                 McpLogger.Info($"Bridge disconnected ({endpoint})");
                 _writeLocks.TryRemove(client, out _);
+                _clientInfos.TryRemove(client, out _);
                 lock (_clientsLock) _clients.Remove(client);
                 try { client.Close(); } catch { }
             }
@@ -226,10 +256,28 @@ namespace UnityMcp.Editor.Core
                         McpLogger.Debug("Pruning dead client connection");
                         _clients.Remove(client);
                         _writeLocks.TryRemove(client, out _);
+                        _clientInfos.TryRemove(client, out _);
                         try { client.Close(); } catch { }
                     }
                 }
             }
+        }
+
+        private void TryExtractClientInfo(TcpClient client, string json)
+        {
+            try
+            {
+                var req = JObject.Parse(json);
+                if (req["method"]?.ToString() != "initialize") return;
+                var ci = req["params"]?["clientInfo"];
+                if (ci == null) return;
+                if (_clientInfos.TryGetValue(client, out var info))
+                {
+                    info.Name = ci["name"]?.ToString() ?? info.Name;
+                    info.Version = ci["version"]?.ToString();
+                }
+            }
+            catch { /* ignore parse errors */ }
         }
 
         private static async Task ReadExactAsync(
