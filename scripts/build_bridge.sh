@@ -44,8 +44,10 @@ for rid in "${RIDS[@]}"; do
         -c Release \
         -r "$rid" \
         -o "$OUT_DIR" \
-        --self-contained false \
+        --self-contained true \
         -p:PublishSingleFile=true \
+        -p:PublishTrimmed=true \
+        -p:TrimMode=link \
         -p:DebugType=none \
         -p:DebugSymbols=false \
         /nologo -v quiet

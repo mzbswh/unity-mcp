@@ -259,10 +259,10 @@ unity-mcp/
 
 | | Mode A: Built-in (C# Bridge) | Mode B: Python (FastMCP) |
 |---|---|---|
-| **外部依赖** | [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Python 3.10+, `mcp>=1.0.0` |
-| **Bridge 体积** | 轻量（framework-dependent） | — |
+| **外部依赖** | 无（自包含可执行文件） | Python 3.10+（`uvx` 自动安装） |
+| **传输模式** | stdio | stdio / Streamable HTTP |
 | **额外工具** | — | `analyze_script`, `validate_assets` |
-| **适合场景** | 轻量，快速启动 | 需要 Python 分析工具或自定义集成 |
+| **适合场景** | 开箱即用，零配置 | 需要 Python 分析工具、HTTP 部署或 Docker |
 
 ---
 
@@ -311,9 +311,11 @@ Python 服务器额外提供：
 ```bash
 cd unity-server
 
-# docker compose
+# stdio 模式（默认）
 docker compose up -d
-UNITY_MCP_PORT=53000 docker compose up -d
+
+# Streamable HTTP 模式
+UNITY_MCP_TRANSPORT=streamable-http docker compose up -d
 
 # 手动
 docker build -t unity-mcp-server .
@@ -329,6 +331,8 @@ docker run -it --rm \
 | `UNITY_MCP_HOST` | `host.docker.internal` | Unity Editor 主机地址 |
 | `UNITY_MCP_PORT` | `51279` | Unity Editor TCP 端口 |
 | `UNITY_MCP_TIMEOUT` | `60` | 请求超时时间（秒） |
+| `UNITY_MCP_TRANSPORT` | `stdio` | 传输模式：`stdio` 或 `streamable-http` |
+| `UNITY_MCP_HTTP_PORT` | `8080` | HTTP 端口（仅 `streamable-http` 模式） |
 
 </details>
 
@@ -341,8 +345,10 @@ docker run -it --rm \
 | 设置 | 默认值 | 说明 |
 |------|--------|------|
 | Server Mode | Built-in | `Built-in`（C# Bridge）或 `Python`（FastMCP） |
-| Port | Auto | TCP 端口（-1 = 根据项目路径哈希自动生成） |
-| Auto Start | 开启 | 自动启动外部服务器（仅 Python 模式） |
+| Port | 51279 | TCP 端口，多实例场景可修改 |
+| Auto Start | 开启 | Unity 启动时自动启动 MCP 服务 |
+| Transport | Stdio | Python 模式传输方式：`Stdio` 或 `Streamable HTTP` |
+| HTTP Port | 8080 | Streamable HTTP 模式的端口（仅 Python 模式） |
 | Request Timeout | 60s | 工具执行最大超时 |
 | Log Level | Info | Debug / Info / Warning / Error / Off |
 | Audit Log | 关闭 | 记录每次工具调用及耗时 |
@@ -400,9 +406,9 @@ docker run -it --rm \
 ## 系统要求
 
 - **Unity** 2021.2+
-- **Mode A**：[.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)（Bridge 已预编译打包于 `Bridge~/`，轻量）
-- **Mode B**：Python 3.10+，`mcp>=1.0.0`
-- **依赖**：`com.unity.nuget.newtonsoft-json` 3.2.1+（自动解析）
+- **Mode A**：无额外依赖（Bridge 为自包含可执行文件，已预编译打包于 `Bridge~/`）
+- **Mode B**：Python 3.10+（推荐使用 `uvx`，自动安装依赖）
+- **Unity 依赖**：`com.unity.nuget.newtonsoft-json` 3.2.1+（自动解析）
 - **重新构建 Bridge**（可选）：[.NET 8+ SDK](https://dotnet.microsoft.com/download)，运行 `./scripts/build_bridge.sh --current-only`
 
 ## 许可证

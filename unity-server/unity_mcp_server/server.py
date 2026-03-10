@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP
 from .unity_connection import UnityConnection
 from . import __version__
-from .config import UNITY_HOST, UNITY_PORT
+from .config import UNITY_HOST, UNITY_PORT, TRANSPORT, HTTP_PORT
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -393,7 +393,10 @@ def validate_assets(project_path: str) -> str:
 
 def main():
     """Entry point for the Unity MCP Python server."""
-    mcp.run()
+    if TRANSPORT == "streamable-http":
+        mcp.run(transport="streamable-http", host="0.0.0.0", port=HTTP_PORT)
+    else:
+        mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

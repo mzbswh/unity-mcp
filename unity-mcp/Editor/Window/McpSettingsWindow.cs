@@ -216,19 +216,34 @@ namespace UnityMcp.Editor.Window
             EditorGUILayout.BeginVertical(_boxStyle);
             {
                 EditorGUI.BeginChangeCheck();
-                string pythonPath = EditorGUILayout.TextField("Python Path", settings.PythonPath);
+                var transport = (McpSettings.PythonTransportMode)EditorGUILayout.EnumPopup(
+                    new GUIContent("Transport", "How MCP clients communicate with the Python server."),
+                    settings.PythonTransport);
                 if (EditorGUI.EndChangeCheck())
-                    settings.PythonPath = pythonPath;
+                    settings.PythonTransport = transport;
 
-                EditorGUI.BeginChangeCheck();
-                string script = EditorGUILayout.TextField("Server Script", settings.PythonServerScript);
-                if (EditorGUI.EndChangeCheck())
-                    settings.PythonServerScript = script;
+                if (settings.PythonTransport == McpSettings.PythonTransportMode.StreamableHttp)
+                {
+                    EditorGUI.BeginChangeCheck();
+                    int httpPort = EditorGUILayout.IntField(
+                        new GUIContent("HTTP Port", "Port for the Streamable HTTP server."),
+                        settings.PythonHttpPort);
+                    if (EditorGUI.EndChangeCheck())
+                        settings.PythonHttpPort = Mathf.Max(1, httpPort);
 
-                EditorGUI.BeginChangeCheck();
-                bool useUv = EditorGUILayout.Toggle("Use uv", settings.UseUv);
-                if (EditorGUI.EndChangeCheck())
-                    settings.UseUv = useUv;
+                    EditorGUILayout.HelpBox(
+                        "Streamable HTTP mode: run the server manually with\n" +
+                        $"  UNITY_MCP_PORT={settings.Port} UNITY_MCP_TRANSPORT=streamable-http UNITY_MCP_HTTP_PORT={settings.PythonHttpPort} uvx unity-mcp-server\n\n" +
+                        "Then configure your MCP client with the URL shown in the Clients tab.",
+                        MessageType.Info);
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox(
+                        "Stdio mode: MCP clients launch the Python server automatically.\n" +
+                        "Use the Clients tab to generate the configuration.",
+                        MessageType.Info);
+                }
             }
             EditorGUILayout.EndVertical();
         }
@@ -637,26 +652,27 @@ namespace UnityMcp.Editor.Window
                 };
             }
 
-            string script = settings.PythonServerScript;
-            if (string.IsNullOrEmpty(script))
-                script = "<path-to-server-script>";
-
-            if (settings.UseUv)
+            // Python mode
+            if (settings.PythonTransport == McpSettings.PythonTransportMode.StreamableHttp)
+            {
                 return new JObject
                 {
-                    ["type"] = "stdio",
-                    ["command"] = "uv",
-                    ["args"] = new JArray { "run", script },
-                    ["env"] = new JObject { ["UNITY_MCP_PORT"] = settings.Port.ToString() }
+                    ["type"] = "http",
+                    ["url"] = $"http://127.0.0.1:{settings.PythonHttpPort}/mcp"
                 };
+            }
 
-            return new JObject
+            // Stdio: MCP client launches uvx unity-mcp-server
+            var entry = new JObject
             {
                 ["type"] = "stdio",
-                ["command"] = settings.PythonPath,
-                ["args"] = new JArray { script },
-                ["env"] = new JObject { ["UNITY_MCP_PORT"] = settings.Port.ToString() }
+                ["command"] = "uvx",
+                ["args"] = new JArray { "unity-mcp-server" }
             };
+            // Only add env if port differs from default
+            if (settings.Port != PortResolver.DefaultPort)
+                entry["env"] = new JObject { ["UNITY_MCP_PORT"] = settings.Port.ToString() };
+            return entry;
         }
 
         // ======================== Config File Paths ========================

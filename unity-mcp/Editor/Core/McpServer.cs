@@ -45,13 +45,9 @@ namespace UnityMcp.Editor.Core
             Transport = new TcpTransport(port, s_handler);
             Transport.Start();
 
-            // 4. Start external server process if AutoStart enabled (Mode B only —
-            //    Mode A Bridge is launched by MCP client, not by Unity)
-            if (settings.AutoStart && settings.Mode == McpSettings.ServerMode.Python)
-            {
-                s_processManager = new ServerProcessManager(settings);
-                s_processManager.StartServer();
-            }
+            // 4. No external process to start.
+            //    - Built-in mode: Bridge is launched by MCP client, not by Unity.
+            //    - Python mode: MCP client launches 'uvx unity-mcp-server' via stdio.
 
             // 5. Register instance for multi-instance discovery
             InstanceDiscovery.Register(port, Application.dataPath.Replace("/Assets", ""));

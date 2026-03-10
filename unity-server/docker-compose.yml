@@ -6,10 +6,12 @@ services:
       - UNITY_MCP_HOST=host.docker.internal
       - UNITY_MCP_PORT=${UNITY_MCP_PORT:-51279}
       - UNITY_MCP_TIMEOUT=${UNITY_MCP_TIMEOUT:-60}
+      - UNITY_MCP_TRANSPORT=${UNITY_MCP_TRANSPORT:-stdio}
+      - UNITY_MCP_HTTP_PORT=${UNITY_MCP_HTTP_PORT:-8080}
     # stdio mode: MCP client connects via stdin/stdout
     stdin_open: true
-    # For Streamable HTTP mode, uncomment:
+    # For Streamable HTTP mode, uncomment ports and set UNITY_MCP_TRANSPORT=streamable-http:
     # ports:
-    #   - "8000:8000"
+    #   - "8080:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"

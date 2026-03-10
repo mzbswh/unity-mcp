@@ -11,14 +11,14 @@ namespace UnityMcp.Editor.Core
         public static new McpSettings Instance => instance;
         public enum ServerMode { BuiltIn, Python }
         public enum McpLogLevel { Debug, Info, Warning, Error, Off }
+        public enum PythonTransportMode { Stdio, StreamableHttp }
 
         [SerializeField] private ServerMode serverMode = ServerMode.BuiltIn;
         [SerializeField] private int port = PortResolver.DefaultPort;
         [SerializeField] private string bridgePath = "";
-        [SerializeField] private string pythonPath = "python3";
-        [SerializeField] private string pythonServerScript = "";
+        [SerializeField] private PythonTransportMode pythonTransport = PythonTransportMode.Stdio;
+        [SerializeField] private int pythonHttpPort = 8080;
         [SerializeField] private bool autoStart = true;
-        [SerializeField] private bool useUv = true;
         [SerializeField] private int requestTimeoutSeconds = 60;
         [SerializeField] private McpLogLevel logLevel = McpLogLevel.Info;
         [SerializeField] private bool enableAuditLog;
@@ -42,28 +42,22 @@ namespace UnityMcp.Editor.Core
             set { bridgePath = value; Save(true); }
         }
 
-        public string PythonPath
+        public PythonTransportMode PythonTransport
         {
-            get => pythonPath;
-            set { pythonPath = value; Save(true); }
+            get => pythonTransport;
+            set { pythonTransport = value; Save(true); }
         }
 
-        public string PythonServerScript
+        public int PythonHttpPort
         {
-            get => pythonServerScript;
-            set { pythonServerScript = value; Save(true); }
+            get => pythonHttpPort;
+            set { pythonHttpPort = value; Save(true); }
         }
 
         public bool AutoStart
         {
             get => autoStart;
             set { autoStart = value; Save(true); }
-        }
-
-        public bool UseUv
-        {
-            get => useUv;
-            set { useUv = value; Save(true); }
         }
 
         public int RequestTimeoutMs => requestTimeoutSeconds * 1000;

@@ -259,10 +259,10 @@ unity-mcp/
 
 | | Mode A: Built-in (C# Bridge) | Mode B: Python (FastMCP) |
 |---|---|---|
-| **Dependencies** | [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Python 3.10+, `mcp>=1.0.0` |
-| **Bridge Size** | lightweight (framework-dependent) | — |
+| **Dependencies** | None (self-contained executable) | Python 3.10+ (`uvx` auto-installs) |
+| **Transport** | stdio | stdio / Streamable HTTP |
 | **Extra Tools** | — | `analyze_script`, `validate_assets` |
-| **Best For** | Lightweight, fast startup | Python analysis tools or custom integration |
+| **Best For** | Out-of-the-box, zero config | Python analysis tools, HTTP deployment, or Docker |
 
 ---
 
@@ -311,9 +311,11 @@ Extra Python tools:
 ```bash
 cd unity-server
 
-# docker compose
+# stdio mode (default)
 docker compose up -d
-UNITY_MCP_PORT=53000 docker compose up -d
+
+# Streamable HTTP mode
+UNITY_MCP_TRANSPORT=streamable-http docker compose up -d
 
 # manual
 docker build -t unity-mcp-server .
@@ -329,6 +331,8 @@ docker run -it --rm \
 | `UNITY_MCP_HOST` | `host.docker.internal` | Unity Editor host address |
 | `UNITY_MCP_PORT` | `51279` | Unity Editor TCP port |
 | `UNITY_MCP_TIMEOUT` | `60` | Request timeout (seconds) |
+| `UNITY_MCP_TRANSPORT` | `stdio` | Transport mode: `stdio` or `streamable-http` |
+| `UNITY_MCP_HTTP_PORT` | `8080` | HTTP port (only for `streamable-http` mode) |
 
 </details>
 
@@ -341,8 +345,10 @@ Access via `Window > Unity MCP`:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Server Mode | Built-in | `Built-in` (C# Bridge) or `Python` (FastMCP) |
-| Port | Auto | TCP port (-1 = auto-generated from project path hash) |
-| Auto Start | On | Auto-start external server (Python mode only) |
+| Port | 51279 | TCP port, change for multi-instance setups |
+| Auto Start | On | Auto-start MCP server when Unity opens |
+| Transport | Stdio | Python transport mode: `Stdio` or `Streamable HTTP` |
+| HTTP Port | 8080 | Streamable HTTP port (Python mode only) |
 | Request Timeout | 60s | Max tool execution timeout |
 | Log Level | Info | Debug / Info / Warning / Error / Off |
 | Audit Log | Off | Log each tool call with timing |
@@ -400,9 +406,9 @@ The entire process is nearly transparent to MCP clients, typically recovering wi
 ## Requirements
 
 - **Unity** 2021.2+
-- **Mode A**: [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) (Bridge is pre-built in `Bridge~/`, lightweight)
-- **Mode B**: Python 3.10+, `mcp>=1.0.0`
-- **Dependency**: `com.unity.nuget.newtonsoft-json` 3.2.1+ (auto-resolved)
+- **Mode A**: No extra dependencies (Bridge is a self-contained executable, pre-built in `Bridge~/`)
+- **Mode B**: Python 3.10+ (recommend `uvx` for automatic dependency management)
+- **Unity Dependency**: `com.unity.nuget.newtonsoft-json` 3.2.1+ (auto-resolved)
 - **Rebuild Bridge** (optional): [.NET 8+ SDK](https://dotnet.microsoft.com/download), run `./scripts/build_bridge.sh --current-only`
 
 ## License

@@ -109,12 +109,11 @@ namespace UnityMcp.Editor.Core
 
         private void LaunchNewProcess()
         {
-            var startInfo = _settings.Mode switch
-            {
-                McpSettings.ServerMode.BuiltIn => CreateBridgeStartInfo(),
-                McpSettings.ServerMode.Python => CreatePythonStartInfo(),
-                _ => null
-            };
+            // Only Bridge mode needs Unity to launch a process.
+            // Python mode: MCP client launches the server via stdio, Unity does nothing.
+            if (_settings.Mode != McpSettings.ServerMode.BuiltIn) return;
+
+            var startInfo = CreateBridgeStartInfo();
             if (startInfo == null) return;
 
             _serverProcess = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
@@ -169,56 +168,6 @@ namespace UnityMcp.Editor.Core
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
             };
-        }
-
-        private ProcessStartInfo CreatePythonStartInfo()
-        {
-            string serverScript = _settings.PythonServerScript;
-            if (string.IsNullOrEmpty(serverScript))
-                return null;
-
-            // Validate script path to prevent command injection
-            if (serverScript.Contains("..") || serverScript.Contains(";")
-                || serverScript.Contains("&") || serverScript.Contains("|")
-                || serverScript.Contains("`") || serverScript.Contains("$"))
-            {
-                McpLogger.Error($"Invalid server script path: {serverScript}");
-                return null;
-            }
-
-            // Validate Python path
-            string pythonPath = _settings.PythonPath;
-            if (!string.IsNullOrEmpty(pythonPath))
-            {
-                var pythonName = Path.GetFileNameWithoutExtension(pythonPath).ToLower();
-                if (pythonName != "python" && pythonName != "python3" && pythonName != "uv")
-                {
-                    McpLogger.Error($"Suspicious Python path: {pythonPath}. Expected python/python3/uv.");
-                    return null;
-                }
-            }
-
-            ProcessStartInfo psi;
-            if (_settings.UseUv)
-                psi = new ProcessStartInfo
-                {
-                    FileName = "uv",
-                    Arguments = $"run {serverScript}",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                };
-            else
-                psi = new ProcessStartInfo
-                {
-                    FileName = pythonPath,
-                    Arguments = serverScript,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                };
-
-            // Pass Unity TCP port via environment variable
-            psi.EnvironmentVariables["UNITY_MCP_PORT"] = _settings.Port.ToString();
-            return psi;
         }
 
         /// <summary>Get the platform-specific runtime identifier for the bridge binary.</summary>
