@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -390,6 +392,8 @@ namespace UnityMcp.Editor.Window
         private bool _showResourcesFoldout = true;
         private bool _showPromptsFoldout = true;
         private bool _allToolsSelected = true;
+        // Per-group foldout state (group name → expanded)
+        private readonly Dictionary<string, bool> _groupFoldouts = new();
 
         private void DrawToolsTab()
         {
@@ -429,41 +433,82 @@ namespace UnityMcp.Editor.Window
                 registry.SetAllToolsEnabled(_allToolsSelected);
             EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.BeginVertical(_boxStyle);
+            // Group tools by category
+            var allEntries = registry.GetAllToolEntries().ToList();
+            var builtInByGroup = new SortedDictionary<string, List<(string name, string description)>>();
+            var customTools = new List<(string name, string description)>();
+
+            foreach (var (name, description, group, builtIn) in allEntries)
             {
-                bool hasBuiltIn = false;
-                bool hasCustom = false;
-
-                // Built-in tools
-                foreach (var (name, description, group, builtIn) in registry.GetAllToolEntries())
+                if (!builtIn)
                 {
-                    if (!builtIn) { hasCustom = true; continue; }
-                    if (!hasBuiltIn)
-                    {
-                        EditorGUILayout.LabelField("Built-in", _subHeaderStyle);
-                        hasBuiltIn = true;
-                    }
-                    DrawToolRow(registry, name, description);
+                    customTools.Add((name, description));
+                    continue;
                 }
-
-                // Custom tools
-                bool firstCustom = true;
-                foreach (var (name, description, group, builtIn) in registry.GetAllToolEntries())
-                {
-                    if (builtIn) continue;
-                    if (firstCustom)
-                    {
-                        if (hasBuiltIn) EditorGUILayout.Space(4);
-                        EditorGUILayout.LabelField("Custom", _subHeaderStyle);
-                        firstCustom = false;
-                    }
-                    DrawToolRow(registry, name, description);
-                }
-
-                if (!hasBuiltIn && !hasCustom)
-                    EditorGUILayout.LabelField("No tools registered.", EditorStyles.centeredGreyMiniLabel);
+                string groupKey = string.IsNullOrEmpty(group) ? "Other" : CapitalizeFirst(group);
+                if (!builtInByGroup.ContainsKey(groupKey))
+                    builtInByGroup[groupKey] = new List<(string, string)>();
+                builtInByGroup[groupKey].Add((name, description));
             }
-            EditorGUILayout.EndVertical();
+
+            // Draw built-in groups
+            foreach (var kv in builtInByGroup)
+            {
+                string groupName = kv.Key;
+                var tools = kv.Value;
+
+                if (!_groupFoldouts.ContainsKey(groupName))
+                    _groupFoldouts[groupName] = true;
+
+                _groupFoldouts[groupName] = EditorGUILayout.Foldout(
+                    _groupFoldouts[groupName],
+                    $"{groupName} ({tools.Count})",
+                    true);
+
+                if (_groupFoldouts[groupName])
+                {
+                    EditorGUILayout.BeginVertical(_boxStyle);
+                    foreach (var (name, description) in tools)
+                        DrawToolRow(registry, name, description);
+                    EditorGUILayout.EndVertical();
+                }
+
+                EditorGUILayout.Space(2);
+            }
+
+            // Draw custom tools
+            if (customTools.Count > 0)
+            {
+                string customKey = "Custom";
+                if (!_groupFoldouts.ContainsKey(customKey))
+                    _groupFoldouts[customKey] = true;
+
+                _groupFoldouts[customKey] = EditorGUILayout.Foldout(
+                    _groupFoldouts[customKey],
+                    $"Custom ({customTools.Count})",
+                    true);
+
+                if (_groupFoldouts[customKey])
+                {
+                    EditorGUILayout.BeginVertical(_boxStyle);
+                    foreach (var (name, description) in customTools)
+                        DrawToolRow(registry, name, description);
+                    EditorGUILayout.EndVertical();
+                }
+            }
+
+            if (builtInByGroup.Count == 0 && customTools.Count == 0)
+            {
+                EditorGUILayout.BeginVertical(_boxStyle);
+                EditorGUILayout.LabelField("No tools registered.", EditorStyles.centeredGreyMiniLabel);
+                EditorGUILayout.EndVertical();
+            }
+        }
+
+        private static string CapitalizeFirst(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            return char.ToUpper(s[0]) + s.Substring(1);
         }
 
         private static void DrawToolRow(ToolRegistry registry, string name, string description)
