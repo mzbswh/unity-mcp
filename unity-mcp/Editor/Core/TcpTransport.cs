@@ -22,6 +22,7 @@ namespace UnityMcp.Editor.Core
         private readonly object _clientsLock = new();
         // Per-client write lock to prevent concurrent SendFrame from corrupting the TCP stream
         private readonly ConcurrentDictionary<TcpClient, object> _writeLocks = new();
+        private Timer _heartbeatTimer;
 
         public int Port { get; }
         public bool IsRunning { get; private set; }
@@ -45,6 +46,8 @@ namespace UnityMcp.Editor.Core
             _listener.Start();
             IsRunning = true;
             Task.Run(() => AcceptLoop(_cts.Token));
+            // Heartbeat: every 30s, probe all clients to detect dead connections
+            _heartbeatTimer = new Timer(_ => PruneDeadClients(), null, 30_000, 30_000);
         }
 
         public void Stop()
@@ -60,6 +63,8 @@ namespace UnityMcp.Editor.Core
                 _clients.Clear();
             }
             _writeLocks.Clear();
+            _heartbeatTimer?.Dispose();
+            _heartbeatTimer = null;
             _cts?.Dispose();
             _cts = null;
             _listener = null;
@@ -88,6 +93,8 @@ namespace UnityMcp.Editor.Core
                 try
                 {
                     var client = await _listener.AcceptTcpClientAsync();
+                    // Enable TCP keepalive to help detect dead connections
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
                     _writeLocks[client] = new object();
                     lock (_clientsLock) _clients.Add(client);
                     _ = HandleClient(client, ct);
@@ -147,6 +154,7 @@ namespace UnityMcp.Editor.Core
             catch (Exception ex) { McpLogger.Error($"Client error: {ex.Message}"); }
             finally
             {
+                McpLogger.Debug("Client disconnected, cleaning up");
                 _writeLocks.TryRemove(client, out _);
                 lock (_clientsLock) _clients.Remove(client);
                 try { client.Close(); } catch { }
@@ -173,6 +181,51 @@ namespace UnityMcp.Editor.Core
                     stream.Write(payload, 0, payload.Length);
                 }
                 catch (Exception ex) { McpLogger.Debug($"SendFrame error: {ex.Message}"); }
+            }
+        }
+
+        /// <summary>
+        /// Periodically probes all connected clients using Socket.Poll.
+        /// Detects half-open connections where the remote process was killed
+        /// without sending FIN/RST (e.g. Bridge killed by VS Code reload).
+        /// </summary>
+        private void PruneDeadClients()
+        {
+            List<TcpClient> dead = null;
+            lock (_clientsLock)
+            {
+                foreach (var client in _clients)
+                {
+                    try
+                    {
+                        var socket = client.Client;
+                        if (socket == null || !socket.Connected)
+                        {
+                            (dead ??= new List<TcpClient>()).Add(client);
+                            continue;
+                        }
+                        // Poll: if socket is readable AND read would return 0 → connection is dead
+                        if (socket.Poll(0, SelectMode.SelectRead) && socket.Available == 0)
+                        {
+                            (dead ??= new List<TcpClient>()).Add(client);
+                        }
+                    }
+                    catch
+                    {
+                        (dead ??= new List<TcpClient>()).Add(client);
+                    }
+                }
+
+                if (dead != null)
+                {
+                    foreach (var client in dead)
+                    {
+                        McpLogger.Debug("Pruning dead client connection");
+                        _clients.Remove(client);
+                        _writeLocks.TryRemove(client, out _);
+                        try { client.Close(); } catch { }
+                    }
+                }
             }
         }
 

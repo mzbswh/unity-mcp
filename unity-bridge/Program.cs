@@ -35,7 +35,16 @@ class Program
 
         // Stdin reader runs for the entire process lifetime, independent of TCP state.
         // Requests arriving while TCP is down are queued in s_pendingFrames.
-        _ = Task.Run(() => ReadStdinLoop(cts.Token), cts.Token);
+        // When stdin is closed (MCP client exited/reloaded), cancel everything so the process exits.
+        _ = Task.Run(async () =>
+        {
+            await ReadStdinLoop(cts.Token);
+            if (!cts.Token.IsCancellationRequested)
+            {
+                Console.Error.WriteLine("[unity-mcp-bridge] Stdin closed, exiting...");
+                cts.Cancel();
+            }
+        }, cts.Token);
 
         int attempt = 0;
         // Aggressive early retries for domain reload (typically 2-5s),
