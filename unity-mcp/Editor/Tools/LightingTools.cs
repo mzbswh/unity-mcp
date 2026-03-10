@@ -183,7 +183,10 @@ namespace UnityMcp.Editor.Tools
             [Desc("Fog end distance (Linear mode)")] float? fogEndDistance = null,
             [Desc("Reflection intensity")] float? reflectionIntensity = null)
         {
-            Undo.RecordObject(RenderSettings.GetRenderSettings(), "Modify Environment");
+            // RenderSettings undo via SerializedObject
+            var renderSettingsArr = UnityEngine.Resources.FindObjectsOfTypeAll<RenderSettings>();
+            if (renderSettingsArr.Length > 0)
+                Undo.RecordObject(renderSettingsArr[0], "Modify Environment");
             int modified = 0;
 
             if (!string.IsNullOrEmpty(ambientMode))

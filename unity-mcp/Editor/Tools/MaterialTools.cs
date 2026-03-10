@@ -87,31 +87,31 @@ namespace UnityMcp.Editor.Tools
                 {
                     case ShaderPropertyType.Color:
                         material.SetColor(propName, new Color(
-                            value["r"]?.Value<float>() ?? 0f,
-                            value["g"]?.Value<float>() ?? 0f,
-                            value["b"]?.Value<float>() ?? 0f,
-                            value["a"]?.Value<float>() ?? 1f));
+                            value["r"]?.ToObject<float>() ?? 0f,
+                            value["g"]?.ToObject<float>() ?? 0f,
+                            value["b"]?.ToObject<float>() ?? 0f,
+                            value["a"]?.ToObject<float>() ?? 1f));
                         modified++;
                         break;
                     case ShaderPropertyType.Float:
                     case ShaderPropertyType.Range:
-                        material.SetFloat(propName, value.Value<float>());
+                        material.SetFloat(propName, value.ToObject<float>());
                         modified++;
                         break;
                     case ShaderPropertyType.Vector:
                         material.SetVector(propName, new Vector4(
-                            value["x"]?.Value<float>() ?? 0f,
-                            value["y"]?.Value<float>() ?? 0f,
-                            value["z"]?.Value<float>() ?? 0f,
-                            value["w"]?.Value<float>() ?? 0f));
+                            value["x"]?.ToObject<float>() ?? 0f,
+                            value["y"]?.ToObject<float>() ?? 0f,
+                            value["z"]?.ToObject<float>() ?? 0f,
+                            value["w"]?.ToObject<float>() ?? 0f));
                         modified++;
                         break;
                     case ShaderPropertyType.Int:
-                        material.SetInt(propName, value.Value<int>());
+                        material.SetInt(propName, value.ToObject<int>());
                         modified++;
                         break;
                     case ShaderPropertyType.Texture:
-                        var texPath = value.Value<string>();
+                        var texPath = value.ToObject<string>();
                         if (string.IsNullOrEmpty(texPath))
                         {
                             material.SetTexture(propName, null);

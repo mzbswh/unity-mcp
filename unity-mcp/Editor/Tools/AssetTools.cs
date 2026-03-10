@@ -317,9 +317,9 @@ namespace UnityMcp.Editor.Tools
                 { importer.spriteImportMode = sm; applied++; }
             }
             if (settings["spritePixelsPerUnit"] != null)
-            { importer.spritePixelsPerUnit = settings["spritePixelsPerUnit"].Value<float>(); applied++; }
+            { importer.spritePixelsPerUnit = settings["spritePixelsPerUnit"].ToObject<float>(); applied++; }
             if (settings["maxTextureSize"] != null)
-            { importer.maxTextureSize = settings["maxTextureSize"].Value<int>(); applied++; }
+            { importer.maxTextureSize = settings["maxTextureSize"].ToObject<int>(); applied++; }
             if (settings["textureCompression"] != null)
             {
                 if (System.Enum.TryParse<TextureImporterCompression>(settings["textureCompression"].ToString(), true, out var tc))
@@ -336,20 +336,20 @@ namespace UnityMcp.Editor.Tools
                 { importer.wrapMode = wm; applied++; }
             }
             if (settings["sRGBTexture"] != null)
-            { importer.sRGBTexture = settings["sRGBTexture"].Value<bool>(); applied++; }
+            { importer.sRGBTexture = settings["sRGBTexture"].ToObject<bool>(); applied++; }
             if (settings["alphaIsTransparency"] != null)
-            { importer.alphaIsTransparency = settings["alphaIsTransparency"].Value<bool>(); applied++; }
+            { importer.alphaIsTransparency = settings["alphaIsTransparency"].ToObject<bool>(); applied++; }
             if (settings["isReadable"] != null)
-            { importer.isReadable = settings["isReadable"].Value<bool>(); applied++; }
+            { importer.isReadable = settings["isReadable"].ToObject<bool>(); applied++; }
             if (settings["mipmapEnabled"] != null)
-            { importer.mipmapEnabled = settings["mipmapEnabled"].Value<bool>(); applied++; }
+            { importer.mipmapEnabled = settings["mipmapEnabled"].ToObject<bool>(); applied++; }
             if (settings["alphaSource"] != null)
             {
                 if (System.Enum.TryParse<TextureImporterAlphaSource>(settings["alphaSource"].ToString(), true, out var als))
                 { importer.alphaSource = als; applied++; }
             }
             if (settings["anisoLevel"] != null)
-            { importer.anisoLevel = settings["anisoLevel"].Value<int>(); applied++; }
+            { importer.anisoLevel = settings["anisoLevel"].ToObject<int>(); applied++; }
 
             importer.SaveAndReimport();
             return ToolResult.Text($"Applied {applied} import settings to '{path}' (importer: TextureImporter)");

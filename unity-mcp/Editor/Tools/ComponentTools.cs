@@ -294,74 +294,74 @@ namespace UnityMcp.Editor.Tools
             switch (prop.propertyType)
             {
                 case SerializedPropertyType.Integer:
-                    prop.intValue = value.Value<int>();
+                    prop.intValue = value.ToObject<int>();
                     break;
                 case SerializedPropertyType.Boolean:
-                    prop.boolValue = value.Value<bool>();
+                    prop.boolValue = value.ToObject<bool>();
                     break;
                 case SerializedPropertyType.Float:
-                    prop.floatValue = value.Value<float>();
+                    prop.floatValue = value.ToObject<float>();
                     break;
                 case SerializedPropertyType.String:
-                    prop.stringValue = value.Value<string>();
+                    prop.stringValue = value.ToObject<string>();
                     break;
                 case SerializedPropertyType.Enum:
-                    var enumName = value.Value<string>();
+                    var enumName = value.ToObject<string>();
                     var idx = System.Array.IndexOf(prop.enumNames, enumName);
                     if (idx >= 0) prop.enumValueIndex = idx;
                     break;
                 case SerializedPropertyType.Vector2:
                     prop.vector2Value = new Vector2(
-                        value["x"]?.Value<float>() ?? 0f,
-                        value["y"]?.Value<float>() ?? 0f);
+                        value["x"]?.ToObject<float>() ?? 0f,
+                        value["y"]?.ToObject<float>() ?? 0f);
                     break;
                 case SerializedPropertyType.Vector3:
                     prop.vector3Value = new Vector3(
-                        value["x"]?.Value<float>() ?? 0f,
-                        value["y"]?.Value<float>() ?? 0f,
-                        value["z"]?.Value<float>() ?? 0f);
+                        value["x"]?.ToObject<float>() ?? 0f,
+                        value["y"]?.ToObject<float>() ?? 0f,
+                        value["z"]?.ToObject<float>() ?? 0f);
                     break;
                 case SerializedPropertyType.Vector4:
                     prop.vector4Value = new Vector4(
-                        value["x"]?.Value<float>() ?? 0f,
-                        value["y"]?.Value<float>() ?? 0f,
-                        value["z"]?.Value<float>() ?? 0f,
-                        value["w"]?.Value<float>() ?? 0f);
+                        value["x"]?.ToObject<float>() ?? 0f,
+                        value["y"]?.ToObject<float>() ?? 0f,
+                        value["z"]?.ToObject<float>() ?? 0f,
+                        value["w"]?.ToObject<float>() ?? 0f);
                     break;
                 case SerializedPropertyType.Quaternion:
                     prop.quaternionValue = new Quaternion(
-                        value["x"]?.Value<float>() ?? 0f,
-                        value["y"]?.Value<float>() ?? 0f,
-                        value["z"]?.Value<float>() ?? 0f,
-                        value["w"]?.Value<float>() ?? 1f);
+                        value["x"]?.ToObject<float>() ?? 0f,
+                        value["y"]?.ToObject<float>() ?? 0f,
+                        value["z"]?.ToObject<float>() ?? 0f,
+                        value["w"]?.ToObject<float>() ?? 1f);
                     break;
                 case SerializedPropertyType.Rect:
                     prop.rectValue = new Rect(
-                        value["x"]?.Value<float>() ?? 0f,
-                        value["y"]?.Value<float>() ?? 0f,
-                        value["width"]?.Value<float>() ?? 0f,
-                        value["height"]?.Value<float>() ?? 0f);
+                        value["x"]?.ToObject<float>() ?? 0f,
+                        value["y"]?.ToObject<float>() ?? 0f,
+                        value["width"]?.ToObject<float>() ?? 0f,
+                        value["height"]?.ToObject<float>() ?? 0f);
                     break;
                 case SerializedPropertyType.Bounds:
                     prop.boundsValue = new Bounds(
                         new Vector3(
-                            value["center"]?["x"]?.Value<float>() ?? 0f,
-                            value["center"]?["y"]?.Value<float>() ?? 0f,
-                            value["center"]?["z"]?.Value<float>() ?? 0f),
+                            value["center"]?["x"]?.ToObject<float>() ?? 0f,
+                            value["center"]?["y"]?.ToObject<float>() ?? 0f,
+                            value["center"]?["z"]?.ToObject<float>() ?? 0f),
                         new Vector3(
-                            value["size"]?["x"]?.Value<float>() ?? 0f,
-                            value["size"]?["y"]?.Value<float>() ?? 0f,
-                            value["size"]?["z"]?.Value<float>() ?? 0f));
+                            value["size"]?["x"]?.ToObject<float>() ?? 0f,
+                            value["size"]?["y"]?.ToObject<float>() ?? 0f,
+                            value["size"]?["z"]?.ToObject<float>() ?? 0f));
                     break;
                 case SerializedPropertyType.Color:
                     prop.colorValue = new Color(
-                        value["r"]?.Value<float>() ?? 0f,
-                        value["g"]?.Value<float>() ?? 0f,
-                        value["b"]?.Value<float>() ?? 0f,
-                        value["a"]?.Value<float>() ?? 1f);
+                        value["r"]?.ToObject<float>() ?? 0f,
+                        value["g"]?.ToObject<float>() ?? 0f,
+                        value["b"]?.ToObject<float>() ?? 0f,
+                        value["a"]?.ToObject<float>() ?? 1f);
                     break;
                 case SerializedPropertyType.ObjectReference:
-                    var path = value.Value<string>();
+                    var path = value.ToObject<string>();
                     if (string.IsNullOrEmpty(path))
                     {
                         prop.objectReferenceValue = null;

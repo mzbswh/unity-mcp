@@ -146,7 +146,7 @@ namespace UnityMcp.Editor.Tools
                 .Where(t => t != null
                     && !t.IsAbstract
                     && typeof(ScriptableObject).IsAssignableFrom(t)
-                    && !typeof(Editor).IsAssignableFrom(t)
+                    && !typeof(UnityEditor.Editor).IsAssignableFrom(t)
                     && !typeof(EditorWindow).IsAssignableFrom(t)
                     && !t.FullName.StartsWith("UnityEditor.")
                     && !t.FullName.StartsWith("UnityEngine.UIElements."))

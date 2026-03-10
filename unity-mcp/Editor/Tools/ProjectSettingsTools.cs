@@ -166,7 +166,7 @@ namespace UnityMcp.Editor.Tools
                 antiAliasing = QualitySettings.antiAliasing,
                 shadowDistance = QualitySettings.shadowDistance,
                 shadowResolution = QualitySettings.shadowResolution.ToString(),
-                textureQuality = QualitySettings.globalTextureMipmapLimit,
+                textureQuality = QualitySettings.masterTextureLimit,
                 anisotropicFiltering = QualitySettings.anisotropicFiltering.ToString(),
             });
         }
