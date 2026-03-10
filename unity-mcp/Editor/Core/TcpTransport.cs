@@ -97,6 +97,8 @@ namespace UnityMcp.Editor.Core
                     client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
                     _writeLocks[client] = new object();
                     lock (_clientsLock) _clients.Add(client);
+                    var endpoint = client.Client.RemoteEndPoint;
+                    McpLogger.Info($"Bridge connected from {endpoint}");
                     _ = HandleClient(client, ct);
                 }
                 catch (ObjectDisposedException) { break; }
@@ -108,6 +110,7 @@ namespace UnityMcp.Editor.Core
         {
             var stream = client.GetStream();
             var headerBuf = new byte[5];
+            var endpoint = client.Client.RemoteEndPoint;
 
             try
             {
@@ -154,7 +157,7 @@ namespace UnityMcp.Editor.Core
             catch (Exception ex) { McpLogger.Error($"Client error: {ex.Message}"); }
             finally
             {
-                McpLogger.Debug("Client disconnected, cleaning up");
+                McpLogger.Info($"Bridge disconnected ({endpoint})");
                 _writeLocks.TryRemove(client, out _);
                 lock (_clientsLock) _clients.Remove(client);
                 try { client.Close(); } catch { }

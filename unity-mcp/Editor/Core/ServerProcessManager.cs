@@ -116,31 +116,11 @@ namespace UnityMcp.Editor.Core
             var startInfo = CreateBridgeStartInfo();
             if (startInfo == null) return;
 
-            try
-            {
-                _serverProcess = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-                _serverProcess.Exited += OnProcessExited;
-                _serverProcess.OutputDataReceived += (sender, args) =>
-                {
-                    if (!string.IsNullOrEmpty(args.Data))
-                        MainThreadDispatcher.RunAsync(() => McpLogger.Info($"[Bridge] {args.Data}"));
-                };
-                _serverProcess.ErrorDataReceived += (sender, args) =>
-                {
-                    if (!string.IsNullOrEmpty(args.Data))
-                        MainThreadDispatcher.RunAsync(() => McpLogger.Warning($"[Bridge] {args.Data}"));
-                };
-                _serverProcess.Start();
-                _serverProcess.BeginOutputReadLine();
-                _serverProcess.BeginErrorReadLine();
-                EditorPrefs.SetInt(PidPrefKey, _serverProcess.Id);
-                McpLogger.Info($"Started {_settings.Mode} server (PID: {_serverProcess.Id})");
-            }
-            catch (System.Exception ex)
-            {
-                McpLogger.Error($"Failed to start {_settings.Mode} server: {ex.Message}");
-                Cleanup();
-            }
+            _serverProcess = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+            _serverProcess.Exited += OnProcessExited;
+            _serverProcess.Start();
+            EditorPrefs.SetInt(PidPrefKey, _serverProcess.Id);
+            McpLogger.Info($"Started {_settings.Mode} server (PID: {_serverProcess.Id})");
         }
 
         private void ScheduleStartupVerification()
@@ -155,10 +135,6 @@ namespace UnityMcp.Editor.Core
                 {
                     McpLogger.Error($"Server process (PID: {pid}) exited within 5s of startup.");
                     Cleanup();
-                }
-                else
-                {
-                    McpLogger.Info($"Server process (PID: {pid}) is running successfully.");
                 }
             }
             EditorApplication.update += Check;
@@ -191,7 +167,6 @@ namespace UnityMcp.Editor.Core
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
-                RedirectStandardError = true,
             };
         }
 
