@@ -130,6 +130,123 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
+        [McpTool("scene_align_with_view", "Align a GameObject's transform to match the current Scene View camera (position and rotation)",
+            Group = "scene")]
+        public static ToolResult AlignWithView(
+            [Desc("Name or path of the target GameObject")] string target)
+        {
+            var sceneView = SceneView.lastActiveSceneView;
+            if (sceneView == null)
+                return ToolResult.Error("No active Scene View");
+
+            var go = GameObjectTools.FindGameObject(target, null);
+            if (go == null)
+                return ToolResult.Error($"GameObject not found: {target}");
+
+            Undo.RecordObject(go.transform, "Align With View");
+            go.transform.position = sceneView.camera.transform.position;
+            go.transform.rotation = sceneView.camera.transform.rotation;
+
+            return ToolResult.Json(new
+            {
+                success = true,
+                gameObject = go.name,
+                position = new { x = go.transform.position.x, y = go.transform.position.y, z = go.transform.position.z },
+                rotation = new { x = go.transform.eulerAngles.x, y = go.transform.eulerAngles.y, z = go.transform.eulerAngles.z }
+            });
+        }
+
+        [McpTool("scene_move_to_view", "Move a GameObject to the center of the current Scene View (position only, no rotation change)",
+            Group = "scene")]
+        public static ToolResult MoveToView(
+            [Desc("Name or path of the target GameObject")] string target)
+        {
+            var sceneView = SceneView.lastActiveSceneView;
+            if (sceneView == null)
+                return ToolResult.Error("No active Scene View");
+
+            var go = GameObjectTools.FindGameObject(target, null);
+            if (go == null)
+                return ToolResult.Error($"GameObject not found: {target}");
+
+            Undo.RecordObject(go.transform, "Move To View");
+            // Place at the scene view pivot (center of view)
+            go.transform.position = sceneView.pivot;
+
+            return ToolResult.Json(new
+            {
+                success = true,
+                gameObject = go.name,
+                position = new { x = go.transform.position.x, y = go.transform.position.y, z = go.transform.position.z }
+            });
+        }
+
+        [McpTool("scene_frame_selected", "Focus the Scene View camera on specified GameObjects (like pressing F in the editor)",
+            Group = "scene")]
+        public static ToolResult FrameSelected(
+            [Desc("Name or path of the GameObject to focus on (uses current selection if omitted)")] string target = null)
+        {
+            var sceneView = SceneView.lastActiveSceneView;
+            if (sceneView == null)
+                return ToolResult.Error("No active Scene View");
+
+            if (target != null)
+            {
+                var go = GameObjectTools.FindGameObject(target, null);
+                if (go == null)
+                    return ToolResult.Error($"GameObject not found: {target}");
+                Selection.activeGameObject = go;
+            }
+
+            if (Selection.activeGameObject == null)
+                return ToolResult.Error("No GameObject selected to frame");
+
+            sceneView.FrameSelected();
+
+            return ToolResult.Text($"Framed '{Selection.activeGameObject.name}' in Scene View");
+        }
+
+        [McpTool("scene_view_get", "Get the current Scene View camera position and rotation",
+            Group = "scene", ReadOnly = true)]
+        public static ToolResult SceneViewGet()
+        {
+            var sceneView = SceneView.lastActiveSceneView;
+            if (sceneView == null)
+                return ToolResult.Error("No active Scene View");
+
+            var cam = sceneView.camera.transform;
+            return ToolResult.Json(new
+            {
+                pivot = new { x = sceneView.pivot.x, y = sceneView.pivot.y, z = sceneView.pivot.z },
+                cameraPosition = new { x = cam.position.x, y = cam.position.y, z = cam.position.z },
+                cameraRotation = new { x = cam.eulerAngles.x, y = cam.eulerAngles.y, z = cam.eulerAngles.z },
+                size = sceneView.size,
+                orthographic = sceneView.orthographic
+            });
+        }
+
+        [McpTool("scene_view_set", "Set the Scene View camera position/rotation (look at a specific point)",
+            Group = "scene")]
+        public static ToolResult SceneViewSet(
+            [Desc("Pivot point to look at {x, y, z}")] Vector3? pivot = null,
+            [Desc("Camera rotation euler angles {x, y, z}")] Vector3? rotation = null,
+            [Desc("View size (zoom level)")] float? size = null,
+            [Desc("Use orthographic projection")] bool? orthographic = null)
+        {
+            var sceneView = SceneView.lastActiveSceneView;
+            if (sceneView == null)
+                return ToolResult.Error("No active Scene View");
+
+            if (pivot.HasValue) sceneView.pivot = pivot.Value;
+            if (rotation.HasValue) sceneView.rotation = Quaternion.Euler(rotation.Value);
+            if (size.HasValue) sceneView.size = size.Value;
+            if (orthographic.HasValue) sceneView.orthographic = orthographic.Value;
+
+            sceneView.Repaint();
+
+            return ToolResult.Text("Scene View updated");
+        }
+
         // --- Helpers ---
 
         private static object BuildNode(Transform t, int maxDepth, int depth)
