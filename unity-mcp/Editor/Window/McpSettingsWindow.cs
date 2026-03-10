@@ -107,15 +107,8 @@ namespace UnityMcp.Editor.Window
                 {
                     normal = { textColor = isRunning ? new Color(0.1f, 0.7f, 0.2f) : new Color(0.8f, 0.2f, 0.2f) }
                 };
-                string clientNames = "";
-                if (clients > 0)
-                {
-                    var connectedClients = transport.ConnectedClients;
-                    clientNames = string.Join(", ", connectedClients.Select(c => c.Name));
-                }
                 string statusText = isRunning
-                    ? $"Running  |  Port {transport.Port}  |  {clients} client(s)" +
-                      (string.IsNullOrEmpty(clientNames) ? "" : $" [{clientNames}]")
+                    ? $"Running  |  Port {transport.Port}  |  {clients} client(s)"
                     : "Stopped";
                 EditorGUILayout.LabelField(statusText, statusStyle);
 
