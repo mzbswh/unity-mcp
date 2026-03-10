@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -45,6 +46,26 @@ class Program
                 cts.Cancel();
             }
         }, cts.Token);
+
+        // Monitor parent process — exit if the MCP client that spawned us is gone.
+        // This catches cases where stdin pipe isn't properly closed (e.g. SIGKILL).
+        int parentPid = GetParentPid();
+        if (parentPid > 0)
+        {
+            _ = Task.Run(async () =>
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    await Task.Delay(5000, cts.Token);
+                    if (!IsProcessAlive(parentPid))
+                    {
+                        Console.Error.WriteLine("[unity-mcp-bridge] Parent process exited, shutting down...");
+                        cts.Cancel();
+                        return;
+                    }
+                }
+            }, cts.Token);
+        }
 
         int attempt = 0;
         // Aggressive early retries for domain reload (typically 2-5s),
@@ -243,5 +264,73 @@ class Program
         if (envPort != null && int.TryParse(envPort, out int p)) return p;
         Console.Error.WriteLine("[unity-mcp-bridge] Warning: UNITY_MCP_PORT not set. Using default 51279.");
         return 51279;
+    }
+
+    /// <summary>
+    /// Gets the parent process ID. Returns -1 if detection fails.
+    /// </summary>
+    static int GetParentPid()
+    {
+        try
+        {
+            int pid = Environment.ProcessId;
+            if (OperatingSystem.IsLinux())
+            {
+                // /proc/{pid}/stat: field index 3 is parent PID
+                var stat = File.ReadAllText($"/proc/{pid}/stat");
+                var parts = stat.Split(' ');
+                if (parts.Length > 3 && int.TryParse(parts[3], out int ppid))
+                    return ppid;
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                using var proc = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "ps", Arguments = $"-o ppid= -p {pid}",
+                    RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true
+                });
+                if (proc != null)
+                {
+                    var output = proc.StandardOutput.ReadToEnd().Trim();
+                    proc.WaitForExit(3000);
+                    if (int.TryParse(output, out int ppid))
+                        return ppid;
+                }
+            }
+            else if (OperatingSystem.IsWindows())
+            {
+                // WMI query for parent process ID
+                using var proc = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "wmic",
+                    Arguments = $"process where ProcessId={pid} get ParentProcessId /format:value",
+                    RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true
+                });
+                if (proc != null)
+                {
+                    var output = proc.StandardOutput.ReadToEnd();
+                    proc.WaitForExit(3000);
+                    var line = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var l in line)
+                    {
+                        if (l.StartsWith("ParentProcessId=") &&
+                            int.TryParse(l.AsSpan("ParentProcessId=".Length), out int ppid))
+                            return ppid;
+                    }
+                }
+            }
+        }
+        catch { /* ignore */ }
+        return -1;
+    }
+
+    static bool IsProcessAlive(int pid)
+    {
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            return !p.HasExited;
+        }
+        catch { return false; }
     }
 }
