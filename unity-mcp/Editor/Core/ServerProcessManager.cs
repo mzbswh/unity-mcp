@@ -176,9 +176,34 @@ namespace UnityMcp.Editor.Core
             if (Application.platform == RuntimePlatform.WindowsEditor)
                 return "win-x64/unity-mcp-bridge.exe";
             if (Application.platform == RuntimePlatform.OSXEditor)
-                return RuntimeInformation.OSArchitecture == Architecture.Arm64
-                    ? "osx-arm64/unity-mcp-bridge" : "osx-x64/unity-mcp-bridge";
+                return IsMachineArm64() ? "osx-arm64/unity-mcp-bridge" : "osx-x64/unity-mcp-bridge";
             return "linux-x64/unity-mcp-bridge";
+        }
+
+        private static bool IsMachineArm64()
+        {
+            try
+            {
+                var proc = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "uname",
+                        Arguments = "-m",
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                proc.Start();
+                string arch = proc.StandardOutput.ReadToEnd().Trim();
+                proc.WaitForExit();
+                return arch == "arm64" || arch == "aarch64";
+            }
+            catch
+            {
+                return RuntimeInformation.OSArchitecture == Architecture.Arm64;
+            }
         }
 
         /// <summary>Auto-detect the default bridge executable path.</summary>
