@@ -70,6 +70,10 @@ namespace UnityMcp.Editor.Core
                 finally { cts.Dispose(); }
             });
 
+            // Nudge Unity to run an update cycle soon.
+            // Without this, idle editor may delay ProcessQueue by up to 1s+.
+            EditorApplication.QueuePlayerLoopUpdate();
+
             return tcs.Task;
         }
 
