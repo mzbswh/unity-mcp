@@ -13,7 +13,8 @@ namespace UnityMcp.Editor.Tools
     {
         [McpTool("batch_execute",
             "Execute multiple tool operations in a single request. " +
-            "Supports stopOnError (halt on first failure) and atomic (undo all on failure).",
+            "Supports stopOnError (halt on first failure) and atomic (undo all on failure). " +
+            "The max number of operations per call is server-configurable.",
             Group = "core")]
         public static ToolResult Execute(
             [Desc("Array of operations: [{id, tool, arguments}]")] JArray operations,

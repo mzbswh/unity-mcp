@@ -352,7 +352,7 @@ Access via `Window > Unity MCP`:
 | Request Timeout | 60s | Max tool execution timeout |
 | Log Level | Info | Debug / Info / Warning / Error / Off |
 | Audit Log | Off | Log each tool call with timing |
-| Max Batch Operations | 30 | Maximum operations allowed per `batch_execute` call |
+| Max Batch Operations | 50 | Maximum operations allowed per `batch_execute` call |
 
 ---
 

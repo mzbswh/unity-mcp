@@ -352,7 +352,7 @@ docker run -it --rm \
 | Request Timeout | 60s | 工具执行最大超时 |
 | Log Level | Info | Debug / Info / Warning / Error / Off |
 | Audit Log | 关闭 | 记录每次工具调用及耗时 |
-| Max Batch Operations | 30 | 单次 `batch_execute` 调用允许的最大操作数 |
+| Max Batch Operations | 50 | 单次 `batch_execute` 调用允许的最大操作数 |
 
 ---
 
