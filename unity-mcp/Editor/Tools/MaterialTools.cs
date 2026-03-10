@@ -76,13 +76,16 @@ namespace UnityMcp.Editor.Tools
                 if (!material.HasProperty(propName))
                     continue;
 
-                var propType = material.shader.FindPropertyIndex(propName);
-                if (propType < 0) continue;
+                // Determine property type: prefer shader metadata, fall back to value-based inference
+                var shaderPropType = GetShaderPropertyType(material.shader, propName);
+                if (shaderPropType == null)
+                    shaderPropType = InferPropertyType(value);
 
-                var shaderPropType = material.shader.GetPropertyType(propType);
-                switch (shaderPropType)
+                if (shaderPropType == null) continue;
+
+                switch (shaderPropType.Value)
                 {
-                    case UnityEngine.Rendering.ShaderPropertyType.Color:
+                    case ShaderPropertyType.Color:
                         material.SetColor(propName, new Color(
                             value["r"]?.Value<float>() ?? 0f,
                             value["g"]?.Value<float>() ?? 0f,
@@ -90,12 +93,12 @@ namespace UnityMcp.Editor.Tools
                             value["a"]?.Value<float>() ?? 1f));
                         modified++;
                         break;
-                    case UnityEngine.Rendering.ShaderPropertyType.Float:
-                    case UnityEngine.Rendering.ShaderPropertyType.Range:
+                    case ShaderPropertyType.Float:
+                    case ShaderPropertyType.Range:
                         material.SetFloat(propName, value.Value<float>());
                         modified++;
                         break;
-                    case UnityEngine.Rendering.ShaderPropertyType.Vector:
+                    case ShaderPropertyType.Vector:
                         material.SetVector(propName, new Vector4(
                             value["x"]?.Value<float>() ?? 0f,
                             value["y"]?.Value<float>() ?? 0f,
@@ -103,11 +106,11 @@ namespace UnityMcp.Editor.Tools
                             value["w"]?.Value<float>() ?? 0f));
                         modified++;
                         break;
-                    case UnityEngine.Rendering.ShaderPropertyType.Int:
+                    case ShaderPropertyType.Int:
                         material.SetInt(propName, value.Value<int>());
                         modified++;
                         break;
-                    case UnityEngine.Rendering.ShaderPropertyType.Texture:
+                    case ShaderPropertyType.Texture:
                         var texPath = value.Value<string>();
                         if (string.IsNullOrEmpty(texPath))
                         {
@@ -131,6 +134,42 @@ namespace UnityMcp.Editor.Tools
             AssetDatabase.SaveAssets();
 
             return ToolResult.Text($"Modified {modified} properties on '{material.name}'");
+        }
+
+        /// <summary>
+        /// Get shader property type via Shader API. Returns null if property is not in the declared list
+        /// (e.g. hidden/auto-generated properties like _MainTex in some shaders).
+        /// </summary>
+        private static ShaderPropertyType? GetShaderPropertyType(Shader shader, string propName)
+        {
+            int idx = shader.FindPropertyIndex(propName);
+            return idx >= 0 ? shader.GetPropertyType(idx) : null;
+        }
+
+        /// <summary>
+        /// Infer shader property type from the JSON value structure.
+        /// Used as fallback when shader metadata doesn't expose the property.
+        /// </summary>
+        private static ShaderPropertyType? InferPropertyType(JToken value)
+        {
+            if (value == null || value.Type == JTokenType.Null) return null;
+
+            // String → likely a texture asset path
+            if (value.Type == JTokenType.String)
+                return ShaderPropertyType.Texture;
+
+            // Number → float
+            if (value.Type == JTokenType.Integer || value.Type == JTokenType.Float)
+                return ShaderPropertyType.Float;
+
+            // Object with r,g,b → color; object with x,y → vector
+            if (value is JObject jo)
+            {
+                if (jo.ContainsKey("r")) return ShaderPropertyType.Color;
+                if (jo.ContainsKey("x")) return ShaderPropertyType.Vector;
+            }
+
+            return null;
         }
 
         [McpTool("shader_list", "List all available shaders",
