@@ -204,7 +204,10 @@ namespace UnityMcp.Editor.Tools
             if (prop.isArray && prop.propertyType != SerializedPropertyType.String)
             {
                 var arr = value is JArray ja ? ja : new JArray { value };
-                prop.arraySize = arr.Count;
+                // Only resize if the new array is larger; preserve existing slots
+                // (e.g. Renderer.m_Materials should keep its submesh-count-based size)
+                if (arr.Count > prop.arraySize)
+                    prop.arraySize = arr.Count;
                 for (int i = 0; i < arr.Count; i++)
                     SetSerializedProperty(prop.GetArrayElementAtIndex(i), arr[i]);
                 return;

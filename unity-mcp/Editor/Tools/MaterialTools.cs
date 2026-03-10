@@ -3,6 +3,7 @@ using System.Linq;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityMcp.Shared.Attributes;
 using UnityMcp.Shared.Models;
 using UnityMcp.Shared.Utils;
@@ -51,11 +52,11 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
-        [McpTool("material_modify", "Modify properties of an existing material",
+        [McpTool("material_modify", "Modify properties of an existing material. For textures, pass asset path (e.g. 'Assets/Textures/X.png'). For blend/render mode changes, use material_set_render_mode instead.",
             Group = "material")]
         public static ToolResult Modify(
             [Desc("Material asset path")] string path,
-            [Desc("Properties to set as {propertyName: value}")] JObject properties)
+            [Desc("Properties to set as {propertyName: value}. Texture properties accept asset paths.")] JObject properties)
         {
             var pv = PathValidator.QuickValidate(path);
             if (!pv.IsValid) return ToolResult.Error(pv.Error);
@@ -106,6 +107,23 @@ namespace UnityMcp.Editor.Tools
                         material.SetInt(propName, value.Value<int>());
                         modified++;
                         break;
+                    case UnityEngine.Rendering.ShaderPropertyType.Texture:
+                        var texPath = value.Value<string>();
+                        if (string.IsNullOrEmpty(texPath))
+                        {
+                            material.SetTexture(propName, null);
+                            modified++;
+                        }
+                        else
+                        {
+                            var tex = AssetDatabase.LoadAssetAtPath<Texture>(texPath);
+                            if (tex != null)
+                            {
+                                material.SetTexture(propName, tex);
+                                modified++;
+                            }
+                        }
+                        break;
                 }
             }
 
@@ -150,6 +168,201 @@ namespace UnityMcp.Editor.Tools
 
             var result = shaders.Take(maxCount).OrderBy(s => s).ToArray();
             return ToolResult.Json(new { count = result.Length, shaders = result });
+        }
+
+        [McpTool("material_set_render_mode",
+            "Set the rendering mode of a material (handles shader keywords, render queue, etc.). " +
+            "For Standard shader: Opaque/Cutout/Fade/Transparent. " +
+            "For Particles/Standard Unlit: Additive/AlphaBlend/Multiply. " +
+            "For URP shaders: Opaque/Transparent.",
+            Group = "material")]
+        public static ToolResult SetRenderMode(
+            [Desc("Material asset path")] string path,
+            [Desc("Render mode name (e.g. 'Opaque', 'Transparent', 'Fade', 'Cutout', 'Additive', 'AlphaBlend', 'Multiply')")] string mode)
+        {
+            var pv = PathValidator.QuickValidate(path);
+            if (!pv.IsValid) return ToolResult.Error(pv.Error);
+
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+                return ToolResult.Error($"Material not found: {path}");
+
+            Undo.RecordObject(material, "Set Render Mode");
+
+            var shaderName = material.shader.name;
+            bool applied = false;
+
+            if (shaderName == "Standard" || shaderName == "Standard (Specular setup)")
+                applied = ApplyStandardRenderMode(material, mode);
+            else if (shaderName.StartsWith("Particles/"))
+                applied = ApplyParticleRenderMode(material, mode);
+            else if (shaderName.StartsWith("Universal Render Pipeline/"))
+                applied = ApplyUrpRenderMode(material, mode);
+            else
+                return ToolResult.Error(
+                    $"Automatic render mode switching not supported for shader '{shaderName}'. " +
+                    "Use material_modify to set individual properties manually.");
+
+            if (!applied)
+                return ToolResult.Error(
+                    $"Unknown render mode '{mode}' for shader '{shaderName}'.");
+
+            EditorUtility.SetDirty(material);
+            AssetDatabase.SaveAssets();
+            return ToolResult.Text($"Set render mode to '{mode}' on '{material.name}' (shader: {shaderName})");
+        }
+
+        // --- Standard shader (Built-in RP) ---
+        private static bool ApplyStandardRenderMode(Material mat, string mode)
+        {
+            switch (mode.ToLower())
+            {
+                case "opaque":
+                    mat.SetFloat("_Mode", 0);
+                    mat.SetOverrideTag("RenderType", "");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.One);
+                    mat.SetInt("_DstBlend", (int)BlendMode.Zero);
+                    mat.SetInt("_ZWrite", 1);
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.DisableKeyword("_ALPHABLEND_ON");
+                    mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    mat.renderQueue = -1;
+                    break;
+                case "cutout":
+                    mat.SetFloat("_Mode", 1);
+                    mat.SetOverrideTag("RenderType", "TransparentCutout");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.One);
+                    mat.SetInt("_DstBlend", (int)BlendMode.Zero);
+                    mat.SetInt("_ZWrite", 1);
+                    mat.EnableKeyword("_ALPHATEST_ON");
+                    mat.DisableKeyword("_ALPHABLEND_ON");
+                    mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    mat.renderQueue = (int)RenderQueue.AlphaTest;
+                    break;
+                case "fade":
+                    mat.SetFloat("_Mode", 2);
+                    mat.SetOverrideTag("RenderType", "Transparent");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                    mat.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                    mat.SetInt("_ZWrite", 0);
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.EnableKeyword("_ALPHABLEND_ON");
+                    mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    mat.renderQueue = (int)RenderQueue.Transparent;
+                    break;
+                case "transparent":
+                    mat.SetFloat("_Mode", 3);
+                    mat.SetOverrideTag("RenderType", "Transparent");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.One);
+                    mat.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                    mat.SetInt("_ZWrite", 0);
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.DisableKeyword("_ALPHABLEND_ON");
+                    mat.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+                    mat.renderQueue = (int)RenderQueue.Transparent;
+                    break;
+                default:
+                    return false;
+            }
+            return true;
+        }
+
+        // --- Particles shaders (Particles/Standard Unlit, etc.) ---
+        private static bool ApplyParticleRenderMode(Material mat, string mode)
+        {
+            switch (mode.ToLower())
+            {
+                case "opaque":
+                    mat.SetFloat("_BlendMode", 0);
+                    mat.SetOverrideTag("RenderType", "Opaque");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.One);
+                    mat.SetInt("_DstBlend", (int)BlendMode.Zero);
+                    mat.SetInt("_ZWrite", 1);
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.DisableKeyword("_ALPHABLEND_ON");
+                    mat.DisableKeyword("_ALPHAMODULATE_ON");
+                    mat.renderQueue = (int)RenderQueue.Geometry;
+                    break;
+                case "cutout":
+                    mat.SetFloat("_BlendMode", 1);
+                    mat.SetOverrideTag("RenderType", "TransparentCutout");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.One);
+                    mat.SetInt("_DstBlend", (int)BlendMode.Zero);
+                    mat.SetInt("_ZWrite", 1);
+                    mat.EnableKeyword("_ALPHATEST_ON");
+                    mat.DisableKeyword("_ALPHABLEND_ON");
+                    mat.DisableKeyword("_ALPHAMODULATE_ON");
+                    mat.renderQueue = (int)RenderQueue.AlphaTest;
+                    break;
+                case "additive":
+                    mat.SetFloat("_BlendMode", 2);
+                    mat.SetOverrideTag("RenderType", "Transparent");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                    mat.SetInt("_DstBlend", (int)BlendMode.One);
+                    mat.SetInt("_ZWrite", 0);
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.EnableKeyword("_ALPHABLEND_ON");
+                    mat.DisableKeyword("_ALPHAMODULATE_ON");
+                    mat.renderQueue = (int)RenderQueue.Transparent;
+                    break;
+                case "alphablend":
+                case "fade":
+                case "transparent":
+                    mat.SetFloat("_BlendMode", 3);
+                    mat.SetOverrideTag("RenderType", "Transparent");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                    mat.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                    mat.SetInt("_ZWrite", 0);
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.EnableKeyword("_ALPHABLEND_ON");
+                    mat.DisableKeyword("_ALPHAMODULATE_ON");
+                    mat.renderQueue = (int)RenderQueue.Transparent;
+                    break;
+                case "multiply":
+                    mat.SetFloat("_BlendMode", 4);
+                    mat.SetOverrideTag("RenderType", "Transparent");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.DstColor);
+                    mat.SetInt("_DstBlend", (int)BlendMode.Zero);
+                    mat.SetInt("_ZWrite", 0);
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.DisableKeyword("_ALPHABLEND_ON");
+                    mat.EnableKeyword("_ALPHAMODULATE_ON");
+                    mat.renderQueue = (int)RenderQueue.Transparent;
+                    break;
+                default:
+                    return false;
+            }
+            return true;
+        }
+
+        // --- URP shaders ---
+        private static bool ApplyUrpRenderMode(Material mat, string mode)
+        {
+            switch (mode.ToLower())
+            {
+                case "opaque":
+                    mat.SetFloat("_Surface", 0);
+                    mat.SetOverrideTag("RenderType", "Opaque");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.One);
+                    mat.SetInt("_DstBlend", (int)BlendMode.Zero);
+                    mat.SetInt("_ZWrite", 1);
+                    mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    mat.renderQueue = (int)RenderQueue.Geometry;
+                    break;
+                case "transparent":
+                case "fade":
+                    mat.SetFloat("_Surface", 1);
+                    mat.SetOverrideTag("RenderType", "Transparent");
+                    mat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                    mat.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                    mat.SetInt("_ZWrite", 0);
+                    mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    mat.renderQueue = (int)RenderQueue.Transparent;
+                    break;
+                default:
+                    return false;
+            }
+            return true;
         }
     }
 }

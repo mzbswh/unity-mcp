@@ -97,20 +97,28 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
-        [McpTool("editor_selection_set", "Set the Editor selection to specified objects",
+        [McpTool("editor_selection_set", "Set the Editor selection to specified objects. Pass a single name or an array of names.",
             Group = "editor")]
         public static ToolResult SelectionSet(
-            [Desc("Names or paths of GameObjects to select")] string[] targets = null,
+            [Desc("Name or path of a single GameObject to select")] string target = null,
+            [Desc("Names or paths of multiple GameObjects to select")] string[] targets = null,
             [Desc("Instance IDs to select")] int[] instanceIds = null,
             [Desc("Asset paths to select")] string[] assetPaths = null)
         {
             var objects = new System.Collections.Generic.List<Object>();
 
+            // Support single target parameter
+            if (target != null)
+            {
+                var go = GameObjectTools.FindGameObject(target, null);
+                if (go != null) objects.Add(go);
+            }
+
             if (targets != null)
             {
-                foreach (var target in targets)
+                foreach (var t in targets)
                 {
-                    var go = GameObjectTools.FindGameObject(target, null);
+                    var go = GameObjectTools.FindGameObject(t, null);
                     if (go != null) objects.Add(go);
                 }
             }
