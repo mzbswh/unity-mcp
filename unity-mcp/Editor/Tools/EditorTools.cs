@@ -149,17 +149,17 @@ namespace UnityMcp.Editor.Tools
 
         [McpTool("editor_undo", "Perform Undo (like Ctrl+Z)",
             Group = "editor")]
-        public static ToolResult Undo()
+        public static ToolResult PerformUndo()
         {
-            Undo.PerformUndo();
+            UnityEditor.Undo.PerformUndo();
             return ToolResult.Text("Undo performed");
         }
 
         [McpTool("editor_redo", "Perform Redo (like Ctrl+Y)",
             Group = "editor")]
-        public static ToolResult Redo()
+        public static ToolResult PerformRedo()
         {
-            Undo.PerformRedo();
+            UnityEditor.Undo.PerformRedo();
             return ToolResult.Text("Redo performed");
         }
 

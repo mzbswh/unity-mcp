@@ -212,7 +212,6 @@ namespace UnityMcp.Editor.Tools
             [Desc("Import normals: Import, Calculate, None")] string importNormals = null,
             [Desc("Import animation")] bool? importAnimation = null,
             [Desc("Animation type: None, Legacy, Generic, Human")] string animationType = null,
-            [Desc("Import materials")] bool? importMaterials = null,
             [Desc("Material import mode: None, ImportViaMaterialDescription, ImportStandard")] string materialImportMode = null)
         {
             var pv = PathValidator.QuickValidate(path);
@@ -234,7 +233,6 @@ namespace UnityMcp.Editor.Tools
             if (isReadable.HasValue) { importer.isReadable = isReadable.Value; applied++; }
             if (optimizeMesh.HasValue) { importer.optimizeMeshVertices = optimizeMesh.Value; importer.optimizeMeshPolygons = optimizeMesh.Value; applied++; }
             if (importAnimation.HasValue) { importer.importAnimation = importAnimation.Value; applied++; }
-            if (importMaterials.HasValue) { importer.importMaterials = importMaterials.Value; applied++; }
 
             if (!string.IsNullOrEmpty(meshCompression))
             {

@@ -289,7 +289,7 @@ namespace UnityMcp.Editor.Tools
                 {
                     string paramName = c["parameter"]?.ToString();
                     string modeStr = c["mode"]?.ToString() ?? "If";
-                    float threshold = c["threshold"]?.Value<float>() ?? 0f;
+                    float threshold = c["threshold"]?.ToObject<float>() ?? 0f;
 
                     if (string.IsNullOrEmpty(paramName)) continue;
 
@@ -417,9 +417,9 @@ namespace UnityMcp.Editor.Tools
                     var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
                     if (clip == null) continue;
 
-                    float threshold = m["threshold"]?.Value<float>() ?? added;
-                    float posX = m["positionX"]?.Value<float>() ?? 0;
-                    float posY = m["positionY"]?.Value<float>() ?? 0;
+                    float threshold = m["threshold"]?.ToObject<float>() ?? added;
+                    float posX = m["positionX"]?.ToObject<float>() ?? 0;
+                    float posY = m["positionY"]?.ToObject<float>() ?? 0;
 
                     if (bt == BlendTreeType.Simple1D)
                         blendTree.AddChild(clip, threshold);
@@ -469,10 +469,10 @@ namespace UnityMcp.Editor.Tools
             if (componentType == "Transform") type = typeof(Transform);
 
             var keys = keyframes.Select(k => new Keyframe(
-                k["time"]?.Value<float>() ?? 0f,
-                k["value"]?.Value<float>() ?? 0f,
-                k["inTangent"]?.Value<float>() ?? 0f,
-                k["outTangent"]?.Value<float>() ?? 0f
+                k["time"]?.ToObject<float>() ?? 0f,
+                k["value"]?.ToObject<float>() ?? 0f,
+                k["inTangent"]?.ToObject<float>() ?? 0f,
+                k["outTangent"]?.ToObject<float>() ?? 0f
             )).ToArray();
 
             var curve = new AnimationCurve(keys);

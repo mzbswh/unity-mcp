@@ -2,6 +2,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityMcp.Editor.Utils;
 using UnityMcp.Shared.Attributes;
 using UnityMcp.Shared.Models;
 

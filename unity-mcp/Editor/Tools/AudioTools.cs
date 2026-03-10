@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityMcp.Editor.Utils;
 using UnityMcp.Shared.Attributes;
 using UnityMcp.Shared.Models;
 using UnityMcp.Shared.Utils;
