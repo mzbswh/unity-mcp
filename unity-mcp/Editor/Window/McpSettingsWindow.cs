@@ -38,7 +38,7 @@ namespace UnityMcp.Editor.Window
         private bool _vscodeConfigured;
         private bool _windsurfConfigured;
 
-        [MenuItem("Window/Unity MCP")]
+        [MenuItem("Window/Unity MCP", priority = 0)]
         public static void ShowWindow()
         {
             var window = GetWindow<McpSettingsWindow>("Unity MCP");
