@@ -38,7 +38,9 @@ class Program
         _ = Task.Run(() => ReadStdinLoop(cts.Token), cts.Token);
 
         int attempt = 0;
-        int[] delays = { 0, 1000, 2000, 4000, 8000, 15000, 30000 };
+        // Aggressive early retries for domain reload (typically 2-5s),
+        // then back off for longer outages.
+        int[] delays = { 0, 300, 500, 1000, 1000, 2000, 2000, 3000, 3000, 5000 };
 
         while (!cts.Token.IsCancellationRequested)
         {

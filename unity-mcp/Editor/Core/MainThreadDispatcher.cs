@@ -29,7 +29,8 @@ namespace UnityMcp.Editor.Core
     {
         private static readonly ConcurrentQueue<Action> s_queue = new();
         private static int s_mainThreadId;
-        private static volatile bool s_hasPending;
+        private static volatile int s_pending;
+        private static Timer s_wakeTimer;
 
         static MainThreadDispatcher()
         {
@@ -40,6 +41,15 @@ namespace UnityMcp.Editor.Core
                 s_mainThreadId = Thread.CurrentThread.ManagedThreadId;
                 ProcessQueue();
             };
+
+            // Background timer: when pending work exists, nudge the main thread
+            // via delayCall every 50ms. This wakes up an idle editor that would
+            // otherwise only run EditorApplication.update at ~1 fps.
+            s_wakeTimer = new Timer(_ =>
+            {
+                if (s_pending > 0)
+                    EditorApplication.delayCall += ProcessQueue;
+            }, null, 50, 50);
         }
 
         public static bool IsMainThread =>
@@ -68,8 +78,7 @@ namespace UnityMcp.Editor.Core
                 finally { cts.Dispose(); }
             });
 
-            // Signal that work is pending so delayCall fast-path kicks in
-            s_hasPending = true;
+            Interlocked.Increment(ref s_pending);
 
             return tcs.Task;
         }
@@ -84,16 +93,10 @@ namespace UnityMcp.Editor.Core
             int budget = 50;
             while (budget-- > 0 && s_queue.TryDequeue(out var action))
             {
+                Interlocked.Decrement(ref s_pending);
                 try { action(); }
                 catch (Exception ex) { Debug.LogException(ex); }
             }
-
-            // If items remain, schedule another drain via delayCall
-            // (fires sooner than next EditorApplication.update when editor is idle)
-            if (!s_queue.IsEmpty)
-                EditorApplication.delayCall += ProcessQueue;
-
-            s_hasPending = !s_queue.IsEmpty;
         }
     }
 }
