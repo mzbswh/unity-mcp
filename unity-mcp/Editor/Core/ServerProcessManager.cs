@@ -123,12 +123,12 @@ namespace UnityMcp.Editor.Core
                 _serverProcess.OutputDataReceived += (sender, args) =>
                 {
                     if (!string.IsNullOrEmpty(args.Data))
-                        McpLogger.Info($"[Bridge] {args.Data}");
+                        MainThreadDispatcher.RunAsync(() => McpLogger.Info($"[Bridge] {args.Data}"));
                 };
                 _serverProcess.ErrorDataReceived += (sender, args) =>
                 {
                     if (!string.IsNullOrEmpty(args.Data))
-                        McpLogger.Error($"[Bridge] {args.Data}");
+                        MainThreadDispatcher.RunAsync(() => McpLogger.Warning($"[Bridge] {args.Data}"));
                 };
                 _serverProcess.Start();
                 _serverProcess.BeginOutputReadLine();
