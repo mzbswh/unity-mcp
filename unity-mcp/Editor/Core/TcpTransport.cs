@@ -65,8 +65,8 @@ namespace UnityMcp.Editor.Core
             _listener.Start();
             IsRunning = true;
             Task.Run(() => AcceptLoop(_cts.Token));
-            // Heartbeat: every 30s, probe all clients to detect dead connections
-            _heartbeatTimer = new Timer(_ => PruneDeadClients(), null, 30_000, 30_000);
+            // Heartbeat: every 10s, probe all clients to detect dead connections
+            _heartbeatTimer = new Timer(_ => PruneDeadClients(), null, 10_000, 10_000);
         }
 
         public void Stop()
@@ -113,8 +113,10 @@ namespace UnityMcp.Editor.Core
                 try
                 {
                     var client = await _listener.AcceptTcpClientAsync();
-                    // Enable TCP keepalive to help detect dead connections
+                    // Enable TCP keepalive with aggressive timeouts to detect dead connections
                     client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                    // Short send timeout so heartbeat probes fail fast on dead connections
+                    client.Client.SendTimeout = 5000;
                     _writeLocks[client] = new object();
                     var endpoint = client.Client.RemoteEndPoint;
                     _clientInfos[client] = new ConnectedClientInfo
@@ -217,39 +219,76 @@ namespace UnityMcp.Editor.Core
             }
         }
 
+        private bool TrySendFrame(TcpClient client, byte msgType, byte[] payload)
+        {
+            if (!_writeLocks.TryGetValue(client, out var writeLock)) return false;
+            lock (writeLock)
+            {
+                try
+                {
+                    if (!client.Connected) return false;
+                    var stream = client.GetStream();
+                    int frameLen = 1 + payload.Length;
+                    var header = new byte[5];
+                    header[0] = (byte)(frameLen >> 24);
+                    header[1] = (byte)(frameLen >> 16);
+                    header[2] = (byte)(frameLen >> 8);
+                    header[3] = (byte)(frameLen);
+                    header[4] = msgType;
+                    stream.Write(header, 0, 5);
+                    stream.Write(payload, 0, payload.Length);
+                    stream.Flush();
+                    return true;
+                }
+                catch { return false; }
+            }
+        }
+
+        private static readonly byte[] s_pingPayload =
+            Encoding.UTF8.GetBytes("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/ping\"}");
+
         /// <summary>
-        /// Periodically probes all connected clients using Socket.Poll.
-        /// Detects half-open connections where the remote process was killed
-        /// without sending FIN/RST (e.g. Bridge killed by VS Code reload).
+        /// Periodically probes all connected clients by sending a small notification frame.
+        /// A failed write reliably detects dead connections (process killed, network down, etc.)
+        /// unlike Socket.Poll which cannot detect half-open connections.
         /// </summary>
         private void PruneDeadClients()
         {
+            List<TcpClient> snapshot;
+            lock (_clientsLock) snapshot = new List<TcpClient>(_clients);
+
             List<TcpClient> dead = null;
-            lock (_clientsLock)
+            foreach (var client in snapshot)
             {
-                foreach (var client in _clients)
+                try
                 {
-                    try
-                    {
-                        var socket = client.Client;
-                        if (socket == null || !socket.Connected)
-                        {
-                            (dead ??= new List<TcpClient>()).Add(client);
-                            continue;
-                        }
-                        // Poll: if socket is readable AND read would return 0 → connection is dead
-                        if (socket.Poll(0, SelectMode.SelectRead) && socket.Available == 0)
-                        {
-                            (dead ??= new List<TcpClient>()).Add(client);
-                        }
-                    }
-                    catch
+                    var socket = client.Client;
+                    if (socket == null || !socket.Connected)
                     {
                         (dead ??= new List<TcpClient>()).Add(client);
+                        continue;
                     }
-                }
 
-                if (dead != null)
+                    // Poll first for fast detection of graceful close
+                    if (socket.Poll(0, SelectMode.SelectRead) && socket.Available == 0)
+                    {
+                        (dead ??= new List<TcpClient>()).Add(client);
+                        continue;
+                    }
+
+                    // Try sending a ping — this reliably detects killed processes
+                    if (!TrySendFrame(client, McpConst.MsgTypeNotification, s_pingPayload))
+                        (dead ??= new List<TcpClient>()).Add(client);
+                }
+                catch
+                {
+                    (dead ??= new List<TcpClient>()).Add(client);
+                }
+            }
+
+            if (dead != null)
+            {
+                lock (_clientsLock)
                 {
                     foreach (var client in dead)
                     {
