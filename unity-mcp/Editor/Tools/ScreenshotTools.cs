@@ -88,34 +88,21 @@ namespace UnityMcp.Editor.Tools
             var bytes = tex.EncodeToPNG();
             UnityEngine.Object.DestroyImmediate(tex);
 
+            var base64 = Convert.ToBase64String(bytes);
+
             if (!string.IsNullOrEmpty(savePath))
             {
                 var dir = Path.GetDirectoryName(savePath);
                 if (!string.IsNullOrEmpty(dir))
                     Directory.CreateDirectory(dir);
                 File.WriteAllBytes(savePath, bytes);
-
-                return ToolResult.Json(new
-                {
-                    success = true,
-                    source = sourceName,
-                    width,
-                    height,
-                    savedTo = savePath,
-                    sizeBytes = bytes.Length
-                });
             }
 
-            return ToolResult.Json(new
-            {
-                success = true,
-                source = sourceName,
-                format = "png",
-                width,
-                height,
-                base64 = Convert.ToBase64String(bytes),
-                sizeBytes = bytes.Length
-            });
+            string desc = !string.IsNullOrEmpty(savePath)
+                ? $"Screenshot from {sourceName} ({width}x{height}), saved to {savePath}"
+                : $"Screenshot from {sourceName} ({width}x{height})";
+
+            return ToolResult.Image(base64, "image/png", desc);
         }
     }
 }

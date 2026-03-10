@@ -20,6 +20,10 @@ namespace UnityMcp.Shared.Models
         public string ErrorMessage { get; private set; }
         public string ErrorCode { get; private set; }
 
+        // Image content support (MCP image type)
+        private string _imageBase64;
+        private string _imageMimeType;
+
         public static ToolResult Text(string message)
         {
             return new ToolResult
@@ -35,6 +39,17 @@ namespace UnityMcp.Shared.Models
             {
                 IsSuccess = true,
                 Content = data == null ? JValue.CreateNull() : JToken.FromObject(data, s_serializer)
+            };
+        }
+
+        public static ToolResult Image(string base64Data, string mimeType = "image/png", string description = null)
+        {
+            return new ToolResult
+            {
+                IsSuccess = true,
+                _imageBase64 = base64Data,
+                _imageMimeType = mimeType,
+                Content = description != null ? new JValue(description) : null
             };
         }
 
@@ -61,26 +76,42 @@ namespace UnityMcp.Shared.Models
 
         public JObject ToMcpResponse()
         {
-            if (IsSuccess)
+            if (!IsSuccess)
             {
-                string text = Content is JValue jv ? jv.ToString() : Content.ToString();
                 return new JObject
                 {
+                    ["isError"] = true,
                     ["content"] = new JArray
                     {
-                        new JObject { ["type"] = "text", ["text"] = text }
+                        new JObject { ["type"] = "text", ["text"] = ErrorMessage }
                     }
                 };
             }
 
-            return new JObject
+            var contentArray = new JArray();
+
+            // Add image content if present
+            if (_imageBase64 != null)
             {
-                ["isError"] = true,
-                ["content"] = new JArray
+                contentArray.Add(new JObject
                 {
-                    new JObject { ["type"] = "text", ["text"] = ErrorMessage }
-                }
-            };
+                    ["type"] = "image",
+                    ["data"] = _imageBase64,
+                    ["mimeType"] = _imageMimeType ?? "image/png"
+                });
+            }
+
+            // Add text content if present
+            if (Content != null)
+            {
+                string text = Content is JValue jv ? jv.ToString() : Content.ToString();
+                contentArray.Add(new JObject { ["type"] = "text", ["text"] = text });
+            }
+
+            if (contentArray.Count == 0)
+                contentArray.Add(new JObject { ["type"] = "text", ["text"] = "" });
+
+            return new JObject { ["content"] = contentArray };
         }
 
         /// <summary>
