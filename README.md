@@ -141,7 +141,6 @@ git clone https://github.com/mzbswh/unity-mcp.git
 | `prefab_create` / `prefab_instantiate` | Prefab 工作流 |
 | `prefab_open` / `prefab_save_close` / `prefab_unpack` | Prefab 编辑 |
 | `animation_create_clip` / `animation_manage_controller` | 动画管理 |
-| `ui_create_element` | 创建 UI 元素 |
 | `vfx_create_particle` / `vfx_modify_particle` | 粒子系统 |
 | `vfx_create_graph` / `vfx_get_info` | VFX Graph |
 

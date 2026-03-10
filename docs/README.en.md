@@ -141,7 +141,6 @@ If it returns the scene hierarchy, you're all set.
 | `prefab_create` / `prefab_instantiate` | Prefab workflow |
 | `prefab_open` / `prefab_save_close` / `prefab_unpack` | Prefab editing |
 | `animation_create_clip` / `animation_manage_controller` | Animation management |
-| `ui_create_element` | Create UI elements |
 | `vfx_create_particle` / `vfx_modify_particle` | Particle systems |
 | `vfx_create_graph` / `vfx_get_info` | VFX Graph |
 
