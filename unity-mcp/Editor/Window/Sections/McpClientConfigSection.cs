@@ -256,15 +256,11 @@ namespace UnityMcp.Editor.Window.Sections
                 {
                     writer.Unconfigure(profile);
                     McpLogger.Info($"Unconfigured {profile.DisplayName}: {profile.Paths.Current}");
-                    EditorUtility.DisplayDialog("Success",
-                        $"Unity MCP removed from {profile.DisplayName}.", "OK");
                     UpdateSelectedClient();
                 }
                 catch (System.Exception ex)
                 {
                     McpLogger.Error($"Failed to unconfigure {profile.DisplayName}: {ex.Message}");
-                    EditorUtility.DisplayDialog("Error",
-                        $"Failed to unconfigure {profile.DisplayName}:\n{ex.Message}", "OK");
                 }
             }
             else
@@ -276,15 +272,11 @@ namespace UnityMcp.Editor.Window.Sections
                         ? "streamable-http" : "stdio";
                     writer.Configure(profile, settings.Port, transport, settings.HttpPort);
                     McpLogger.Info($"Configured {profile.DisplayName}: {profile.Paths.Current}");
-                    EditorUtility.DisplayDialog("Success",
-                        $"Unity MCP configured for {profile.DisplayName}.\n\nConfig: {profile.Paths.Current}", "OK");
                     UpdateSelectedClient();
                 }
                 catch (System.Exception ex)
                 {
                     McpLogger.Error($"Failed to configure {profile.DisplayName}: {ex.Message}");
-                    EditorUtility.DisplayDialog("Error",
-                        $"Failed to configure {profile.DisplayName}:\n{ex.Message}", "OK");
                 }
             }
         }

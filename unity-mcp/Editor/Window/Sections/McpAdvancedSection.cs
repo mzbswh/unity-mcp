@@ -1,8 +1,6 @@
 using System;
 using System.IO;
-using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -186,7 +184,6 @@ namespace UnityMcp.Editor.Window.Sections
             _healthContainer = new VisualElement();
             _healthContainer.Add(BuildHealthRow("unity-tcp", "Unity TCP Server", out _));
             _healthContainer.Add(BuildHealthRow("mcp-connected", "MCP Server Connected", out _));
-            _healthContainer.Add(BuildHealthRow("uvx-available", "uvx Command", out _));
             healthBox.Add(_healthContainer);
 
             var testBtn = new Button { text = "Run Health Check" };
@@ -461,11 +458,10 @@ namespace UnityMcp.Editor.Window.Sections
                 status.text = text;
         }
 
-        private async void OnTestConnectionClicked()
+        private void OnTestConnectionClicked()
         {
             SetHealthPending("unity-tcp", "Checking...");
             SetHealthPending("mcp-connected", "Checking...");
-            SetHealthPending("uvx-available", "Checking...");
 
             var settings = McpSettings.Instance;
             int port = settings.Port;
@@ -485,48 +481,6 @@ namespace UnityMcp.Editor.Window.Sections
             else
                 SetHealthStatus("mcp-connected", false, "No MCP server connected");
 
-            // 3. uvx command available
-            string uvxCmd = string.IsNullOrEmpty(settings.UvxPath) ? "uvx" : settings.UvxPath;
-            try
-            {
-                string uvxResult = await Task.Run(() =>
-                {
-                    try
-                    {
-                        var psi = new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = uvxCmd,
-                            Arguments = "--version",
-                            UseShellExecute = false,
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            CreateNoWindow = true
-                        };
-                        using var proc = System.Diagnostics.Process.Start(psi);
-                        string output = proc.StandardOutput.ReadToEnd().Trim();
-                        string error = proc.StandardError.ReadToEnd().Trim();
-                        proc.WaitForExit(5000);
-                        return proc.ExitCode == 0 ? output : $"exit {proc.ExitCode}: {error}";
-                    }
-                    catch (Exception ex)
-                    {
-                        return $"ERROR:{ex.Message}";
-                    }
-                });
-
-                if (uvxResult.StartsWith("ERROR:"))
-                {
-                    SetHealthStatus("uvx-available", false, $"Not found: {uvxCmd}");
-                }
-                else
-                {
-                    SetHealthStatus("uvx-available", true, uvxResult);
-                }
-            }
-            catch (Exception e)
-            {
-                SetHealthStatus("uvx-available", false, e.Message);
-            }
         }
 
         private void RefreshDiagnostics()
