@@ -82,8 +82,8 @@ namespace UnityMcp.Editor.Window
             UpdateHeaderStatus();
             SwitchTab(0);
 
-            // Trigger update check
-            PackageUpdateChecker.CheckOncePerDay();
+            // Trigger update check (force, not daily-cached, so banner appears immediately)
+            PackageUpdateChecker.ForceCheck();
 
             // Periodic status update
             rootVisualElement.schedule.Execute(() => { UpdateHeaderStatus(); UpdateUpdateBanner(); }).Every(2000);
@@ -163,7 +163,7 @@ namespace UnityMcp.Editor.Window
                 icon.style.marginRight = 6;
                 _updateBanner.Add(icon);
 
-                var text = new Label();
+                var text = new Label { name = "update-text" };
                 text.style.flexGrow = 1;
                 text.style.fontSize = 12;
                 text.style.color = new Color(1f, 0.8f, 0.3f);
@@ -171,8 +171,8 @@ namespace UnityMcp.Editor.Window
                 _updateBanner.Add(text);
 
                 var updateBtn = new Button(() =>
-                    Application.OpenURL("https://github.com/mzbswh/unity-mcp/releases"));
-                updateBtn.text = "View Release";
+                    Application.OpenURL("https://github.com/mzbswh/unity-mcp"));
+                updateBtn.text = "Update";
                 updateBtn.style.fontSize = 11;
                 updateBtn.style.height = 22;
                 _updateBanner.Add(updateBtn);
@@ -191,14 +191,9 @@ namespace UnityMcp.Editor.Window
             }
 
             _updateBanner.style.display = DisplayStyle.Flex;
-            var label = _updateBanner.Q<Label>();
-            if (label != null && label.text != "⚠")
-            {
-                // Update the text label (second label in banner)
-                var labels = _updateBanner.Query<Label>().ToList();
-                if (labels.Count >= 2)
-                    labels[1].text = $"Update available: v{PackageUpdateChecker.LatestVersion}  (current: v{McpConst.ServerVersion})";
-            }
+            var textLabel = _updateBanner.Q<Label>("update-text");
+            if (textLabel != null)
+                textLabel.text = $"Update available: v{PackageUpdateChecker.LatestVersion}  (current: v{McpConst.ServerVersion})";
         }
     }
 }

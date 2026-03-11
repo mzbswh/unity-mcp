@@ -34,7 +34,20 @@ namespace UnityMcp.Editor.Core
             if (lastCheck == today) return;
 
             EditorPrefs.SetString(PrefKeyLastCheck, today);
+            FetchLatestVersion();
+        }
 
+        /// <summary>
+        /// Force a version check regardless of daily cache.
+        /// Used when opening the settings window to ensure banner is up-to-date.
+        /// </summary>
+        public static void ForceCheck()
+        {
+            FetchLatestVersion();
+        }
+
+        private static void FetchLatestVersion()
+        {
             var request = UnityWebRequest.Get(PackageJsonUrl);
             var op = request.SendWebRequest();
             op.completed += _ =>
