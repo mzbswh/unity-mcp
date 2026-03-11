@@ -53,6 +53,11 @@ namespace UnityMcp.Editor.Core
             Transport = new TcpTransport(port, s_handler);
             Transport.Start();
 
+            // 3b. Register with ServiceLocator
+            McpServices.ToolRegistry = Registry;
+            McpServices.Transport = Transport;
+            McpServices.RequestHandler = s_handler;
+
             // 4. No external process to start.
             //    - Built-in mode: Bridge is launched by MCP client, not by Unity.
             //    - Python mode: MCP client launches 'uvx unity-mcp-server' via stdio.
