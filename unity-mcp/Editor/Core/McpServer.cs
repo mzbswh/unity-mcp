@@ -12,7 +12,6 @@ namespace UnityMcp.Editor.Core
         public static TcpTransport Transport { get; private set; }
 
         private static RequestHandler s_handler;
-        private static ServerProcessManager s_processManager;
         private static bool s_initialized;
 
         static McpServer()
@@ -58,7 +57,7 @@ namespace UnityMcp.Editor.Core
             s_initialized = true;
             McpLogger.Info($"Server started on TCP:{port} " +
                            $"({Registry.ToolCount} tools, {Registry.ResourceCount} resources, " +
-                           $"{Registry.PromptCount} prompts) Mode: {settings.Mode}");
+                           $"{Registry.PromptCount} prompts)");
         }
 
         private static void OnBeforeReload()
@@ -75,12 +74,10 @@ namespace UnityMcp.Editor.Core
 
         public static void Shutdown()
         {
-            // Unregister instance
             int port = EditorPrefs.GetInt("UnityMcp_Port", 0);
             if (port > 0)
                 InstanceDiscovery.Unregister(port);
 
-            s_processManager?.StopServer();
             Transport?.Stop();
             s_initialized = false;
         }
@@ -91,8 +88,6 @@ namespace UnityMcp.Editor.Core
             int oldPort = EditorPrefs.GetInt("UnityMcp_Port", 0);
             if (oldPort > 0) InstanceDiscovery.Unregister(oldPort);
 
-            s_processManager?.StopServer();
-            s_processManager = null;
             Transport?.Stop();
             s_initialized = false;
             Initialize();

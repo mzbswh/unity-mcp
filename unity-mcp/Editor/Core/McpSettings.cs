@@ -9,26 +9,17 @@ namespace UnityMcp.Editor.Core
     public class McpSettings : ScriptableSingleton<McpSettings>
     {
         public static new McpSettings Instance => instance;
-        public enum ServerMode { BuiltIn, Python }
         public enum McpLogLevel { Debug, Info, Warning, Error, Off }
-        public enum PythonTransportMode { Stdio, StreamableHttp }
+        public enum TransportMode { Stdio, StreamableHttp }
 
-        [SerializeField] private ServerMode serverMode = ServerMode.BuiltIn;
         [SerializeField] private int port = PortResolver.DefaultPort;
-        [SerializeField] private string bridgePath = "";
-        [SerializeField] private PythonTransportMode pythonTransport = PythonTransportMode.Stdio;
-        [SerializeField] private int pythonHttpPort = 8080;
+        [SerializeField] private TransportMode transport = TransportMode.Stdio;
+        [SerializeField] private int httpPort = 8080;
         [SerializeField] private bool autoStart = true;
         [SerializeField] private int requestTimeoutSeconds = 60;
         [SerializeField] private McpLogLevel logLevel = McpLogLevel.Info;
         [SerializeField] private bool enableAuditLog;
         [SerializeField] private int maxBatchOperations = 50;
-
-        public ServerMode Mode
-        {
-            get => serverMode;
-            set { serverMode = value; Save(true); }
-        }
 
         public int Port
         {
@@ -36,22 +27,16 @@ namespace UnityMcp.Editor.Core
             set { port = value; Save(true); }
         }
 
-        public string BridgePath
+        public TransportMode Transport
         {
-            get => bridgePath;
-            set { bridgePath = value; Save(true); }
+            get => transport;
+            set { transport = value; Save(true); }
         }
 
-        public PythonTransportMode PythonTransport
+        public int HttpPort
         {
-            get => pythonTransport;
-            set { pythonTransport = value; Save(true); }
-        }
-
-        public int PythonHttpPort
-        {
-            get => pythonHttpPort;
-            set { pythonHttpPort = value; Save(true); }
+            get => httpPort;
+            set { httpPort = value; Save(true); }
         }
 
         public bool AutoStart

@@ -28,7 +28,7 @@ namespace UnityMcp.Editor.Window
         private int _selectedTab;
         private readonly string[] _tabNames = { "Server", "Clients", "Tools" };
         private Vector2 _scrollPos;
-        private string _cachedDefaultBridgePath;
+        // Bridge fields removed — window will be fully rewritten in UI Toolkit
 
         // Client config cache (refreshed periodically)
         private double _lastClientCheckTime;
@@ -133,17 +133,10 @@ namespace UnityMcp.Editor.Window
         {
             var settings = McpSettings.Instance;
 
-            // Server Mode
-            EditorGUILayout.LabelField("Server Mode", _subHeaderStyle);
+            // Server Settings
+            EditorGUILayout.LabelField("Server Settings", _subHeaderStyle);
             EditorGUILayout.BeginVertical(_boxStyle);
             {
-                EditorGUI.BeginChangeCheck();
-                var mode = (McpSettings.ServerMode)EditorGUILayout.EnumPopup("Mode", settings.Mode);
-                if (EditorGUI.EndChangeCheck())
-                    settings.Mode = mode;
-
-                EditorGUILayout.Space(2);
-
                 EditorGUI.BeginChangeCheck();
                 int port = EditorGUILayout.IntField(
                     new GUIContent("Port", "TCP port for MCP communication. -1 = auto-assign from project path hash."),
@@ -162,11 +155,7 @@ namespace UnityMcp.Editor.Window
 
             EditorGUILayout.Space(4);
 
-            // Mode-specific settings
-            if (settings.Mode == McpSettings.ServerMode.BuiltIn)
-                DrawBuiltInSettings(settings);
-            else
-                DrawPythonSettings(settings);
+            DrawTransportSettings(settings);
 
             EditorGUILayout.Space(4);
 
@@ -174,70 +163,30 @@ namespace UnityMcp.Editor.Window
             DrawAdvanced(settings);
         }
 
-        private void DrawBuiltInSettings(McpSettings settings)
+        private void DrawTransportSettings(McpSettings settings)
         {
-            EditorGUILayout.LabelField("Built-in Server (C# Bridge)", _subHeaderStyle);
-            EditorGUILayout.BeginVertical(_boxStyle);
-            {
-                EditorGUILayout.BeginHorizontal();
-                EditorGUI.BeginChangeCheck();
-                string bridgePath = EditorGUILayout.TextField("Bridge Path", settings.BridgePath);
-                if (EditorGUI.EndChangeCheck())
-                    settings.BridgePath = bridgePath;
-
-                if (GUILayout.Button("...", GUILayout.Width(30)))
-                {
-                    string path = EditorUtility.OpenFilePanel("Select Bridge Executable", "", "");
-                    if (!string.IsNullOrEmpty(path))
-                        settings.BridgePath = path;
-                }
-                EditorGUILayout.EndHorizontal();
-
-                if (_cachedDefaultBridgePath == null)
-                    _cachedDefaultBridgePath = ServerProcessManager.GetDefaultBridgePathStatic();
-                string effectivePath = string.IsNullOrEmpty(settings.BridgePath) ? _cachedDefaultBridgePath : settings.BridgePath;
-
-                if (!File.Exists(effectivePath))
-                    EditorGUILayout.HelpBox(
-                        $"Bridge binary not found:\n{effectivePath}\n\nBuild with: ./scripts/build_bridge.sh --current-only",
-                        MessageType.Warning);
-                else
-                    EditorGUILayout.HelpBox("Leave empty to use the default bundled binary.", MessageType.Info);
-
-                if (GUILayout.Button("Update Package (re-resolve)"))
-                {
-                    UnityEditor.PackageManager.Client.Resolve();
-                    _cachedDefaultBridgePath = null;
-                    McpLogger.Info("Package re-resolve requested. Unity will refresh package cache.");
-                }
-            }
-            EditorGUILayout.EndVertical();
-        }
-
-        private void DrawPythonSettings(McpSettings settings)
-        {
-            EditorGUILayout.LabelField("Python Server (FastMCP)", _subHeaderStyle);
+            EditorGUILayout.LabelField("Transport", _subHeaderStyle);
             EditorGUILayout.BeginVertical(_boxStyle);
             {
                 EditorGUI.BeginChangeCheck();
-                var transport = (McpSettings.PythonTransportMode)EditorGUILayout.EnumPopup(
+                var transport = (McpSettings.TransportMode)EditorGUILayout.EnumPopup(
                     new GUIContent("Transport", "How MCP clients communicate with the Python server."),
-                    settings.PythonTransport);
+                    settings.Transport);
                 if (EditorGUI.EndChangeCheck())
-                    settings.PythonTransport = transport;
+                    settings.Transport = transport;
 
-                if (settings.PythonTransport == McpSettings.PythonTransportMode.StreamableHttp)
+                if (settings.Transport == McpSettings.TransportMode.StreamableHttp)
                 {
                     EditorGUI.BeginChangeCheck();
                     int httpPort = EditorGUILayout.IntField(
                         new GUIContent("HTTP Port", "Port for the Streamable HTTP server."),
-                        settings.PythonHttpPort);
+                        settings.HttpPort);
                     if (EditorGUI.EndChangeCheck())
-                        settings.PythonHttpPort = Mathf.Max(1, httpPort);
+                        settings.HttpPort = Mathf.Max(1, httpPort);
 
                     EditorGUILayout.HelpBox(
                         "Streamable HTTP mode: run the server manually with\n" +
-                        $"  UNITY_MCP_PORT={settings.Port} UNITY_MCP_TRANSPORT=streamable-http UNITY_MCP_HTTP_PORT={settings.PythonHttpPort} uvx unity-mcp-server\n\n" +
+                        $"  UNITY_MCP_PORT={settings.Port} UNITY_MCP_TRANSPORT=streamable-http UNITY_MCP_HTTP_PORT={settings.HttpPort} uvx unity-mcp-server\n\n" +
                         "Then configure your MCP client with the URL shown in the Clients tab.",
                         MessageType.Info);
                 }
@@ -711,29 +660,12 @@ namespace UnityMcp.Editor.Window
 
         private static JObject BuildServerEntry(McpSettings settings)
         {
-            if (settings.Mode == McpSettings.ServerMode.BuiltIn)
-            {
-                string bridgePath = settings.BridgePath;
-                if (string.IsNullOrEmpty(bridgePath))
-                    bridgePath = ServerProcessManager.GetDefaultBridgePathStatic();
-                bridgePath = bridgePath.Replace("\\", "/");
-
-                return new JObject
-                {
-                    ["type"] = "stdio",
-                    ["command"] = bridgePath,
-                    ["args"] = new JArray { settings.Port.ToString() },
-                    ["env"] = new JObject { ["UNITY_MCP_PORT"] = settings.Port.ToString() }
-                };
-            }
-
-            // Python mode
-            if (settings.PythonTransport == McpSettings.PythonTransportMode.StreamableHttp)
+            if (settings.Transport == McpSettings.TransportMode.StreamableHttp)
             {
                 return new JObject
                 {
                     ["type"] = "http",
-                    ["url"] = $"http://127.0.0.1:{settings.PythonHttpPort}/mcp"
+                    ["url"] = $"http://127.0.0.1:{settings.HttpPort}/mcp"
                 };
             }
 
@@ -744,7 +676,6 @@ namespace UnityMcp.Editor.Window
                 ["command"] = "uvx",
                 ["args"] = new JArray { "unity-mcp-server" }
             };
-            // Only add env if port differs from default
             if (settings.Port != PortResolver.DefaultPort)
                 entry["env"] = new JObject { ["UNITY_MCP_PORT"] = settings.Port.ToString() };
             return entry;
