@@ -273,7 +273,7 @@ namespace UnityMcp.Editor.Tools
                         { errors.Add($"Unknown component type: {typeName}"); continue; }
                         var comp = targetGo.GetComponent(compType);
                         if (comp != null)
-                        { UnityEngine.Object.DestroyImmediate(comp); modified = true; }
+                        { Undo.DestroyObjectImmediate(comp); modified = true; }
                         else
                         { errors.Add($"Component '{typeName}' not found on '{targetGo.name}'"); }
                     }
