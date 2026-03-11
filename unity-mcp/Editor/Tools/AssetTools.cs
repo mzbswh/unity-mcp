@@ -11,12 +11,13 @@ namespace UnityMcp.Editor.Tools
     [McpToolGroup("Asset")]
     public static class AssetTools
     {
-        [McpTool("asset_find", "Search for assets using AssetDatabase (supports type filters like t:Texture)",
+        [McpTool("asset_find", "Search for assets using AssetDatabase (supports type filters like t:Texture, paginated)",
             Group = "asset", ReadOnly = true)]
         public static ToolResult Find(
             [Desc("Search filter (e.g. 'Player t:Prefab', 't:Texture2D', 'l:MyLabel')")] string filter,
             [Desc("Folder paths to search in (e.g. Assets/Prefabs)")] string[] searchInFolders = null,
-            [Desc("Max results")] int maxCount = 50)
+            [Desc("Page size (default 50, max 200)")] int pageSize = 50,
+            [Desc("Pagination cursor from previous response")] string cursor = null)
         {
             if (searchInFolders != null)
             {
@@ -31,7 +32,7 @@ namespace UnityMcp.Editor.Tools
                 ? AssetDatabase.FindAssets(filter, searchInFolders)
                 : AssetDatabase.FindAssets(filter);
 
-            var results = guids.Take(maxCount).Select(guid =>
+            var allResults = guids.Select(guid =>
             {
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 return new
@@ -43,7 +44,7 @@ namespace UnityMcp.Editor.Tools
                 };
             }).ToArray();
 
-            return ToolResult.Json(new { totalFound = guids.Length, returned = results.Length, assets = results });
+            return PaginationHelper.ToPaginatedResult(allResults, pageSize, cursor);
         }
 
         [McpTool("asset_create_folder", "Create a folder in the Assets directory",
