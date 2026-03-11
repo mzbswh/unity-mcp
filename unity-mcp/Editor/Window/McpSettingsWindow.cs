@@ -13,6 +13,8 @@ namespace UnityMcp.Editor.Window
         private Button[] _tabs;
         private VisualElement _statusDot;
         private Label _statusText;
+        private Label _versionLabel;
+        private VisualElement _updateBanner;
         private int _activeTab;
 
         [MenuItem("Window/Unity MCP", priority = 0)]
@@ -38,9 +40,9 @@ namespace UnityMcp.Editor.Window
             _statusDot = rootVisualElement.Q("status-indicator");
             _statusText = rootVisualElement.Q<Label>("status-text");
 
-            var versionLabel = rootVisualElement.Q<Label>("version-label");
-            if (versionLabel != null)
-                versionLabel.text = $"v{McpConst.ServerVersion}";
+            _versionLabel = rootVisualElement.Q<Label>("version-label");
+            if (_versionLabel != null)
+                _versionLabel.text = $"v{McpConst.ServerVersion}";
 
             rootVisualElement.Q<Button>("docs-btn")?.RegisterCallback<ClickEvent>(_ =>
                 Application.OpenURL("https://github.com/mzbswh/unity-mcp#readme"));
@@ -80,8 +82,14 @@ namespace UnityMcp.Editor.Window
             UpdateHeaderStatus();
             SwitchTab(0);
 
+            // Trigger update check
+            PackageUpdateChecker.CheckOncePerDay();
+
             // Periodic status update
-            rootVisualElement.schedule.Execute(UpdateHeaderStatus).Every(2000);
+            rootVisualElement.schedule.Execute(() => { UpdateHeaderStatus(); UpdateUpdateBanner(); }).Every(2000);
+
+            // Delayed first check (give network time)
+            rootVisualElement.schedule.Execute(UpdateUpdateBanner).ExecuteLater(3000);
         }
 
         private void SwitchTab(int idx)
@@ -125,6 +133,71 @@ namespace UnityMcp.Editor.Window
             {
                 _statusDot.AddToClassList("status-red");
                 _statusText.text = "Stopped";
+            }
+        }
+
+        private void UpdateUpdateBanner()
+        {
+            if (!PackageUpdateChecker.HasUpdate)
+            {
+                if (_updateBanner != null)
+                    _updateBanner.style.display = DisplayStyle.None;
+                return;
+            }
+
+            if (_updateBanner == null)
+            {
+                _updateBanner = new VisualElement();
+                _updateBanner.style.flexDirection = FlexDirection.Row;
+                _updateBanner.style.alignItems = Align.Center;
+                _updateBanner.style.backgroundColor = new Color(0.85f, 0.55f, 0.0f, 0.25f);
+                _updateBanner.style.borderBottomLeftRadius = _updateBanner.style.borderBottomRightRadius =
+                    _updateBanner.style.borderTopLeftRadius = _updateBanner.style.borderTopRightRadius = 4;
+                _updateBanner.style.paddingTop = _updateBanner.style.paddingBottom = 6;
+                _updateBanner.style.paddingLeft = _updateBanner.style.paddingRight = 10;
+                _updateBanner.style.marginLeft = _updateBanner.style.marginRight = 12;
+                _updateBanner.style.marginTop = 6;
+
+                var icon = new Label("\u26A0");
+                icon.style.fontSize = 14;
+                icon.style.marginRight = 6;
+                _updateBanner.Add(icon);
+
+                var text = new Label();
+                text.style.flexGrow = 1;
+                text.style.fontSize = 12;
+                text.style.color = new Color(1f, 0.8f, 0.3f);
+                text.style.whiteSpace = WhiteSpace.Normal;
+                _updateBanner.Add(text);
+
+                var updateBtn = new Button(() =>
+                    Application.OpenURL("https://github.com/mzbswh/unity-mcp/releases"));
+                updateBtn.text = "View Release";
+                updateBtn.style.fontSize = 11;
+                updateBtn.style.height = 22;
+                _updateBanner.Add(updateBtn);
+
+                // Insert after header (tab-bar), before content
+                var tabBar = rootVisualElement.Q(className: "tab-bar");
+                if (tabBar != null)
+                {
+                    int idx = rootVisualElement.IndexOf(tabBar);
+                    rootVisualElement.Insert(idx + 1, _updateBanner);
+                }
+                else
+                {
+                    rootVisualElement.Insert(0, _updateBanner);
+                }
+            }
+
+            _updateBanner.style.display = DisplayStyle.Flex;
+            var label = _updateBanner.Q<Label>();
+            if (label != null && label.text != "⚠")
+            {
+                // Update the text label (second label in banner)
+                var labels = _updateBanner.Query<Label>().ToList();
+                if (labels.Count >= 2)
+                    labels[1].text = $"Update available: v{PackageUpdateChecker.LatestVersion}  (current: v{McpConst.ServerVersion})";
             }
         }
     }
