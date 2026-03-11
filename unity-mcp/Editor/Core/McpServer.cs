@@ -63,6 +63,9 @@ namespace UnityMcp.Editor.Core
             // 6. Persist port for domain reload recovery
             EditorPrefs.SetInt("UnityMcp_Port", port);
 
+            // 7. Check for updates (daily)
+            PackageUpdateChecker.CheckOncePerDay();
+
             s_initialized = true;
             McpLogger.Info($"Server started on TCP:{port} " +
                            $"({Registry.ToolCount} tools, {Registry.ResourceCount} resources, " +

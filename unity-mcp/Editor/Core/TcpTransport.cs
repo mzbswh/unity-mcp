@@ -25,9 +25,13 @@ namespace UnityMcp.Editor.Core
         private readonly ConcurrentDictionary<TcpClient, object> _writeLocks = new();
         private readonly ConcurrentDictionary<TcpClient, ConnectedClientInfo> _clientInfos = new();
         private Timer _heartbeatTimer;
+        private int _reconnectCount;
+        private DateTime? _lastConnectedAt;
 
         public int Port { get; }
         public bool IsRunning { get; private set; }
+        public int ReconnectCount => _reconnectCount;
+        public DateTime? LastConnectedAt => _lastConnectedAt;
 
         public int ClientCount
         {
@@ -60,6 +64,7 @@ namespace UnityMcp.Editor.Core
         public void Start()
         {
             if (IsRunning) return;
+            if (_lastConnectedAt.HasValue) _reconnectCount++;
             _cts = new CancellationTokenSource();
             _listener = new TcpListener(IPAddress.Loopback, Port);
             _listener.Start();
@@ -126,6 +131,7 @@ namespace UnityMcp.Editor.Core
                         ConnectedAt = DateTime.Now
                     };
                     lock (_clientsLock) _clients.Add(client);
+                    _lastConnectedAt = DateTime.Now;
                     McpLogger.Info($"Bridge connected from {endpoint}");
                     _ = HandleClient(client, ct);
                 }
