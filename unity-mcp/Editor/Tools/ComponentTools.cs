@@ -88,12 +88,12 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Json(new { gameObject = go.name, component = type, fields });
         }
 
-        [McpTool("component_modify", "Modify serialized field values of a component. Supports int, float, bool, string, enum, Vector2/3/4, Quaternion, Rect, Bounds, Color, ObjectReference (pass asset path like 'Assets/Materials/X.mat'), and arrays (pass JSON array). Field names are matched flexibly: you can use the C# property name (e.g. 'sprite'), the serialized field name (e.g. 'm_Sprite'), or camelCase (e.g. 'color'). Use component_get to see available field names.",
+        [McpTool("component_modify", "Modify serialized field values of a component. Supports int, float, bool, string, enum, Vector2/3/4, Quaternion, Rect, Bounds, Color, ObjectReference (pass asset path like 'Assets/Materials/X.mat'), and arrays (pass JSON array). Field names are matched flexibly: you can use the C# property name (e.g. 'sprite'), the serialized field name (e.g. 'm_Sprite'), or camelCase (e.g. 'color'). Supports nested fields via dot-path (e.g. 'UVModule.tilesX') or nested JSON objects (e.g. {\"UVModule\": {\"enabled\": true, \"tilesX\": 8}}). This is especially useful for ParticleSystem submodules. Use component_get to see available field names.",
             Group = "component")]
         public static ToolResult Modify(
             [Desc("Name or path of the target GameObject")] string target,
             [Desc("Component type name")] string type,
-            [Desc("Fields to set as {fieldName: value}. Use asset paths for ObjectReference fields, arrays for array fields.")] JObject fields)
+            [Desc("Fields to set as {fieldName: value}. Supports nested objects for submodules (e.g. {\"UVModule\": {\"enabled\": true}}) or dot-paths (e.g. {\"UVModule.tilesX\": 8})")] JObject fields)
         {
             var go = GameObjectTools.FindGameObject(target, null);
             if (go == null)
@@ -111,7 +111,12 @@ namespace UnityMcp.Editor.Tools
             var changes = new List<string>();
             var errors = new JArray();
 
-            foreach (var kv in fields)
+            // Flatten nested JObjects into dot-path entries
+            // e.g. {"UVModule": {"enabled": true, "tilesX": 8}} → {"UVModule.enabled": true, "UVModule.tilesX": 8}
+            var flatFields = new List<KeyValuePair<string, JToken>>();
+            FlattenFields(fields, "", flatFields);
+
+            foreach (var kv in flatFields)
             {
                 var prop = FindPropertyFuzzy(so, kv.Key);
                 if (prop == null)
@@ -171,21 +176,76 @@ namespace UnityMcp.Editor.Tools
 
         // --- Helpers ---
 
+        // Known SerializedProperty types that use JObject as their value format (not nested containers)
+        private static readonly HashSet<string> VectorLikeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "x", "y", "z", "w", "r", "g", "b", "a",
+            "center", "size", "extent", "extents",
+            "width", "height"
+        };
+
+        /// <summary>
+        /// Recursively flattens nested JObject fields into dot-path keys.
+        /// JObjects that look like Vector/Color/Rect/Bounds values are kept as-is.
+        /// </summary>
+        private static void FlattenFields(JObject obj, string prefix, List<KeyValuePair<string, JToken>> result)
+        {
+            foreach (var kv in obj)
+            {
+                string key = string.IsNullOrEmpty(prefix) ? kv.Key : prefix + "." + kv.Key;
+                if (kv.Value is JObject nested && !IsVectorLikeObject(nested))
+                    FlattenFields(nested, key, result);
+                else
+                    result.Add(new KeyValuePair<string, JToken>(key, kv.Value));
+            }
+        }
+
+        /// <summary>
+        /// Heuristic: a JObject is "vector-like" if all its keys are known vector/color/rect components.
+        /// These should be passed as-is to SetSerializedProperty rather than flattened.
+        /// </summary>
+        private static bool IsVectorLikeObject(JObject obj)
+        {
+            if (obj.Count == 0) return false;
+            foreach (var kv in obj)
+            {
+                if (!VectorLikeKeys.Contains(kv.Key))
+                    return false;
+            }
+            return true;
+        }
+
         /// <summary>
         /// Finds a SerializedProperty by name with fuzzy matching.
         /// Tries: exact name → m_ + PascalCase → case-insensitive scan of all visible properties.
         /// </summary>
         internal static SerializedProperty FindPropertyFuzzy(SerializedObject so, string name)
         {
+            // 0. Dot-path: e.g. "UVModule.tilesX" — try direct path first
+            if (name.Contains("."))
+            {
+                var prop = so.FindProperty(name);
+                if (prop != null) return prop;
+
+                // Try fuzzy-resolving each segment
+                var segments = name.Split('.');
+                prop = FindPropertyFuzzySegment(so, segments[0]);
+                for (int i = 1; i < segments.Length && prop != null; i++)
+                    prop = FindNestedPropertyFuzzy(prop, segments[i]);
+                if (prop != null) return prop;
+            }
+
             // 1. Exact match
-            var prop = so.FindProperty(name);
-            if (prop != null) return prop;
+            {
+                var prop = so.FindProperty(name);
+                if (prop != null) return prop;
+            }
 
             // 2. Try m_ + variations (covers both Unity style "m_Sprite" and TMP style "m_text")
             if (!name.StartsWith("m_"))
             {
                 // Try m_ + original name (e.g. "text" → "m_text", "fontSize" → "m_fontSize")
-                prop = so.FindProperty("m_" + name);
+                var prop = so.FindProperty("m_" + name);
                 if (prop != null) return prop;
 
                 // Try m_ + PascalCase (e.g. "sprite" → "m_Sprite", "color" → "m_Color")
@@ -205,6 +265,70 @@ namespace UnityMcp.Editor.Tools
                     return so.FindProperty(iter.name);
             }
 
+            return null;
+        }
+
+        /// <summary>
+        /// Fuzzy-find a top-level property by single segment name.
+        /// </summary>
+        private static SerializedProperty FindPropertyFuzzySegment(SerializedObject so, string name)
+        {
+            var prop = so.FindProperty(name);
+            if (prop != null) return prop;
+
+            if (!name.StartsWith("m_"))
+            {
+                prop = so.FindProperty("m_" + name);
+                if (prop != null) return prop;
+                string pascal = char.ToUpperInvariant(name[0]) + name.Substring(1);
+                prop = so.FindProperty("m_" + pascal);
+                if (prop != null) return prop;
+            }
+
+            string lower = name.Replace("_", "").ToLowerInvariant();
+            var iter = so.GetIterator();
+            iter.Next(true);
+            while (iter.NextVisible(false))
+            {
+                string iterLower = iter.name.Replace("_", "").Replace("m_", "").ToLowerInvariant();
+                if (iterLower == lower || iter.name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return so.FindProperty(iter.name);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Fuzzy-find a child property within a parent SerializedProperty.
+        /// </summary>
+        private static SerializedProperty FindNestedPropertyFuzzy(SerializedProperty parent, string childName)
+        {
+            // Direct child lookup
+            var child = parent.FindPropertyRelative(childName);
+            if (child != null) return child;
+
+            if (!childName.StartsWith("m_"))
+            {
+                child = parent.FindPropertyRelative("m_" + childName);
+                if (child != null) return child;
+                string pascal = char.ToUpperInvariant(childName[0]) + childName.Substring(1);
+                child = parent.FindPropertyRelative("m_" + pascal);
+                if (child != null) return child;
+            }
+
+            // Case-insensitive scan of child properties
+            string lower = childName.Replace("_", "").ToLowerInvariant();
+            var iter = parent.Copy();
+            int depth = iter.depth;
+            if (iter.Next(true))
+            {
+                do
+                {
+                    if (iter.depth != depth + 1) continue;
+                    string iterLower = iter.name.Replace("_", "").Replace("m_", "").ToLowerInvariant();
+                    if (iterLower == lower || iter.name.Equals(childName, StringComparison.OrdinalIgnoreCase))
+                        return parent.FindPropertyRelative(iter.name);
+                } while (iter.Next(false) && iter.depth > depth);
+            }
             return null;
         }
 
@@ -278,8 +402,35 @@ namespace UnityMcp.Editor.Tools
                     var assetPath = AssetDatabase.GetAssetPath(prop.objectReferenceValue);
                     return !string.IsNullOrEmpty(assetPath) ? assetPath : prop.objectReferenceValue.name;
                 default:
-                    return prop.propertyType.ToString();
+                    return SerializedPropertyToObjectToken(prop);
             }
+        }
+
+        /// <summary>
+        /// Expands a Generic/complex SerializedProperty into a JObject of its child properties.
+        /// Limited to one level of depth to avoid excessive output.
+        /// </summary>
+        private static JToken SerializedPropertyToObjectToken(SerializedProperty prop)
+        {
+            var obj = new JObject();
+            var iter = prop.Copy();
+            int parentDepth = iter.depth;
+            if (!iter.Next(true)) return prop.propertyType.ToString();
+
+            int count = 0;
+            const int maxChildren = 50;
+            do
+            {
+                if (iter.depth <= parentDepth) break;
+                // Only include direct children (depth == parentDepth + 1)
+                if (iter.depth == parentDepth + 1)
+                {
+                    obj[iter.name] = SerializedPropertyToToken(iter);
+                    if (++count >= maxChildren) break;
+                }
+            } while (iter.Next(false));
+
+            return obj.Count > 0 ? obj : prop.propertyType.ToString();
         }
 
         internal static void SetSerializedProperty(SerializedProperty prop, JToken value)

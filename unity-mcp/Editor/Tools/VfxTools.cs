@@ -46,22 +46,62 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
-        [McpTool("vfx_modify_particle", "Modify Particle System module parameters",
+        [McpTool("vfx_modify_particle", "Modify Particle System module parameters. Covers main, emission, shape, textureSheetAnimation, colorOverLifetime, sizeOverLifetime, velocityOverLifetime, rotationOverLifetime, and noise modules. For advanced/uncommon properties, use component_modify with nested fields instead.",
             Group = "vfx")]
         public static ToolResult ModifyParticle(
             [Desc("Name or path of the Particle System GameObject")] string target,
             [Desc("Instance ID")] int? instanceId = null,
-            [Desc("Module: 'main', 'emission', 'shape', 'colorOverLifetime', 'sizeOverLifetime'")] string module = "main",
-            [Desc("Start lifetime (main module)")] float? startLifetime = null,
-            [Desc("Start speed (main module)")] float? startSpeed = null,
-            [Desc("Start size (main module)")] float? startSize = null,
-            [Desc("Max particles (main module)")] int? maxParticles = null,
+            // --- Main module ---
+            [Desc("Start lifetime (main)")] float? startLifetime = null,
+            [Desc("Start speed (main)")] float? startSpeed = null,
+            [Desc("Start size (main)")] float? startSize = null,
+            [Desc("Start color as {r,g,b,a} (main)")] Color? startColor = null,
+            [Desc("Start rotation in degrees (main)")] float? startRotation = null,
+            [Desc("Max particles (main)")] int? maxParticles = null,
+            [Desc("Gravity modifier (main)")] float? gravityModifier = null,
+            [Desc("Simulation space: 'local' or 'world' (main)")] string simulationSpace = null,
+            [Desc("Looping (main)")] bool? looping = null,
+            [Desc("Play on awake (main)")] bool? playOnAwake = null,
+            [Desc("Duration in seconds (main)")] float? duration = null,
+            // --- Emission module ---
             [Desc("Emission rate over time")] float? emissionRate = null,
-            [Desc("Shape type: 'sphere', 'cone', 'box', 'circle'")] string shapeType = null,
+            [Desc("Enable/disable emission module")] bool? emissionEnabled = null,
+            // --- Shape module ---
+            [Desc("Shape type: 'sphere', 'cone', 'box', 'circle', 'hemisphere', 'donut', 'edge'")] string shapeType = null,
             [Desc("Shape radius")] float? shapeRadius = null,
-            [Desc("Simulation space: 'local' or 'world'")] string simulationSpace = null,
-            [Desc("Gravity modifier")] float? gravityModifier = null,
-            [Desc("Looping")] bool? looping = null)
+            [Desc("Shape angle (cone)")] float? shapeAngle = null,
+            [Desc("Shape arc (0-360)")] float? shapeArc = null,
+            // --- TextureSheetAnimation module ---
+            [Desc("Enable texture sheet animation")] bool? texSheetEnabled = null,
+            [Desc("Texture tiles X")] int? texSheetTilesX = null,
+            [Desc("Texture tiles Y")] int? texSheetTilesY = null,
+            [Desc("Animation type: 'wholeSheet' or 'singleRow'")] string texSheetAnimationType = null,
+            [Desc("Cycle count")] int? texSheetCycleCount = null,
+            [Desc("Single row index (when animationType='singleRow')")] int? texSheetRowIndex = null,
+            // --- ColorOverLifetime module ---
+            [Desc("Enable color over lifetime")] bool? colorOverLifetimeEnabled = null,
+            [Desc("Color gradient start {r,g,b,a}")] Color? colorOverLifetimeStart = null,
+            [Desc("Color gradient end {r,g,b,a}")] Color? colorOverLifetimeEnd = null,
+            // --- SizeOverLifetime module ---
+            [Desc("Enable size over lifetime")] bool? sizeOverLifetimeEnabled = null,
+            [Desc("Size multiplier at start (0-1 curve start)")] float? sizeOverLifetimeStart = null,
+            [Desc("Size multiplier at end (0-1 curve end)")] float? sizeOverLifetimeEnd = null,
+            // --- VelocityOverLifetime module ---
+            [Desc("Enable velocity over lifetime")] bool? velocityEnabled = null,
+            [Desc("Velocity X constant")] float? velocityX = null,
+            [Desc("Velocity Y constant")] float? velocityY = null,
+            [Desc("Velocity Z constant")] float? velocityZ = null,
+            [Desc("Velocity space: 'local' or 'world'")] string velocitySpace = null,
+            // --- RotationOverLifetime module ---
+            [Desc("Enable rotation over lifetime")] bool? rotationOverLifetimeEnabled = null,
+            [Desc("Angular velocity in degrees/sec (Z axis)")] float? angularVelocity = null,
+            // --- Noise module ---
+            [Desc("Enable noise")] bool? noiseEnabled = null,
+            [Desc("Noise strength")] float? noiseStrength = null,
+            [Desc("Noise frequency")] float? noiseFrequency = null,
+            [Desc("Noise scroll speed")] float? noiseScrollSpeed = null,
+            [Desc("Noise octave count (1-4)")] int? noiseOctaves = null,
+            [Desc("Noise damping")] bool? noiseDamping = null)
         {
             var go = GameObjectTools.FindGameObject(target, instanceId);
             if (go == null)
@@ -72,26 +112,38 @@ namespace UnityMcp.Editor.Tools
                 return ToolResult.Error($"No ParticleSystem on '{go.name}'");
 
             Undo.RecordObject(ps, "Modify ParticleSystem");
+            var changes = new List<string>();
 
+            // --- Main module ---
             var main = ps.main;
-            if (startLifetime.HasValue) main.startLifetime = startLifetime.Value;
-            if (startSpeed.HasValue) main.startSpeed = startSpeed.Value;
-            if (startSize.HasValue) main.startSize = startSize.Value;
-            if (maxParticles.HasValue) main.maxParticles = maxParticles.Value;
-            if (gravityModifier.HasValue) main.gravityModifier = gravityModifier.Value;
-            if (looping.HasValue) main.loop = looping.Value;
+            if (startLifetime.HasValue) { main.startLifetime = startLifetime.Value; changes.Add("startLifetime"); }
+            if (startSpeed.HasValue) { main.startSpeed = startSpeed.Value; changes.Add("startSpeed"); }
+            if (startSize.HasValue) { main.startSize = startSize.Value; changes.Add("startSize"); }
+            if (startColor.HasValue) { main.startColor = startColor.Value; changes.Add("startColor"); }
+            if (startRotation.HasValue) { main.startRotation = startRotation.Value * Mathf.Deg2Rad; changes.Add("startRotation"); }
+            if (maxParticles.HasValue) { main.maxParticles = maxParticles.Value; changes.Add("maxParticles"); }
+            if (gravityModifier.HasValue) { main.gravityModifier = gravityModifier.Value; changes.Add("gravityModifier"); }
+            if (looping.HasValue) { main.loop = looping.Value; changes.Add("looping"); }
+            if (playOnAwake.HasValue) { main.playOnAwake = playOnAwake.Value; changes.Add("playOnAwake"); }
+            if (duration.HasValue) { main.duration = duration.Value; changes.Add("duration"); }
             if (!string.IsNullOrEmpty(simulationSpace))
+            {
                 main.simulationSpace = simulationSpace.ToLower() == "world"
                     ? ParticleSystemSimulationSpace.World
                     : ParticleSystemSimulationSpace.Local;
-
-            if (emissionRate.HasValue)
-            {
-                var emission = ps.emission;
-                emission.rateOverTime = emissionRate.Value;
+                changes.Add("simulationSpace");
             }
 
-            if (!string.IsNullOrEmpty(shapeType) || shapeRadius.HasValue)
+            // --- Emission module ---
+            if (emissionEnabled.HasValue || emissionRate.HasValue)
+            {
+                var emission = ps.emission;
+                if (emissionEnabled.HasValue) { emission.enabled = emissionEnabled.Value; changes.Add("emission.enabled"); }
+                if (emissionRate.HasValue) { emission.rateOverTime = emissionRate.Value; changes.Add("emission.rateOverTime"); }
+            }
+
+            // --- Shape module ---
+            if (!string.IsNullOrEmpty(shapeType) || shapeRadius.HasValue || shapeAngle.HasValue || shapeArc.HasValue)
             {
                 var shape = ps.shape;
                 if (!string.IsNullOrEmpty(shapeType))
@@ -99,19 +151,119 @@ namespace UnityMcp.Editor.Tools
                     shape.shapeType = shapeType.ToLower() switch
                     {
                         "sphere" => ParticleSystemShapeType.Sphere,
+                        "hemisphere" => ParticleSystemShapeType.Hemisphere,
                         "cone" => ParticleSystemShapeType.Cone,
                         "box" => ParticleSystemShapeType.Box,
                         "circle" => ParticleSystemShapeType.Circle,
+                        "donut" => ParticleSystemShapeType.Donut,
+                        "edge" => ParticleSystemShapeType.SingleSidedEdge,
                         _ => shape.shapeType
                     };
+                    changes.Add("shape.type");
                 }
-                if (shapeRadius.HasValue) shape.radius = shapeRadius.Value;
+                if (shapeRadius.HasValue) { shape.radius = shapeRadius.Value; changes.Add("shape.radius"); }
+                if (shapeAngle.HasValue) { shape.angle = shapeAngle.Value; changes.Add("shape.angle"); }
+                if (shapeArc.HasValue) { shape.arc = shapeArc.Value; changes.Add("shape.arc"); }
             }
+
+            // --- TextureSheetAnimation module ---
+            if (texSheetEnabled.HasValue || texSheetTilesX.HasValue || texSheetTilesY.HasValue ||
+                texSheetAnimationType != null || texSheetCycleCount.HasValue || texSheetRowIndex.HasValue)
+            {
+                var tex = ps.textureSheetAnimation;
+                if (texSheetEnabled.HasValue) { tex.enabled = texSheetEnabled.Value; changes.Add("textureSheet.enabled"); }
+                if (texSheetTilesX.HasValue) { tex.numTilesX = texSheetTilesX.Value; changes.Add("textureSheet.tilesX"); }
+                if (texSheetTilesY.HasValue) { tex.numTilesY = texSheetTilesY.Value; changes.Add("textureSheet.tilesY"); }
+                if (!string.IsNullOrEmpty(texSheetAnimationType))
+                {
+                    tex.animation = texSheetAnimationType.ToLower() == "singlerow"
+                        ? ParticleSystemAnimationType.SingleRow
+                        : ParticleSystemAnimationType.WholeSheet;
+                    changes.Add("textureSheet.animationType");
+                }
+                if (texSheetCycleCount.HasValue) { tex.cycleCount = texSheetCycleCount.Value; changes.Add("textureSheet.cycleCount"); }
+                if (texSheetRowIndex.HasValue) { tex.rowIndex = texSheetRowIndex.Value; changes.Add("textureSheet.rowIndex"); }
+            }
+
+            // --- ColorOverLifetime module ---
+            if (colorOverLifetimeEnabled.HasValue || colorOverLifetimeStart.HasValue || colorOverLifetimeEnd.HasValue)
+            {
+                var col = ps.colorOverLifetime;
+                if (colorOverLifetimeEnabled.HasValue) { col.enabled = colorOverLifetimeEnabled.Value; changes.Add("colorOverLifetime.enabled"); }
+                if (colorOverLifetimeStart.HasValue || colorOverLifetimeEnd.HasValue)
+                {
+                    var startCol = colorOverLifetimeStart ?? Color.white;
+                    var endCol = colorOverLifetimeEnd ?? new Color(startCol.r, startCol.g, startCol.b, 0f);
+                    var gradient = new Gradient();
+                    gradient.SetKeys(
+                        new[] { new GradientColorKey(startCol, 0f), new GradientColorKey(endCol, 1f) },
+                        new[] { new GradientAlphaKey(startCol.a, 0f), new GradientAlphaKey(endCol.a, 1f) });
+                    col.color = new ParticleSystem.MinMaxGradient(gradient);
+                    changes.Add("colorOverLifetime.gradient");
+                }
+            }
+
+            // --- SizeOverLifetime module ---
+            if (sizeOverLifetimeEnabled.HasValue || sizeOverLifetimeStart.HasValue || sizeOverLifetimeEnd.HasValue)
+            {
+                var size = ps.sizeOverLifetime;
+                if (sizeOverLifetimeEnabled.HasValue) { size.enabled = sizeOverLifetimeEnabled.Value; changes.Add("sizeOverLifetime.enabled"); }
+                if (sizeOverLifetimeStart.HasValue || sizeOverLifetimeEnd.HasValue)
+                {
+                    float s = sizeOverLifetimeStart ?? 1f;
+                    float e = sizeOverLifetimeEnd ?? 0f;
+                    var curve = new AnimationCurve(new Keyframe(0f, s), new Keyframe(1f, e));
+                    size.size = new ParticleSystem.MinMaxCurve(1f, curve);
+                    changes.Add("sizeOverLifetime.curve");
+                }
+            }
+
+            // --- VelocityOverLifetime module ---
+            if (velocityEnabled.HasValue || velocityX.HasValue || velocityY.HasValue || velocityZ.HasValue || velocitySpace != null)
+            {
+                var vel = ps.velocityOverLifetime;
+                if (velocityEnabled.HasValue) { vel.enabled = velocityEnabled.Value; changes.Add("velocity.enabled"); }
+                if (velocityX.HasValue) { vel.x = velocityX.Value; changes.Add("velocity.x"); }
+                if (velocityY.HasValue) { vel.y = velocityY.Value; changes.Add("velocity.y"); }
+                if (velocityZ.HasValue) { vel.z = velocityZ.Value; changes.Add("velocity.z"); }
+                if (!string.IsNullOrEmpty(velocitySpace))
+                {
+                    vel.space = velocitySpace.ToLower() == "world"
+                        ? ParticleSystemSimulationSpace.World
+                        : ParticleSystemSimulationSpace.Local;
+                    changes.Add("velocity.space");
+                }
+            }
+
+            // --- RotationOverLifetime module ---
+            if (rotationOverLifetimeEnabled.HasValue || angularVelocity.HasValue)
+            {
+                var rot = ps.rotationOverLifetime;
+                if (rotationOverLifetimeEnabled.HasValue) { rot.enabled = rotationOverLifetimeEnabled.Value; changes.Add("rotation.enabled"); }
+                if (angularVelocity.HasValue) { rot.z = angularVelocity.Value * Mathf.Deg2Rad; changes.Add("rotation.z"); }
+            }
+
+            // --- Noise module ---
+            if (noiseEnabled.HasValue || noiseStrength.HasValue || noiseFrequency.HasValue ||
+                noiseScrollSpeed.HasValue || noiseOctaves.HasValue || noiseDamping.HasValue)
+            {
+                var noise = ps.noise;
+                if (noiseEnabled.HasValue) { noise.enabled = noiseEnabled.Value; changes.Add("noise.enabled"); }
+                if (noiseStrength.HasValue) { noise.strength = noiseStrength.Value; changes.Add("noise.strength"); }
+                if (noiseFrequency.HasValue) { noise.frequency = noiseFrequency.Value; changes.Add("noise.frequency"); }
+                if (noiseScrollSpeed.HasValue) { noise.scrollSpeed = noiseScrollSpeed.Value; changes.Add("noise.scrollSpeed"); }
+                if (noiseOctaves.HasValue) { noise.octaveCount = noiseOctaves.Value; changes.Add("noise.octaveCount"); }
+                if (noiseDamping.HasValue) { noise.damping = noiseDamping.Value; changes.Add("noise.damping"); }
+            }
+
+            if (changes.Count == 0)
+                return ToolResult.Text($"No properties changed on ParticleSystem '{go.name}'");
 
             return ToolResult.Json(new
             {
                 name = go.name,
-                message = $"Modified ParticleSystem '{go.name}'"
+                modified = changes,
+                message = $"Modified ParticleSystem '{go.name}': {string.Join(", ", changes)}"
             });
         }
 
@@ -145,7 +297,7 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
-        [McpTool("vfx_get_info", "Get info about a Particle System or VFX asset",
+        [McpTool("vfx_get_info", "Get detailed info about a Particle System including all module states",
             Group = "vfx", ReadOnly = true)]
         public static ToolResult GetInfo(
             [Desc("Name or path of the Particle System GameObject")] string target,
@@ -162,6 +314,12 @@ namespace UnityMcp.Editor.Tools
             var main = ps.main;
             var emission = ps.emission;
             var shape = ps.shape;
+            var tex = ps.textureSheetAnimation;
+            var col = ps.colorOverLifetime;
+            var size = ps.sizeOverLifetime;
+            var vel = ps.velocityOverLifetime;
+            var rot = ps.rotationOverLifetime;
+            var noise = ps.noise;
             var renderer = go.GetComponent<ParticleSystemRenderer>();
 
             return ToolResult.Json(new
@@ -173,9 +331,12 @@ namespace UnityMcp.Editor.Tools
                 {
                     duration = main.duration,
                     looping = main.loop,
-                    startLifetime = main.startLifetime.constant,
-                    startSpeed = main.startSpeed.constant,
-                    startSize = main.startSize.constant,
+                    playOnAwake = main.playOnAwake,
+                    startLifetime = FormatMinMaxCurve(main.startLifetime),
+                    startSpeed = FormatMinMaxCurve(main.startSpeed),
+                    startSize = FormatMinMaxCurve(main.startSize),
+                    startRotation = main.startRotation.constant * Mathf.Rad2Deg,
+                    startColor = FormatColor(main.startColor.color),
                     maxParticles = main.maxParticles,
                     simulationSpace = main.simulationSpace.ToString(),
                     gravityModifier = main.gravityModifier.constant
@@ -183,7 +344,7 @@ namespace UnityMcp.Editor.Tools
                 emission = new
                 {
                     enabled = emission.enabled,
-                    rateOverTime = emission.rateOverTime.constant,
+                    rateOverTime = FormatMinMaxCurve(emission.rateOverTime),
                     burstCount = emission.burstCount
                 },
                 shape = new
@@ -191,7 +352,47 @@ namespace UnityMcp.Editor.Tools
                     enabled = shape.enabled,
                     shapeType = shape.shapeType.ToString(),
                     radius = shape.radius,
-                    angle = shape.angle
+                    angle = shape.angle,
+                    arc = shape.arc
+                },
+                textureSheetAnimation = new
+                {
+                    enabled = tex.enabled,
+                    tilesX = tex.numTilesX,
+                    tilesY = tex.numTilesY,
+                    animationType = tex.animation.ToString(),
+                    cycleCount = tex.cycleCount,
+                    rowIndex = tex.rowIndex
+                },
+                colorOverLifetime = new
+                {
+                    enabled = col.enabled
+                },
+                sizeOverLifetime = new
+                {
+                    enabled = size.enabled
+                },
+                velocityOverLifetime = new
+                {
+                    enabled = vel.enabled,
+                    x = FormatMinMaxCurve(vel.x),
+                    y = FormatMinMaxCurve(vel.y),
+                    z = FormatMinMaxCurve(vel.z),
+                    space = vel.space.ToString()
+                },
+                rotationOverLifetime = new
+                {
+                    enabled = rot.enabled,
+                    z = rot.enabled ? rot.z.constant * Mathf.Rad2Deg : 0f
+                },
+                noise = new
+                {
+                    enabled = noise.enabled,
+                    strength = noise.enabled ? noise.strength.constant : 0f,
+                    frequency = noise.enabled ? noise.frequency : 0f,
+                    scrollSpeed = noise.enabled ? noise.scrollSpeed.constant : 0f,
+                    octaveCount = noise.enabled ? noise.octaveCount : 0,
+                    damping = noise.enabled && noise.damping
                 },
                 renderer = renderer != null ? new
                 {
@@ -199,6 +400,24 @@ namespace UnityMcp.Editor.Tools
                     material = renderer.sharedMaterial?.name
                 } : null
             });
+        }
+
+        private static object FormatMinMaxCurve(ParticleSystem.MinMaxCurve curve)
+        {
+            switch (curve.mode)
+            {
+                case ParticleSystemCurveMode.Constant:
+                    return curve.constant;
+                case ParticleSystemCurveMode.TwoConstants:
+                    return new { min = curve.constantMin, max = curve.constantMax };
+                default:
+                    return new { mode = curve.mode.ToString(), multiplier = curve.curveMultiplier };
+            }
+        }
+
+        private static object FormatColor(Color c)
+        {
+            return new { r = c.r, g = c.g, b = c.b, a = c.a };
         }
 
         private static void ApplyPreset(ParticleSystem ps, string preset)
