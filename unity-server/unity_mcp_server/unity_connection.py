@@ -40,6 +40,7 @@ class UnityConnection:
         self._read_task: asyncio.Task | None = None
         self._drain_task: asyncio.Task | None = None
         self._reconnecting = False
+        self.on_reconnect: callable | None = None
 
     @property
     def connected(self) -> bool:
@@ -224,6 +225,11 @@ class UnityConnection:
                     logger.info(
                         f"Reconnected to Unity, replaying {pending_count} buffered request(s)"
                     )
+                    if self.on_reconnect:
+                        try:
+                            self.on_reconnect()
+                        except Exception:
+                            pass
                     return
                 except (ConnectionRefusedError, OSError) as e:
                     logger.warning(f"Reconnect attempt {attempt + 1} failed: {e}")
