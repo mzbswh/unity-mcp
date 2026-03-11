@@ -74,24 +74,7 @@ namespace UnityMcp.Editor.Window.ClientConfig
 
         private static JObject BuildEntry(int port, string transport, int httpPort)
         {
-            if (transport == "streamable-http")
-            {
-                return new JObject
-                {
-                    ["type"] = "http",
-                    ["url"] = $"http://127.0.0.1:{httpPort}/mcp"
-                };
-            }
-
-            var entry = new JObject
-            {
-                ["type"] = "stdio",
-                ["command"] = "uvx",
-                ["args"] = new JArray { "unity-mcp-server" }
-            };
-            if (port != PortResolver.DefaultPort)
-                entry["env"] = new JObject { ["UNITY_MCP_PORT"] = port.ToString() };
-            return entry;
+            return ServerEntryBuilder.Build(port, transport, httpPort);
         }
     }
 }

@@ -1,5 +1,8 @@
 using System;
+using System.IO;
+using System.Net.Sockets;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -13,10 +16,20 @@ namespace UnityMcp.Editor.Window.Sections
     public class McpAdvancedSection
     {
         private readonly VisualElement _root;
+
+        // Diagnostics
         private readonly Label _diagPortStatus;
         private readonly Label _diagClientCount;
         private readonly Label _diagVersion;
         private readonly Label _diagUnityVersion;
+
+        // Server override fields
+        private TextField _uvxPathField;
+        private TextField _serverSourceField;
+        private Toggle _devModeRefreshToggle;
+        private VisualElement _uvxPathStatus;
+        private VisualElement _healthIndicator;
+        private Label _healthStatusLabel;
 
         public McpAdvancedSection(VisualElement panel)
         {
@@ -57,6 +70,30 @@ namespace UnityMcp.Editor.Window.Sections
             batchField.RegisterValueChangedCallback(e =>
                 settings.MaxBatchOperations = Mathf.Max(1, e.newValue));
 
+            // UVX path override
+            _uvxPathField.value = settings.UvxPath;
+            _uvxPathField.RegisterValueChangedCallback(e =>
+            {
+                settings.UvxPath = e.newValue?.Trim() ?? "";
+                UpdateUvxPathStatus();
+            });
+
+            // Server source override
+            _serverSourceField.value = settings.ServerSourceOverride;
+            _serverSourceField.RegisterValueChangedCallback(e =>
+            {
+                string val = e.newValue?.Trim() ?? "";
+                val = ResolveServerPath(val);
+                if (val != e.newValue?.Trim())
+                    _serverSourceField.SetValueWithoutNotify(val);
+                settings.ServerSourceOverride = val;
+            });
+
+            // Dev mode force refresh
+            _devModeRefreshToggle.value = settings.DevModeForceRefresh;
+            _devModeRefreshToggle.RegisterValueChangedCallback(e =>
+                settings.DevModeForceRefresh = e.newValue);
+
             // Diagnostics
             _diagPortStatus = _root.Q<Label>("diag-port-status");
             _diagClientCount = _root.Q<Label>("diag-client-count");
@@ -65,15 +102,143 @@ namespace UnityMcp.Editor.Window.Sections
 
             _root.Q<Button>("btn-copy-diag").clicked += CopyDiagnostics;
 
+            UpdateUvxPathStatus();
             RefreshDiagnostics();
             _root.schedule.Execute(RefreshDiagnostics).Every(2000);
         }
 
         private void BuildUI()
         {
-            // Settings
+            // === Server Override Section ===
+            var overrideBox = new VisualElement();
+            overrideBox.AddToClassList("section-box");
+
+            var overrideTitle = new Label("Server Configuration");
+            overrideTitle.AddToClassList("section-title");
+            overrideBox.Add(overrideTitle);
+
+            // UVX Path
+            var uvxRow = new VisualElement();
+            uvxRow.style.flexDirection = FlexDirection.Row;
+            uvxRow.style.alignItems = Align.Center;
+            uvxRow.style.marginBottom = 4;
+
+            _uvxPathField = new TextField("UVX Path") { name = "field-uvx-path" };
+            _uvxPathField.tooltip = "Override path to uvx executable. Leave empty to use system PATH.";
+            _uvxPathField.style.flexGrow = 1;
+            uvxRow.Add(_uvxPathField);
+
+            _uvxPathStatus = new VisualElement();
+            _uvxPathStatus.style.width = 10;
+            _uvxPathStatus.style.height = 10;
+            _uvxPathStatus.style.borderTopLeftRadius = _uvxPathStatus.style.borderTopRightRadius =
+                _uvxPathStatus.style.borderBottomLeftRadius = _uvxPathStatus.style.borderBottomRightRadius = 5;
+            _uvxPathStatus.style.marginLeft = 4;
+            _uvxPathStatus.style.marginRight = 4;
+            uvxRow.Add(_uvxPathStatus);
+
+            var browseUvxBtn = new Button { text = "..." };
+            browseUvxBtn.tooltip = "Browse for uvx executable";
+            browseUvxBtn.style.width = 30;
+            browseUvxBtn.clicked += OnBrowseUvxClicked;
+            uvxRow.Add(browseUvxBtn);
+
+            var clearUvxBtn = new Button { text = "×" };
+            clearUvxBtn.tooltip = "Clear override and use system PATH";
+            clearUvxBtn.style.width = 24;
+            clearUvxBtn.clicked += () =>
+            {
+                _uvxPathField.value = "";
+                McpSettings.Instance.UvxPath = "";
+                UpdateUvxPathStatus();
+            };
+            uvxRow.Add(clearUvxBtn);
+
+            overrideBox.Add(uvxRow);
+
+            // Server source override
+            var srcRow = new VisualElement();
+            srcRow.style.flexDirection = FlexDirection.Row;
+            srcRow.style.alignItems = Align.Center;
+            srcRow.style.marginBottom = 4;
+
+            _serverSourceField = new TextField("Server Source") { name = "field-server-source" };
+            _serverSourceField.tooltip = "Override server source for uvx --from. Leave empty to use default PyPI package.\nExample: /path/to/unity-mcp/unity-server";
+            _serverSourceField.style.flexGrow = 1;
+            srcRow.Add(_serverSourceField);
+
+            var browseSrcBtn = new Button { text = "..." };
+            browseSrcBtn.tooltip = "Select local server source folder (containing pyproject.toml)";
+            browseSrcBtn.style.width = 30;
+            browseSrcBtn.clicked += OnBrowseServerSourceClicked;
+            srcRow.Add(browseSrcBtn);
+
+            var clearSrcBtn = new Button { text = "×" };
+            clearSrcBtn.tooltip = "Clear override and use default PyPI package";
+            clearSrcBtn.style.width = 24;
+            clearSrcBtn.clicked += () =>
+            {
+                _serverSourceField.value = "";
+                McpSettings.Instance.ServerSourceOverride = "";
+            };
+            srcRow.Add(clearSrcBtn);
+
+            overrideBox.Add(srcRow);
+
+            // Dev mode force refresh toggle
+            _devModeRefreshToggle = new Toggle("Dev Mode (--no-cache --refresh)") { name = "field-dev-mode" };
+            _devModeRefreshToggle.tooltip = "When enabled, adds --no-cache --refresh to uvx commands to avoid stale cached builds during local development.";
+            _devModeRefreshToggle.AddToClassList("field-row");
+            overrideBox.Add(_devModeRefreshToggle);
+
+            // Info text
+            var infoLabel = new Label("These settings affect the command generated for MCP client configs.\nModify these before configuring clients in the Client Config tab.");
+            infoLabel.style.fontSize = 10;
+            infoLabel.style.color = new Color(0.6f, 0.6f, 0.6f);
+            infoLabel.style.whiteSpace = WhiteSpace.Normal;
+            infoLabel.style.marginTop = 4;
+            overrideBox.Add(infoLabel);
+
+            _root.Add(overrideBox);
+
+            // === Health Check Section ===
+            var healthBox = new VisualElement();
+            healthBox.AddToClassList("section-box");
+            healthBox.style.marginTop = 8;
+
+            var healthTitle = new Label("Server Health Check");
+            healthTitle.AddToClassList("section-title");
+            healthBox.Add(healthTitle);
+
+            var healthRow = new VisualElement();
+            healthRow.style.flexDirection = FlexDirection.Row;
+            healthRow.style.alignItems = Align.Center;
+
+            _healthIndicator = new VisualElement();
+            _healthIndicator.style.width = 12;
+            _healthIndicator.style.height = 12;
+            _healthIndicator.style.borderTopLeftRadius = _healthIndicator.style.borderTopRightRadius =
+                _healthIndicator.style.borderBottomLeftRadius = _healthIndicator.style.borderBottomRightRadius = 6;
+            _healthIndicator.style.marginRight = 8;
+            _healthIndicator.style.backgroundColor = new Color(0.6f, 0.6f, 0.6f); // gray = unknown
+            healthRow.Add(_healthIndicator);
+
+            _healthStatusLabel = new Label("Not tested");
+            _healthStatusLabel.style.flexGrow = 1;
+            healthRow.Add(_healthStatusLabel);
+
+            var testBtn = new Button { text = "Test Connection" };
+            testBtn.AddToClassList("action-btn");
+            testBtn.clicked += OnTestConnectionClicked;
+            healthRow.Add(testBtn);
+
+            healthBox.Add(healthRow);
+            _root.Add(healthBox);
+
+            // === Settings Section ===
             var settingsBox = new VisualElement();
             settingsBox.AddToClassList("section-box");
+            settingsBox.style.marginTop = 8;
 
             var settingsTitle = new Label("Settings");
             settingsTitle.AddToClassList("section-title");
@@ -97,7 +262,7 @@ namespace UnityMcp.Editor.Window.Sections
 
             _root.Add(settingsBox);
 
-            // Diagnostics
+            // === Diagnostics Section ===
             var diagBox = new VisualElement();
             diagBox.AddToClassList("section-box");
             diagBox.style.marginTop = 8;
@@ -120,7 +285,7 @@ namespace UnityMcp.Editor.Window.Sections
 
             _root.Add(diagBox);
 
-            // Recent Tool Calls
+            // === Recent Tool Calls ===
             var logBox = new VisualElement();
             logBox.AddToClassList("section-box");
             logBox.style.marginTop = 8;
@@ -145,6 +310,119 @@ namespace UnityMcp.Editor.Window.Sections
             valueLabel.AddToClassList("diag-value");
             row.Add(valueLabel);
             return row;
+        }
+
+        private void OnBrowseUvxClicked()
+        {
+#if UNITY_EDITOR_OSX
+            string suggested = "/opt/homebrew/bin";
+#else
+            string suggested = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+#endif
+            string picked = EditorUtility.OpenFilePanel("Select uvx Executable", suggested, "");
+            if (!string.IsNullOrEmpty(picked))
+            {
+                _uvxPathField.value = picked;
+                McpSettings.Instance.UvxPath = picked;
+                UpdateUvxPathStatus();
+            }
+        }
+
+        private void OnBrowseServerSourceClicked()
+        {
+            string picked = EditorUtility.OpenFolderPanel("Select Server folder (containing pyproject.toml)", "", "");
+            if (!string.IsNullOrEmpty(picked))
+            {
+                picked = ResolveServerPath(picked);
+                _serverSourceField.value = picked;
+                McpSettings.Instance.ServerSourceOverride = picked;
+            }
+        }
+
+        private static string ResolveServerPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return path;
+
+            // If already points to a directory with pyproject.toml, it's correct
+            if (File.Exists(Path.Combine(path, "pyproject.toml")))
+                return path;
+
+            // Check common sub-directories: "unity-server", "Server", "server"
+            string[] subDirs = { "unity-server", "Server", "server" };
+            foreach (var sub in subDirs)
+            {
+                string subPath = Path.Combine(path, sub);
+                if (File.Exists(Path.Combine(subPath, "pyproject.toml")))
+                    return subPath;
+            }
+
+            return path;
+        }
+
+        private void UpdateUvxPathStatus()
+        {
+            string path = McpSettings.Instance.UvxPath;
+            if (string.IsNullOrEmpty(path))
+            {
+                // Using system PATH — show neutral
+                _uvxPathStatus.style.backgroundColor = new Color(0.3f, 0.7f, 0.3f); // green
+                _uvxPathField.SetValueWithoutNotify("");
+            }
+            else if (File.Exists(path))
+            {
+                _uvxPathStatus.style.backgroundColor = new Color(0.3f, 0.7f, 0.3f); // green
+            }
+            else
+            {
+                _uvxPathStatus.style.backgroundColor = new Color(0.9f, 0.3f, 0.3f); // red
+            }
+        }
+
+        private async void OnTestConnectionClicked()
+        {
+            _healthStatusLabel.text = "Testing...";
+            _healthIndicator.style.backgroundColor = new Color(1f, 0.6f, 0f); // orange
+
+            var settings = McpSettings.Instance;
+            int port = settings.Port;
+
+            try
+            {
+                bool tcpOk = await Task.Run(() =>
+                {
+                    try
+                    {
+                        using var client = new TcpClient();
+                        var result = client.BeginConnect("127.0.0.1", port, null, null);
+                        bool connected = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(3));
+                        if (connected && client.Connected)
+                        {
+                            client.EndConnect(result);
+                            return true;
+                        }
+                        return false;
+                    }
+                    catch { return false; }
+                });
+
+                if (tcpOk)
+                {
+                    var transport = McpServer.Transport;
+                    int clients = transport?.ClientCount ?? 0;
+                    _healthStatusLabel.text = $"Connected — TCP:{port}, {clients} client(s)";
+                    _healthIndicator.style.backgroundColor = new Color(0.3f, 0.8f, 0.3f); // green
+                }
+                else
+                {
+                    _healthStatusLabel.text = $"Cannot connect to TCP:{port}. Is the server running?";
+                    _healthIndicator.style.backgroundColor = new Color(0.9f, 0.3f, 0.3f); // red
+                }
+            }
+            catch (Exception e)
+            {
+                _healthStatusLabel.text = $"Error: {e.Message}";
+                _healthIndicator.style.backgroundColor = new Color(0.9f, 0.3f, 0.3f); // red
+            }
         }
 
         private void RefreshDiagnostics()
@@ -240,6 +518,9 @@ namespace UnityMcp.Editor.Window.Sections
             sb.AppendLine($"Log Level: {settings.LogLevel}");
             sb.AppendLine($"Request Timeout: {settings.RequestTimeoutSeconds}s");
             sb.AppendLine($"Max Batch Operations: {settings.MaxBatchOperations}");
+            sb.AppendLine($"UVX Path: {(string.IsNullOrEmpty(settings.UvxPath) ? "(system PATH)" : settings.UvxPath)}");
+            sb.AppendLine($"Server Source: {(string.IsNullOrEmpty(settings.ServerSourceOverride) ? "(PyPI default)" : settings.ServerSourceOverride)}");
+            sb.AppendLine($"Dev Mode: {settings.DevModeForceRefresh}");
             sb.AppendLine($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
 
             EditorGUIUtility.systemCopyBuffer = sb.ToString();

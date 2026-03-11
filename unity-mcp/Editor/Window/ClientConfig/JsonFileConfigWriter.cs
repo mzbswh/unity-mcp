@@ -2,6 +2,7 @@ using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using UnityMcp.Editor.Core;
 using UnityMcp.Shared.Utils;
 
 namespace UnityMcp.Editor.Window.ClientConfig
@@ -78,24 +79,7 @@ namespace UnityMcp.Editor.Window.ClientConfig
 
         private static JObject BuildServerEntry(int port, string transport, int httpPort)
         {
-            if (transport == "streamable-http")
-            {
-                return new JObject
-                {
-                    ["type"] = "http",
-                    ["url"] = $"http://127.0.0.1:{httpPort}/mcp"
-                };
-            }
-
-            var entry = new JObject
-            {
-                ["type"] = "stdio",
-                ["command"] = "uvx",
-                ["args"] = new JArray { "unity-mcp-server" }
-            };
-            if (port != PortResolver.DefaultPort)
-                entry["env"] = new JObject { ["UNITY_MCP_PORT"] = port.ToString() };
-            return entry;
+            return ServerEntryBuilder.Build(port, transport, httpPort);
         }
     }
 }

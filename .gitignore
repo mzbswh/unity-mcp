@@ -105,6 +105,8 @@ unity-bridge/bin/
 unity-bridge/obj/
 
 unity-server/dist/
+__pycache__/
+*.pyc
 
 # NOTE: unity-mcp/Bridge~/ is NOT ignored — it contains bundled bridge
 # binaries that must be committed for git URL installs to work.

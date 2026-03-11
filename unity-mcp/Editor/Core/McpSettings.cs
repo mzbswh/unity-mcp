@@ -20,6 +20,9 @@ namespace UnityMcp.Editor.Core
         [SerializeField] private McpLogLevel logLevel = McpLogLevel.Info;
         [SerializeField] private bool enableAuditLog;
         [SerializeField] private int maxBatchOperations = 50;
+        [SerializeField] private string uvxPath = "";
+        [SerializeField] private string serverSourceOverride = "";
+        [SerializeField] private bool devModeForceRefresh;
 
         public int Port
         {
@@ -69,6 +72,27 @@ namespace UnityMcp.Editor.Core
         {
             get => maxBatchOperations;
             set { maxBatchOperations = value; Save(true); }
+        }
+
+        /// <summary>Override path to uvx executable. Empty = use system PATH.</summary>
+        public string UvxPath
+        {
+            get => uvxPath;
+            set { uvxPath = value; Save(true); }
+        }
+
+        /// <summary>Override server source for uvx --from. Empty = use default PyPI package.</summary>
+        public string ServerSourceOverride
+        {
+            get => serverSourceOverride;
+            set { serverSourceOverride = value; Save(true); }
+        }
+
+        /// <summary>When enabled, adds --no-cache --refresh to uvx commands (for local dev).</summary>
+        public bool DevModeForceRefresh
+        {
+            get => devModeForceRefresh;
+            set { devModeForceRefresh = value; Save(true); }
         }
 
         public string Version => McpConst.ServerVersion;
