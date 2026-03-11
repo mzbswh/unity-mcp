@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
@@ -65,7 +66,7 @@ namespace UnityMcp.Editor.Tools
                 return ToolResult.Error($"Material not found: {path}");
 
             Undo.RecordObject(material, "Modify Material");
-            int modified = 0;
+            var changes = new List<string>();
 
             foreach (var kv in properties)
             {
@@ -90,12 +91,12 @@ namespace UnityMcp.Editor.Tools
                             value["g"]?.ToObject<float>() ?? 0f,
                             value["b"]?.ToObject<float>() ?? 0f,
                             value["a"]?.ToObject<float>() ?? 1f));
-                        modified++;
+                        changes.Add($"{propName}=color");
                         break;
                     case ShaderPropertyType.Float:
                     case ShaderPropertyType.Range:
                         material.SetFloat(propName, value.ToObject<float>());
-                        modified++;
+                        changes.Add($"{propName}={value.ToObject<float>()}");
                         break;
                     case ShaderPropertyType.Vector:
                         material.SetVector(propName, new Vector4(
@@ -103,18 +104,18 @@ namespace UnityMcp.Editor.Tools
                             value["y"]?.ToObject<float>() ?? 0f,
                             value["z"]?.ToObject<float>() ?? 0f,
                             value["w"]?.ToObject<float>() ?? 0f));
-                        modified++;
+                        changes.Add($"{propName}=vector");
                         break;
                     case ShaderPropertyType.Int:
                         material.SetInt(propName, value.ToObject<int>());
-                        modified++;
+                        changes.Add($"{propName}={value.ToObject<int>()}");
                         break;
                     case ShaderPropertyType.Texture:
                         var texPath = value.ToObject<string>();
                         if (string.IsNullOrEmpty(texPath))
                         {
                             material.SetTexture(propName, null);
-                            modified++;
+                            changes.Add($"{propName}=null");
                         }
                         else
                         {
@@ -122,7 +123,7 @@ namespace UnityMcp.Editor.Tools
                             if (tex != null)
                             {
                                 material.SetTexture(propName, tex);
-                                modified++;
+                                changes.Add($"{propName}={texPath}");
                             }
                         }
                         break;
@@ -132,7 +133,8 @@ namespace UnityMcp.Editor.Tools
             EditorUtility.SetDirty(material);
             AssetDatabase.SaveAssets();
 
-            return ToolResult.Text($"Modified {modified} properties on '{material.name}'");
+            if (changes.Count == 0) return ToolResult.Text($"No properties changed on '{material.name}'");
+            return ToolResult.Text($"Material '{material.name}' updated: {string.Join(", ", changes)}");
         }
 
         /// <summary>
@@ -494,24 +496,25 @@ namespace UnityMcp.Editor.Tools
                 return ToolResult.Error($"Material not found: {path}");
 
             Undo.RecordObject(material, "Set Material Keywords");
-            int modified = 0;
+            var changes = new List<string>();
 
             if (enable != null)
             {
                 foreach (var kw in enable)
-                { material.EnableKeyword(kw); modified++; }
+                { material.EnableKeyword(kw); changes.Add($"enabled={kw}"); }
             }
             if (disable != null)
             {
                 foreach (var kw in disable)
-                { material.DisableKeyword(kw); modified++; }
+                { material.DisableKeyword(kw); changes.Add($"disabled={kw}"); }
             }
-            if (renderQueue.HasValue) { material.renderQueue = renderQueue.Value; modified++; }
-            if (enableInstancing.HasValue) { material.enableInstancing = enableInstancing.Value; modified++; }
+            if (renderQueue.HasValue) { material.renderQueue = renderQueue.Value; changes.Add($"renderQueue={renderQueue.Value}"); }
+            if (enableInstancing.HasValue) { material.enableInstancing = enableInstancing.Value; changes.Add($"enableInstancing={enableInstancing.Value}"); }
 
             EditorUtility.SetDirty(material);
             AssetDatabase.SaveAssets();
-            return ToolResult.Text($"Modified {modified} keyword/settings on '{material.name}'");
+            if (changes.Count == 0) return ToolResult.Text($"No keyword/settings changed on '{material.name}'");
+            return ToolResult.Text($"Material '{material.name}' keywords updated: {string.Join(", ", changes)}");
         }
     }
 }

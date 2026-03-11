@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
@@ -148,19 +149,19 @@ namespace UnityMcp.Editor.Tools
             [Desc("Color space: Gamma, Linear")] string colorSpace = null,
             [Desc("Scripting backend: Mono2x, IL2CPP")] string scriptingBackend = null)
         {
-            int modified = 0;
+            var changes = new List<string>();
 
-            if (!string.IsNullOrEmpty(companyName)) { PlayerSettings.companyName = companyName; modified++; }
-            if (!string.IsNullOrEmpty(productName)) { PlayerSettings.productName = productName; modified++; }
-            if (!string.IsNullOrEmpty(bundleVersion)) { PlayerSettings.bundleVersion = bundleVersion; modified++; }
-            if (screenWidth.HasValue) { PlayerSettings.defaultScreenWidth = screenWidth.Value; modified++; }
-            if (screenHeight.HasValue) { PlayerSettings.defaultScreenHeight = screenHeight.Value; modified++; }
-            if (runInBackground.HasValue) { PlayerSettings.runInBackground = runInBackground.Value; modified++; }
+            if (!string.IsNullOrEmpty(companyName)) { PlayerSettings.companyName = companyName; changes.Add($"companyName={companyName}"); }
+            if (!string.IsNullOrEmpty(productName)) { PlayerSettings.productName = productName; changes.Add($"productName={productName}"); }
+            if (!string.IsNullOrEmpty(bundleVersion)) { PlayerSettings.bundleVersion = bundleVersion; changes.Add($"bundleVersion={bundleVersion}"); }
+            if (screenWidth.HasValue) { PlayerSettings.defaultScreenWidth = screenWidth.Value; changes.Add($"screenWidth={screenWidth.Value}"); }
+            if (screenHeight.HasValue) { PlayerSettings.defaultScreenHeight = screenHeight.Value; changes.Add($"screenHeight={screenHeight.Value}"); }
+            if (runInBackground.HasValue) { PlayerSettings.runInBackground = runInBackground.Value; changes.Add($"runInBackground={runInBackground.Value}"); }
 
             if (!string.IsNullOrEmpty(colorSpace))
             {
                 if (System.Enum.TryParse<ColorSpace>(colorSpace, true, out var cs))
-                { PlayerSettings.colorSpace = cs; modified++; }
+                { PlayerSettings.colorSpace = cs; changes.Add($"colorSpace={cs}"); }
             }
 
             if (!string.IsNullOrEmpty(scriptingBackend))
@@ -168,11 +169,12 @@ namespace UnityMcp.Editor.Tools
                 if (System.Enum.TryParse<ScriptingImplementation>(scriptingBackend, true, out var sb))
                 {
                     PlayerSettings.SetScriptingBackend(EditorUserBuildSettings.selectedBuildTargetGroup, sb);
-                    modified++;
+                    changes.Add($"scriptingBackend={sb}");
                 }
             }
 
-            return ToolResult.Text($"Modified {modified} PlayerSettings");
+            if (changes.Count == 0) return ToolResult.Text("No PlayerSettings changed");
+            return ToolResult.Text($"PlayerSettings updated: {string.Join(", ", changes)}");
         }
     }
 }

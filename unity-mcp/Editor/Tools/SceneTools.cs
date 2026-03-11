@@ -280,13 +280,13 @@ namespace UnityMcp.Editor.Tools
             if (sv == null)
                 return ToolResult.Error("No active Scene View");
 
-            int modified = 0;
+            var changes = new List<string>();
 
-            if (is2D.HasValue) { sv.in2DMode = is2D.Value; modified++; }
-            if (sceneLighting.HasValue) { sv.sceneLighting = sceneLighting.Value; modified++; }
-            if (drawGizmos.HasValue) { sv.drawGizmos = drawGizmos.Value; modified++; }
-            if (showGrid.HasValue) { sv.showGrid = showGrid.Value; modified++; }
-            if (orthographic.HasValue) { sv.orthographic = orthographic.Value; modified++; }
+            if (is2D.HasValue) { sv.in2DMode = is2D.Value; changes.Add($"is2D={is2D.Value}"); }
+            if (sceneLighting.HasValue) { sv.sceneLighting = sceneLighting.Value; changes.Add($"sceneLighting={sceneLighting.Value}"); }
+            if (drawGizmos.HasValue) { sv.drawGizmos = drawGizmos.Value; changes.Add($"drawGizmos={drawGizmos.Value}"); }
+            if (showGrid.HasValue) { sv.showGrid = showGrid.Value; changes.Add($"showGrid={showGrid.Value}"); }
+            if (orthographic.HasValue) { sv.orthographic = orthographic.Value; changes.Add($"orthographic={orthographic.Value}"); }
 
             if (!string.IsNullOrEmpty(drawMode))
             {
@@ -294,12 +294,13 @@ namespace UnityMcp.Editor.Tools
                 {
                     var modes = SceneView.GetBuiltinCameraMode(dcm);
                     sv.cameraMode = modes;
-                    modified++;
+                    changes.Add($"drawMode={dcm}");
                 }
             }
 
             sv.Repaint();
-            return ToolResult.Text($"Modified {modified} Scene View settings");
+            if (changes.Count == 0) return ToolResult.Text("No Scene View settings changed");
+            return ToolResult.Text($"Scene View updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("game_view_get_settings", "Get Game View settings (resolution, scale, mute audio, stats, gizmos)",
@@ -317,9 +318,53 @@ namespace UnityMcp.Editor.Tools
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
                 ?.GetValue(gameView) ?? false);
 
+            // Get current resolution info
+            string currentResolution = "Free Aspect";
+            int resWidth = 0, resHeight = 0;
+            try
+            {
+                var sizeProp = gameViewType.GetProperty("selectedSizeIndex",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+                int sizeIndex = sizeProp != null ? (int)sizeProp.GetValue(gameView) : 0;
+
+                var gameViewSizesType = System.Type.GetType("UnityEditor.GameViewSizes, UnityEditor");
+                var instanceProp = gameViewSizesType?.GetProperty("instance",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.FlattenHierarchy);
+                var instance = instanceProp?.GetValue(null);
+                var currentGroupProp = instance?.GetType().GetProperty("currentGroupType");
+                var currentGroupTypeValue = currentGroupProp?.GetValue(instance);
+                var getGroupMethod = instance?.GetType().GetMethod("GetGroup");
+                var group = getGroupMethod?.Invoke(instance, new object[] { (int)currentGroupTypeValue });
+                var getSizeMethod = group?.GetType().GetMethod("GetGameViewSize");
+
+                if (getSizeMethod != null && sizeIndex >= 0)
+                {
+                    var size = getSizeMethod.Invoke(group, new object[] { sizeIndex });
+                    if (size != null)
+                    {
+                        resWidth = (int)size.GetType().GetProperty("width").GetValue(size);
+                        resHeight = (int)size.GetType().GetProperty("height").GetValue(size);
+                        var displayText = (string)size.GetType().GetMethod("GetDisplayText")?.Invoke(size, null);
+                        currentResolution = !string.IsNullOrEmpty(displayText) ? displayText :
+                            (resWidth > 0 && resHeight > 0 ? $"{resWidth}x{resHeight}" : "Free Aspect");
+                    }
+                }
+            }
+            catch { /* reflection may fail on some Unity versions */ }
+
+            var viewRect = gameView.position;
+
+            // Get current zoom/scale area
+            float scale = GetGameViewScale(gameView);
+
             return ToolResult.Json(new
             {
                 targetDisplay = GetGameViewField<int>(gameView, "m_TargetDisplay"),
+                resolution = currentResolution,
+                resolutionWidth = resWidth,
+                resolutionHeight = resHeight,
+                scale,
+                viewSize = new { width = (int)viewRect.width, height = (int)viewRect.height },
                 showGizmos = GetGameViewField<bool>(gameView, "m_Gizmos"),
                 showStats = GetGameViewField<bool>(gameView, "m_Stats"),
                 muteAudio = EditorUtility.audioMasterMute,
@@ -327,53 +372,70 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
-        [McpTool("game_view_set_settings", "Set Game View settings (mute audio, stats, gizmos, maximize on play)",
+        [McpTool("game_view_set_settings", "Set Game View settings (resolution, scale, mute audio, stats, gizmos, target display)",
             Group = "scene")]
         public static ToolResult GameViewSetSettings(
             [Desc("Mute audio globally in editor")] bool? muteAudio = null,
             [Desc("Show gizmos in Game View")] bool? showGizmos = null,
             [Desc("Show stats overlay")] bool? showStats = null,
             [Desc("Game View resolution as 'WxH' (e.g. '1920x1080', '1280x720'). Use 'Free' for free aspect.")] string resolution = null,
+            [Desc("Scale/zoom level (e.g. 0.5, 1.0, 2.0). Use -1 to auto-fit the resolution in the view.")] float? scale = null,
             [Desc("Target display index (0-based)")] int? targetDisplay = null)
         {
             var gameView = GetGameView();
             if (gameView == null)
                 return ToolResult.Error("No Game View found");
 
-            int modified = 0;
+            var changes = new List<string>();
+            string resolutionError = null;
 
             if (muteAudio.HasValue)
             {
                 EditorUtility.audioMasterMute = muteAudio.Value;
-                modified++;
+                changes.Add($"muteAudio={muteAudio.Value}");
             }
 
             if (showGizmos.HasValue)
             {
                 SetGameViewField(gameView, "m_Gizmos", showGizmos.Value);
-                modified++;
+                changes.Add($"showGizmos={showGizmos.Value}");
             }
 
             if (showStats.HasValue)
             {
                 SetGameViewField(gameView, "m_Stats", showStats.Value);
-                modified++;
+                changes.Add($"showStats={showStats.Value}");
             }
 
             if (targetDisplay.HasValue)
             {
                 SetGameViewField(gameView, "m_TargetDisplay", targetDisplay.Value);
-                modified++;
+                changes.Add($"targetDisplay={targetDisplay.Value}");
             }
 
             if (!string.IsNullOrEmpty(resolution))
             {
-                if (SetGameViewResolution(gameView, resolution))
-                    modified++;
+                resolutionError = SetGameViewResolution(gameView, resolution);
+                if (resolutionError == null)
+                    changes.Add($"resolution={resolution}");
+            }
+
+            if (scale.HasValue)
+            {
+                if (SetGameViewScale(gameView, scale.Value))
+                    changes.Add(scale.Value < 0 ? "scale=auto-fit" : $"scale={scale.Value:F2}");
             }
 
             gameView.Repaint();
-            return ToolResult.Text($"Modified {modified} Game View settings");
+
+            if (resolutionError != null)
+                return ToolResult.Error($"Failed to set resolution: {resolutionError}." +
+                    (changes.Count > 0 ? $" Other changes applied: {string.Join(", ", changes)}" : ""));
+
+            if (changes.Count == 0)
+                return ToolResult.Text("No settings were changed");
+
+            return ToolResult.Text($"Game View updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("scene_view_snap_angle", "Snap the Scene View to a standard angle (Top, Bottom, Front, Back, Left, Right, Perspective)",
@@ -449,65 +511,216 @@ namespace UnityMcp.Editor.Tools
                 field.SetValue(gameView, value);
         }
 
-        private static bool SetGameViewResolution(EditorWindow gameView, string resolution)
+        private static float GetGameViewScale(EditorWindow gameView)
         {
-            if (resolution.ToLower() == "free")
+            try
             {
-                // Index 0 is typically "Free Aspect"
-                SetSelectedSizeIndex(gameView, 0);
-                return true;
-            }
+                // GameView stores zoom in m_ZoomArea (ZoomableArea) which has m_Scale (Vector2)
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var zoomAreaField = gameView.GetType().GetField("m_ZoomArea", flags);
+                if (zoomAreaField == null) return -1f;
+                var zoomArea = zoomAreaField.GetValue(gameView);
+                if (zoomArea == null) return -1f;
 
-            var parts = resolution.ToLower().Split('x');
-            if (parts.Length != 2 ||
-                !int.TryParse(parts[0].Trim(), out int width) ||
-                !int.TryParse(parts[1].Trim(), out int height))
-                return false;
-
-            // Use GameViewSizeGroup via reflection to add/find custom resolution
-            var gameViewSizesType = System.Type.GetType("UnityEditor.GameViewSizes, UnityEditor");
-            if (gameViewSizesType == null) return false;
-
-            var instanceProp = gameViewSizesType.GetProperty("instance",
-                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            if (instanceProp == null) return false;
-            var instance = instanceProp.GetValue(null);
-
-            var getCurrentGroupMethod = instance.GetType().GetMethod("GetGroup");
-            var currentGroupProp = instance.GetType().GetProperty("currentGroupType");
-            var currentGroupTypeValue = currentGroupProp.GetValue(instance);
-            var group = getCurrentGroupMethod.Invoke(instance,
-                new object[] { (int)currentGroupTypeValue });
-
-            var getTotalCountMethod = group.GetType().GetMethod("GetTotalCount");
-            int totalCount = (int)getTotalCountMethod.Invoke(group, null);
-
-            var getGameViewSizeMethod = group.GetType().GetMethod("GetGameViewSize");
-
-            // Search existing sizes
-            for (int i = 0; i < totalCount; i++)
-            {
-                var size = getGameViewSizeMethod.Invoke(group, new object[] { i });
-                var w = (int)size.GetType().GetProperty("width").GetValue(size);
-                var h = (int)size.GetType().GetProperty("height").GetValue(size);
-                if (w == width && h == height)
+                var scaleProp = zoomArea.GetType().GetProperty("scale", flags | System.Reflection.BindingFlags.Public);
+                if (scaleProp != null)
                 {
-                    SetSelectedSizeIndex(gameView, i);
+                    var scaleVec = (Vector2)scaleProp.GetValue(zoomArea);
+                    return scaleVec.x;
+                }
+
+                var scaleField = zoomArea.GetType().GetField("m_Scale", flags);
+                if (scaleField != null)
+                {
+                    var scaleVec = (Vector2)scaleField.GetValue(zoomArea);
+                    return scaleVec.x;
+                }
+            }
+            catch { }
+            return -1f;
+        }
+
+        private static bool SetGameViewScale(EditorWindow gameView, float scale)
+        {
+            try
+            {
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var zoomAreaField = gameView.GetType().GetField("m_ZoomArea", flags);
+                if (zoomAreaField == null) return false;
+                var zoomArea = zoomAreaField.GetValue(gameView);
+                if (zoomArea == null) return false;
+
+                // Auto-fit: calculate scale to fit resolution in the view
+                if (scale < 0f)
+                {
+                    var viewRect = gameView.position;
+                    // Account for toolbar height (~17px)
+                    float viewH = viewRect.height - 17f;
+                    float viewW = viewRect.width;
+
+                    // Get the target resolution size from the current game view size
+                    var getTargetSize = gameView.GetType().GetMethod("GetSizeOfMainGameView",
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+                    Vector2 targetSize;
+                    if (getTargetSize != null)
+                    {
+                        targetSize = (Vector2)getTargetSize.Invoke(null, null);
+                    }
+                    else
+                    {
+                        // Fallback: read from the selected game view size
+                        targetSize = new Vector2(viewW, viewH);
+                    }
+
+                    if (targetSize.x > 0 && targetSize.y > 0)
+                    {
+                        float scaleX = viewW / targetSize.x;
+                        float scaleY = viewH / targetSize.y;
+                        scale = Mathf.Min(scaleX, scaleY);
+                        scale = Mathf.Max(scale, 0.01f);
+                    }
+                    else
+                    {
+                        scale = 1f;
+                    }
+                }
+
+                var scaleProp = zoomArea.GetType().GetProperty("scale",
+                    flags | System.Reflection.BindingFlags.Public);
+                if (scaleProp != null && scaleProp.CanWrite)
+                {
+                    scaleProp.SetValue(zoomArea, new Vector2(scale, scale));
+                    return true;
+                }
+
+                var scaleField = zoomArea.GetType().GetField("m_Scale", flags);
+                if (scaleField != null)
+                {
+                    scaleField.SetValue(zoomArea, new Vector2(scale, scale));
                     return true;
                 }
             }
+            catch { }
+            return false;
+        }
 
-            // Add new size
-            var gameViewSizeType = System.Type.GetType("UnityEditor.GameViewSize, UnityEditor");
-            var sizeTypeEnum = System.Type.GetType("UnityEditor.GameViewSizeType, UnityEditor");
-            var fixedRes = System.Enum.Parse(sizeTypeEnum, "FixedResolution");
-            var newSize = System.Activator.CreateInstance(gameViewSizeType,
-                new object[] { fixedRes, width, height, $"{width}x{height}" });
-            var addMethod = group.GetType().GetMethod("AddCustomSize");
-            addMethod.Invoke(group, new object[] { newSize });
+        /// <summary>
+        /// Sets Game View resolution. Returns null on success, error message on failure.
+        /// </summary>
+        private static string SetGameViewResolution(EditorWindow gameView, string resolution)
+        {
+            try
+            {
+                if (resolution.Trim().ToLower() == "free")
+                {
+                    SetSelectedSizeIndex(gameView, 0);
+                    return null;
+                }
 
-            SetSelectedSizeIndex(gameView, totalCount);
-            return true;
+                var parts = resolution.Split('x', 'X');
+                if (parts.Length != 2 ||
+                    !int.TryParse(parts[0].Trim(), out int width) ||
+                    !int.TryParse(parts[1].Trim(), out int height))
+                    return $"Invalid format '{resolution}'. Use 'WxH' (e.g. '1920x1080') or 'Free'.";
+
+                if (width <= 0 || height <= 0)
+                    return $"Width and height must be positive, got {width}x{height}";
+
+                // Access GameViewSizes singleton via reflection
+                // The 'instance' property is inherited from ScriptableSingleton<T>,
+                // so we must include FlattenHierarchy to search base classes.
+                var gameViewSizesType = System.Type.GetType("UnityEditor.GameViewSizes, UnityEditor");
+                if (gameViewSizesType == null)
+                    return "Cannot find UnityEditor.GameViewSizes type";
+
+                var instanceProp = gameViewSizesType.GetProperty("instance",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.FlattenHierarchy);
+                if (instanceProp == null)
+                    return "Cannot find GameViewSizes.instance property";
+                var instance = instanceProp.GetValue(null);
+                if (instance == null)
+                    return "GameViewSizes.instance returned null";
+
+                var currentGroupProp = instance.GetType().GetProperty("currentGroupType");
+                var currentGroupTypeValue = currentGroupProp.GetValue(instance);
+                var getGroupMethod = instance.GetType().GetMethod("GetGroup");
+                var group = getGroupMethod.Invoke(instance, new object[] { (int)currentGroupTypeValue });
+
+                var getTotalCountMethod = group.GetType().GetMethod("GetTotalCount");
+                int totalCount = (int)getTotalCountMethod.Invoke(group, null);
+
+                var getSizeMethod = group.GetType().GetMethod("GetGameViewSize");
+
+                // Search existing sizes for a match
+                for (int i = 0; i < totalCount; i++)
+                {
+                    var size = getSizeMethod.Invoke(group, new object[] { i });
+                    var w = (int)size.GetType().GetProperty("width").GetValue(size);
+                    var h = (int)size.GetType().GetProperty("height").GetValue(size);
+                    if (w == width && h == height)
+                    {
+                        SetSelectedSizeIndex(gameView, i);
+                        return null; // success
+                    }
+                }
+
+                // Not found — add a new custom size
+                var gameViewSizeType = System.Type.GetType("UnityEditor.GameViewSize, UnityEditor");
+                var sizeTypeEnum = System.Type.GetType("UnityEditor.GameViewSizeType, UnityEditor");
+                if (gameViewSizeType == null || sizeTypeEnum == null)
+                    return "Cannot find GameViewSize or GameViewSizeType types";
+
+                var fixedRes = System.Enum.Parse(sizeTypeEnum, "FixedResolution");
+
+                // GameViewSize constructor varies by Unity version.
+                // Try (GameViewSizeType, int, int, string) first,
+                // then (int, int, int, string) as fallback.
+                object newSize = null;
+                var ctors = gameViewSizeType.GetConstructors();
+                foreach (var ctor in ctors)
+                {
+                    var ps = ctor.GetParameters();
+                    if (ps.Length == 4 && ps[0].ParameterType == sizeTypeEnum
+                        && ps[1].ParameterType == typeof(int)
+                        && ps[2].ParameterType == typeof(int)
+                        && ps[3].ParameterType == typeof(string))
+                    {
+                        newSize = ctor.Invoke(new object[] { fixedRes, width, height, $"{width}x{height}" });
+                        break;
+                    }
+                }
+                if (newSize == null)
+                {
+                    // Fallback: try enum as int
+                    foreach (var ctor in ctors)
+                    {
+                        var ps = ctor.GetParameters();
+                        if (ps.Length == 4 && ps[0].ParameterType == typeof(int)
+                            && ps[1].ParameterType == typeof(int)
+                            && ps[2].ParameterType == typeof(int)
+                            && ps[3].ParameterType == typeof(string))
+                        {
+                            newSize = ctor.Invoke(new object[] { (int)fixedRes, width, height, $"{width}x{height}" });
+                            break;
+                        }
+                    }
+                }
+                if (newSize == null)
+                    return $"Cannot create GameViewSize — no matching constructor found. Available: {string.Join(", ", System.Array.ConvertAll(ctors, c => $"({string.Join(", ", System.Array.ConvertAll(c.GetParameters(), p => p.ParameterType.Name))})"))}";
+
+                var addMethod = group.GetType().GetMethod("AddCustomSize");
+                if (addMethod == null)
+                    return "Cannot find AddCustomSize method on GameViewSizeGroup";
+
+                addMethod.Invoke(group, new object[] { newSize });
+                SetSelectedSizeIndex(gameView, totalCount);
+                gameView.Repaint();
+                return null; // success
+            }
+            catch (System.Exception ex)
+            {
+                return $"Exception: {ex.Message}";
+            }
         }
 
         private static void SetSelectedSizeIndex(EditorWindow gameView, int index)

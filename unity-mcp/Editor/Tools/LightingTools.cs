@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -80,34 +81,35 @@ namespace UnityMcp.Editor.Tools
 
             Undo.RecordObject(light, "Modify Light");
 
-            int modified = 0;
-            if (color.HasValue) { light.color = color.Value; modified++; }
-            if (intensity.HasValue) { light.intensity = intensity.Value; modified++; }
-            if (range.HasValue) { light.range = range.Value; modified++; }
-            if (spotAngle.HasValue) { light.spotAngle = spotAngle.Value; modified++; }
-            if (bounceIntensity.HasValue) { light.bounceIntensity = bounceIntensity.Value; modified++; }
+            var changes = new List<string>();
+            if (color.HasValue) { light.color = color.Value; changes.Add($"color=({color.Value.r:F2},{color.Value.g:F2},{color.Value.b:F2})"); }
+            if (intensity.HasValue) { light.intensity = intensity.Value; changes.Add($"intensity={intensity.Value}"); }
+            if (range.HasValue) { light.range = range.Value; changes.Add($"range={range.Value}"); }
+            if (spotAngle.HasValue) { light.spotAngle = spotAngle.Value; changes.Add($"spotAngle={spotAngle.Value}"); }
+            if (bounceIntensity.HasValue) { light.bounceIntensity = bounceIntensity.Value; changes.Add($"bounceIntensity={bounceIntensity.Value}"); }
 
             if (!string.IsNullOrEmpty(shadows))
             {
                 if (System.Enum.TryParse<LightShadows>(shadows, true, out var s))
-                { light.shadows = s; modified++; }
+                { light.shadows = s; changes.Add($"shadows={s}"); }
             }
-            if (shadowStrength.HasValue) { light.shadowStrength = shadowStrength.Value; modified++; }
+            if (shadowStrength.HasValue) { light.shadowStrength = shadowStrength.Value; changes.Add($"shadowStrength={shadowStrength.Value}"); }
 
             if (!string.IsNullOrEmpty(cookie))
             {
                 var tex = AssetDatabase.LoadAssetAtPath<Texture>(cookie);
-                if (tex != null) { light.cookie = tex; modified++; }
+                if (tex != null) { light.cookie = tex; changes.Add($"cookie={cookie}"); }
             }
 
             if (!string.IsNullOrEmpty(mode))
             {
                 if (System.Enum.TryParse<LightmapBakeType>(mode, true, out var m))
-                { light.lightmapBakeType = m; modified++; }
+                { light.lightmapBakeType = m; changes.Add($"mode={m}"); }
             }
 
             EditorUtility.SetDirty(light);
-            return ToolResult.Text($"Modified {modified} properties on light '{target}'");
+            if (changes.Count == 0) return ToolResult.Text($"No properties changed on light '{target}'");
+            return ToolResult.Text($"Light '{target}' updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("light_get_info", "Get Light component properties",
@@ -186,40 +188,41 @@ namespace UnityMcp.Editor.Tools
             var renderSettingsArr = UnityEngine.Resources.FindObjectsOfTypeAll<RenderSettings>();
             if (renderSettingsArr.Length > 0)
                 Undo.RecordObject(renderSettingsArr[0], "Modify Environment");
-            int modified = 0;
+            var changes = new List<string>();
 
             if (!string.IsNullOrEmpty(ambientMode))
             {
                 if (System.Enum.TryParse<AmbientMode>(ambientMode, true, out var am))
-                { RenderSettings.ambientMode = am; modified++; }
+                { RenderSettings.ambientMode = am; changes.Add($"ambientMode={am}"); }
             }
-            if (ambientColor.HasValue) { RenderSettings.ambientLight = ambientColor.Value; modified++; }
-            if (ambientSkyColor.HasValue) { RenderSettings.ambientSkyColor = ambientSkyColor.Value; modified++; }
-            if (ambientEquatorColor.HasValue) { RenderSettings.ambientEquatorColor = ambientEquatorColor.Value; modified++; }
-            if (ambientGroundColor.HasValue) { RenderSettings.ambientGroundColor = ambientGroundColor.Value; modified++; }
-            if (ambientIntensity.HasValue) { RenderSettings.ambientIntensity = ambientIntensity.Value; modified++; }
+            if (ambientColor.HasValue) { RenderSettings.ambientLight = ambientColor.Value; changes.Add("ambientColor set"); }
+            if (ambientSkyColor.HasValue) { RenderSettings.ambientSkyColor = ambientSkyColor.Value; changes.Add("ambientSkyColor set"); }
+            if (ambientEquatorColor.HasValue) { RenderSettings.ambientEquatorColor = ambientEquatorColor.Value; changes.Add("ambientEquatorColor set"); }
+            if (ambientGroundColor.HasValue) { RenderSettings.ambientGroundColor = ambientGroundColor.Value; changes.Add("ambientGroundColor set"); }
+            if (ambientIntensity.HasValue) { RenderSettings.ambientIntensity = ambientIntensity.Value; changes.Add($"ambientIntensity={ambientIntensity.Value}"); }
 
             if (!string.IsNullOrEmpty(skyboxMaterial))
             {
                 var mat = AssetDatabase.LoadAssetAtPath<Material>(skyboxMaterial);
-                if (mat != null) { RenderSettings.skybox = mat; modified++; }
+                if (mat != null) { RenderSettings.skybox = mat; changes.Add($"skybox={skyboxMaterial}"); }
             }
 
-            if (fog.HasValue) { RenderSettings.fog = fog.Value; modified++; }
-            if (fogColor.HasValue) { RenderSettings.fogColor = fogColor.Value; modified++; }
+            if (fog.HasValue) { RenderSettings.fog = fog.Value; changes.Add($"fog={fog.Value}"); }
+            if (fogColor.HasValue) { RenderSettings.fogColor = fogColor.Value; changes.Add("fogColor set"); }
             if (!string.IsNullOrEmpty(fogMode))
             {
                 if (System.Enum.TryParse<FogMode>(fogMode, true, out var fm))
-                { RenderSettings.fogMode = fm; modified++; }
+                { RenderSettings.fogMode = fm; changes.Add($"fogMode={fm}"); }
             }
-            if (fogDensity.HasValue) { RenderSettings.fogDensity = fogDensity.Value; modified++; }
-            if (fogStartDistance.HasValue) { RenderSettings.fogStartDistance = fogStartDistance.Value; modified++; }
-            if (fogEndDistance.HasValue) { RenderSettings.fogEndDistance = fogEndDistance.Value; modified++; }
-            if (reflectionIntensity.HasValue) { RenderSettings.reflectionIntensity = reflectionIntensity.Value; modified++; }
+            if (fogDensity.HasValue) { RenderSettings.fogDensity = fogDensity.Value; changes.Add($"fogDensity={fogDensity.Value}"); }
+            if (fogStartDistance.HasValue) { RenderSettings.fogStartDistance = fogStartDistance.Value; changes.Add($"fogStartDistance={fogStartDistance.Value}"); }
+            if (fogEndDistance.HasValue) { RenderSettings.fogEndDistance = fogEndDistance.Value; changes.Add($"fogEndDistance={fogEndDistance.Value}"); }
+            if (reflectionIntensity.HasValue) { RenderSettings.reflectionIntensity = reflectionIntensity.Value; changes.Add($"reflectionIntensity={reflectionIntensity.Value}"); }
 
             var rs = UnityEngine.Resources.FindObjectsOfTypeAll<RenderSettings>();
             if (rs.Length > 0) EditorUtility.SetDirty(rs[0]);
-            return ToolResult.Text($"Modified {modified} environment settings");
+            if (changes.Count == 0) return ToolResult.Text("No environment settings changed");
+            return ToolResult.Text($"Environment updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("lighting_bake", "Start lightmap baking (async). Use lighting_get_bake_status to check progress.",

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -358,14 +359,14 @@ namespace UnityMcp.Editor.Tools
                 return ToolResult.Error($"No LineRenderer on '{target}'");
 
             Undo.RecordObject(lr, "Modify LineRenderer");
-            int modified = 0;
+            var changes = new List<string>();
 
-            if (startWidth.HasValue) { lr.startWidth = startWidth.Value; modified++; }
-            if (endWidth.HasValue) { lr.endWidth = endWidth.Value; modified++; }
-            if (useWorldSpace.HasValue) { lr.useWorldSpace = useWorldSpace.Value; modified++; }
-            if (loop.HasValue) { lr.loop = loop.Value; modified++; }
-            if (cornerVertices.HasValue) { lr.numCornerVertices = cornerVertices.Value; modified++; }
-            if (endCapVertices.HasValue) { lr.numCapVertices = endCapVertices.Value; modified++; }
+            if (startWidth.HasValue) { lr.startWidth = startWidth.Value; changes.Add($"startWidth={startWidth.Value}"); }
+            if (endWidth.HasValue) { lr.endWidth = endWidth.Value; changes.Add($"endWidth={endWidth.Value}"); }
+            if (useWorldSpace.HasValue) { lr.useWorldSpace = useWorldSpace.Value; changes.Add($"useWorldSpace={useWorldSpace.Value}"); }
+            if (loop.HasValue) { lr.loop = loop.Value; changes.Add($"loop={loop.Value}"); }
+            if (cornerVertices.HasValue) { lr.numCornerVertices = cornerVertices.Value; changes.Add($"cornerVertices={cornerVertices.Value}"); }
+            if (endCapVertices.HasValue) { lr.numCapVertices = endCapVertices.Value; changes.Add($"endCapVertices={endCapVertices.Value}"); }
 
             if (startColor.HasValue || endColor.HasValue)
             {
@@ -374,24 +375,25 @@ namespace UnityMcp.Editor.Tools
                     new[] { new GradientColorKey(startColor ?? Color.white, 0), new GradientColorKey(endColor ?? Color.white, 1) },
                     new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(1, 1) });
                 lr.colorGradient = gradient;
-                modified++;
+                changes.Add("colorGradient=updated");
             }
 
             if (!string.IsNullOrEmpty(material))
             {
                 var mat = AssetDatabase.LoadAssetAtPath<Material>(material);
-                if (mat != null) { lr.sharedMaterial = mat; modified++; }
+                if (mat != null) { lr.sharedMaterial = mat; changes.Add($"material={material}"); }
             }
 
             if (points != null && points.Length > 0)
             {
                 lr.positionCount = points.Length;
                 lr.SetPositions(points);
-                modified++;
+                changes.Add($"points={points.Length}");
             }
 
             EditorUtility.SetDirty(lr);
-            return ToolResult.Text($"Modified {modified} properties on LineRenderer '{target}'");
+            if (changes.Count == 0) return ToolResult.Text($"No properties changed on LineRenderer '{target}'");
+            return ToolResult.Text($"LineRenderer '{target}' updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("vfx_create_trail", "Create a TrailRenderer on a new or existing GameObject",

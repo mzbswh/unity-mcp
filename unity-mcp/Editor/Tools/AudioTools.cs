@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityMcp.Editor.Utils;
@@ -84,31 +85,32 @@ namespace UnityMcp.Editor.Tools
                 return ToolResult.Error($"No AudioSource on '{target}'");
 
             Undo.RecordObject(source, "Modify AudioSource");
-            int modified = 0;
+            var changes = new List<string>();
 
             if (!string.IsNullOrEmpty(clipPath))
             {
                 var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clipPath);
-                if (clip != null) { source.clip = clip; modified++; }
+                if (clip != null) { source.clip = clip; changes.Add($"clip={clipPath}"); }
             }
-            if (volume.HasValue) { source.volume = volume.Value; modified++; }
-            if (pitch.HasValue) { source.pitch = pitch.Value; modified++; }
-            if (loop.HasValue) { source.loop = loop.Value; modified++; }
-            if (playOnAwake.HasValue) { source.playOnAwake = playOnAwake.Value; modified++; }
-            if (spatialBlend.HasValue) { source.spatialBlend = spatialBlend.Value; modified++; }
-            if (minDistance.HasValue) { source.minDistance = minDistance.Value; modified++; }
-            if (maxDistance.HasValue) { source.maxDistance = maxDistance.Value; modified++; }
-            if (mute.HasValue) { source.mute = mute.Value; modified++; }
-            if (priority.HasValue) { source.priority = priority.Value; modified++; }
-            if (dopplerLevel.HasValue) { source.dopplerLevel = dopplerLevel.Value; modified++; }
+            if (volume.HasValue) { source.volume = volume.Value; changes.Add($"volume={volume.Value}"); }
+            if (pitch.HasValue) { source.pitch = pitch.Value; changes.Add($"pitch={pitch.Value}"); }
+            if (loop.HasValue) { source.loop = loop.Value; changes.Add($"loop={loop.Value}"); }
+            if (playOnAwake.HasValue) { source.playOnAwake = playOnAwake.Value; changes.Add($"playOnAwake={playOnAwake.Value}"); }
+            if (spatialBlend.HasValue) { source.spatialBlend = spatialBlend.Value; changes.Add($"spatialBlend={spatialBlend.Value}"); }
+            if (minDistance.HasValue) { source.minDistance = minDistance.Value; changes.Add($"minDistance={minDistance.Value}"); }
+            if (maxDistance.HasValue) { source.maxDistance = maxDistance.Value; changes.Add($"maxDistance={maxDistance.Value}"); }
+            if (mute.HasValue) { source.mute = mute.Value; changes.Add($"mute={mute.Value}"); }
+            if (priority.HasValue) { source.priority = priority.Value; changes.Add($"priority={priority.Value}"); }
+            if (dopplerLevel.HasValue) { source.dopplerLevel = dopplerLevel.Value; changes.Add($"dopplerLevel={dopplerLevel.Value}"); }
             if (!string.IsNullOrEmpty(rolloffMode))
             {
                 if (System.Enum.TryParse<AudioRolloffMode>(rolloffMode, true, out var rm))
-                { source.rolloffMode = rm; modified++; }
+                { source.rolloffMode = rm; changes.Add($"rolloffMode={rm}"); }
             }
 
             EditorUtility.SetDirty(source);
-            return ToolResult.Text($"Modified {modified} properties on AudioSource '{target}'");
+            if (changes.Count == 0) return ToolResult.Text($"No properties changed on AudioSource '{target}'");
+            return ToolResult.Text($"AudioSource '{target}' updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("audio_get_source_info", "Get AudioSource component properties",
@@ -161,28 +163,29 @@ namespace UnityMcp.Editor.Tools
             if (importer == null)
                 return ToolResult.Error($"No AudioImporter for: {path}");
 
-            int applied = 0;
-            if (forceToMono.HasValue) { importer.forceToMono = forceToMono.Value; applied++; }
-            if (loadInBackground.HasValue) { importer.loadInBackground = loadInBackground.Value; applied++; }
-            if (preloadAudioData.HasValue) { importer.preloadAudioData = preloadAudioData.Value; applied++; }
+            var changes = new List<string>();
+            if (forceToMono.HasValue) { importer.forceToMono = forceToMono.Value; changes.Add($"forceToMono={forceToMono.Value}"); }
+            if (loadInBackground.HasValue) { importer.loadInBackground = loadInBackground.Value; changes.Add($"loadInBackground={loadInBackground.Value}"); }
+            if (preloadAudioData.HasValue) { importer.preloadAudioData = preloadAudioData.Value; changes.Add($"preloadAudioData={preloadAudioData.Value}"); }
 
             var settings = importer.defaultSampleSettings;
             if (!string.IsNullOrEmpty(loadType))
             {
                 if (System.Enum.TryParse<AudioClipLoadType>(loadType, true, out var lt))
-                { settings.loadType = lt; applied++; }
+                { settings.loadType = lt; changes.Add($"loadType={lt}"); }
             }
             if (!string.IsNullOrEmpty(compressionFormat))
             {
                 if (System.Enum.TryParse<AudioCompressionFormat>(compressionFormat, true, out var cf))
-                { settings.compressionFormat = cf; applied++; }
+                { settings.compressionFormat = cf; changes.Add($"compressionFormat={cf}"); }
             }
-            if (quality.HasValue) { settings.quality = quality.Value; applied++; }
+            if (quality.HasValue) { settings.quality = quality.Value; changes.Add($"quality={quality.Value}"); }
 
             importer.defaultSampleSettings = settings;
             importer.SaveAndReimport();
 
-            return ToolResult.Text($"Applied {applied} import settings to '{path}'");
+            if (changes.Count == 0) return ToolResult.Text($"No import settings changed for '{path}'");
+            return ToolResult.Text($"Audio import '{path}' updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("audio_create_listener", "Add an AudioListener to a GameObject (removes any existing one in scene first)",

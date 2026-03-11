@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -181,19 +182,20 @@ namespace UnityMcp.Editor.Tools
                 return ToolResult.Error($"No NavMeshAgent on '{target}'");
 
             Undo.RecordObject(agent, "Modify NavMeshAgent");
-            int modified = 0;
+            var changes = new List<string>();
 
-            if (speed.HasValue) { agent.speed = speed.Value; modified++; }
-            if (angularSpeed.HasValue) { agent.angularSpeed = angularSpeed.Value; modified++; }
-            if (acceleration.HasValue) { agent.acceleration = acceleration.Value; modified++; }
-            if (stoppingDistance.HasValue) { agent.stoppingDistance = stoppingDistance.Value; modified++; }
-            if (radius.HasValue) { agent.radius = radius.Value; modified++; }
-            if (height.HasValue) { agent.height = height.Value; modified++; }
-            if (autoBraking.HasValue) { agent.autoBraking = autoBraking.Value; modified++; }
-            if (autoRepath.HasValue) { agent.autoRepath = autoRepath.Value; modified++; }
+            if (speed.HasValue) { agent.speed = speed.Value; changes.Add($"speed={speed.Value}"); }
+            if (angularSpeed.HasValue) { agent.angularSpeed = angularSpeed.Value; changes.Add($"angularSpeed={angularSpeed.Value}"); }
+            if (acceleration.HasValue) { agent.acceleration = acceleration.Value; changes.Add($"acceleration={acceleration.Value}"); }
+            if (stoppingDistance.HasValue) { agent.stoppingDistance = stoppingDistance.Value; changes.Add($"stoppingDistance={stoppingDistance.Value}"); }
+            if (radius.HasValue) { agent.radius = radius.Value; changes.Add($"radius={radius.Value}"); }
+            if (height.HasValue) { agent.height = height.Value; changes.Add($"height={height.Value}"); }
+            if (autoBraking.HasValue) { agent.autoBraking = autoBraking.Value; changes.Add($"autoBraking={autoBraking.Value}"); }
+            if (autoRepath.HasValue) { agent.autoRepath = autoRepath.Value; changes.Add($"autoRepath={autoRepath.Value}"); }
 
             EditorUtility.SetDirty(agent);
-            return ToolResult.Text($"Modified {modified} properties on NavMeshAgent '{target}'");
+            if (changes.Count == 0) return ToolResult.Text($"No properties changed on NavMeshAgent '{target}'");
+            return ToolResult.Text($"NavMeshAgent '{target}' updated: {string.Join(", ", changes)}");
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
@@ -106,7 +107,7 @@ namespace UnityMcp.Editor.Tools
                 return ToolResult.Error($"ScriptableObject not found: {path}");
 
             var so = new SerializedObject(obj);
-            int modified = 0;
+            var changes = new List<string>();
             var errors = new JArray();
 
             foreach (var kv in fields)
@@ -118,7 +119,7 @@ namespace UnityMcp.Editor.Tools
                     continue;
                 }
                 ComponentTools.SetSerializedProperty(prop, kv.Value);
-                modified++;
+                changes.Add(kv.Key);
             }
 
             so.ApplyModifiedProperties();
@@ -126,8 +127,9 @@ namespace UnityMcp.Editor.Tools
             AssetDatabase.SaveAssets();
 
             if (errors.Count > 0)
-                return ToolResult.Json(new { message = $"Modified {modified} fields on '{path}'", errors });
-            return ToolResult.Text($"Modified {modified} fields on '{path}'");
+                return ToolResult.Json(new { message = $"ScriptableObject '{path}' updated: {string.Join(", ", changes)}", errors });
+            if (changes.Count == 0) return ToolResult.Text($"No fields changed on '{path}'");
+            return ToolResult.Text($"ScriptableObject '{path}' updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("so_list_types", "List available ScriptableObject types in the project",

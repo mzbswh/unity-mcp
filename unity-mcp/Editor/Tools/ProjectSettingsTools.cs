@@ -180,19 +180,20 @@ namespace UnityMcp.Editor.Tools
             [Desc("Shadow distance")] float? shadowDistance = null,
             [Desc("Shadow resolution: Low, Medium, High, VeryHigh")] string shadowResolution = null)
         {
-            int modified = 0;
+            var changes = new List<string>();
 
-            if (level.HasValue) { QualitySettings.SetQualityLevel(level.Value, true); modified++; }
-            if (vSyncCount.HasValue) { QualitySettings.vSyncCount = vSyncCount.Value; modified++; }
-            if (antiAliasing.HasValue) { QualitySettings.antiAliasing = antiAliasing.Value; modified++; }
-            if (shadowDistance.HasValue) { QualitySettings.shadowDistance = shadowDistance.Value; modified++; }
+            if (level.HasValue) { QualitySettings.SetQualityLevel(level.Value, true); changes.Add($"level={level.Value}"); }
+            if (vSyncCount.HasValue) { QualitySettings.vSyncCount = vSyncCount.Value; changes.Add($"vSyncCount={vSyncCount.Value}"); }
+            if (antiAliasing.HasValue) { QualitySettings.antiAliasing = antiAliasing.Value; changes.Add($"antiAliasing={antiAliasing.Value}"); }
+            if (shadowDistance.HasValue) { QualitySettings.shadowDistance = shadowDistance.Value; changes.Add($"shadowDistance={shadowDistance.Value}"); }
             if (!string.IsNullOrEmpty(shadowResolution))
             {
                 if (System.Enum.TryParse<ShadowResolution>(shadowResolution, true, out var sr))
-                { QualitySettings.shadowResolution = sr; modified++; }
+                { QualitySettings.shadowResolution = sr; changes.Add($"shadowResolution={sr}"); }
             }
 
-            return ToolResult.Text($"Modified {modified} quality settings");
+            if (changes.Count == 0) return ToolResult.Text("No quality settings changed");
+            return ToolResult.Text($"Quality settings updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("settings_get_time", "Get Time settings",
@@ -215,12 +216,13 @@ namespace UnityMcp.Editor.Tools
             [Desc("Maximum allowed timestep")] float? maximumDeltaTime = null,
             [Desc("Time scale (0=paused, 1=normal)")] float? timeScale = null)
         {
-            int modified = 0;
-            if (fixedDeltaTime.HasValue) { Time.fixedDeltaTime = fixedDeltaTime.Value; modified++; }
-            if (maximumDeltaTime.HasValue) { Time.maximumDeltaTime = maximumDeltaTime.Value; modified++; }
-            if (timeScale.HasValue) { Time.timeScale = timeScale.Value; modified++; }
+            var changes = new List<string>();
+            if (fixedDeltaTime.HasValue) { Time.fixedDeltaTime = fixedDeltaTime.Value; changes.Add($"fixedDeltaTime={fixedDeltaTime.Value}"); }
+            if (maximumDeltaTime.HasValue) { Time.maximumDeltaTime = maximumDeltaTime.Value; changes.Add($"maximumDeltaTime={maximumDeltaTime.Value}"); }
+            if (timeScale.HasValue) { Time.timeScale = timeScale.Value; changes.Add($"timeScale={timeScale.Value}"); }
 
-            return ToolResult.Text($"Modified {modified} time settings");
+            if (changes.Count == 0) return ToolResult.Text("No time settings changed");
+            return ToolResult.Text($"Time settings updated: {string.Join(", ", changes)}");
         }
     }
 }

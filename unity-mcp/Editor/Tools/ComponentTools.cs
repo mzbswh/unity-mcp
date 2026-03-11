@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
@@ -107,7 +108,7 @@ namespace UnityMcp.Editor.Tools
                 return ToolResult.Error($"Component '{type}' not found on '{target}'");
 
             var so = new SerializedObject(component);
-            int modified = 0;
+            var changes = new List<string>();
             var errors = new JArray();
 
             foreach (var kv in fields)
@@ -119,14 +120,15 @@ namespace UnityMcp.Editor.Tools
                     continue;
                 }
                 SetSerializedProperty(prop, kv.Value);
-                modified++;
+                changes.Add(kv.Key);
             }
 
             so.ApplyModifiedProperties();
 
             if (errors.Count > 0)
-                return ToolResult.Json(new { message = $"Modified {modified} fields on {type} of '{go.name}'", errors });
-            return ToolResult.Text($"Modified {modified} fields on {type} of '{go.name}'");
+                return ToolResult.Json(new { message = $"{type} on '{go.name}' updated: {string.Join(", ", changes)}", errors });
+            if (changes.Count == 0) return ToolResult.Text($"No fields changed on {type} of '{go.name}'");
+            return ToolResult.Text($"{type} on '{go.name}' updated: {string.Join(", ", changes)}");
         }
 
         [McpTool("component_copy_values", "Copy all serialized property values from one component to another component of the same type (on a different GameObject)",

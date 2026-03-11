@@ -16,8 +16,8 @@ English | [中文](../README.md)
 
 ```
 MCP Client (Claude/Cursor/VS Code/Windsurf)
-        ↕  stdio (JSON-RPC 2.0)
-  C# Bridge / Python FastMCP
+        ↕  stdio / streamable-http (JSON-RPC 2.0)
+  Python FastMCP Server (dynamic tool discovery)
         ↕  TCP (custom frame protocol)
   Unity Editor (TCP server + tool registry)
 ```
@@ -64,6 +64,22 @@ Supported clients:
 
 > For other clients, use **Copy Config to Clipboard** and paste manually.
 
+MCP client config example (Cursor):
+
+```json
+{
+  "mcpServers": {
+    "unity": {
+      "command": "uvx",
+      "args": ["unity-mcp-server"]
+    }
+  }
+}
+```
+
+> `uvx` automatically downloads and runs from PyPI — no manual install needed. You can also `pip install unity-mcp-server` and run `unity-mcp-server` directly.
+> Default port is 51279. For multi-instance setups, specify `UNITY_MCP_PORT` via the `env` field.
+
 ### 3. Verify
 
 Ask your AI assistant:
@@ -76,15 +92,18 @@ If it returns the scene hierarchy, you're all set.
 
 ## Features
 
-- **180+ Editor Tools** — GameObject, Component, Scene, Asset, Material, Animation, Prefab, Script, UI, VFX, Audio, Camera, Graphics, Lighting, NavMesh, Physics, Terrain, Shader, Texture, Build, Package, Test, Screenshot, Console, and more
+- **189 Editor Tools** — GameObject, Component, Scene, Asset, Material, Animation, Prefab, Script, UI Toolkit, VFX, Audio, Camera, Graphics, Lighting, NavMesh, Physics, Terrain, Shader, Texture, Build, Package, Test, Screenshot, Console, ProBuilder, and more
 - **13 Resource Endpoints** — Read-only data queries (scene hierarchy, project info, editor state, console logs, current selection, etc.)
 - **48 Prompt Templates** — Unity best-practice guides (architecture, scripting, performance, shaders, XR, ECS, networking, etc.)
 - **Batch Execute** — Run multiple tool operations in a single request with atomic rollback
-- **Runtime Mode** — Optional runtime MCP server for controlling the running game
-- **Dual Server Architecture** — Mode A (C# stdio Bridge, lightweight) or Mode B (Python FastMCP, extra analysis tools)
+- **Runtime Mode** — Optional runtime MCP server for controlling the running game (8 runtime tools)
+- **Dynamic Tool Discovery** — Python server discovers and registers all tools/resources/prompts from Unity at startup
 - **Multi-Instance** — Supports multiple Unity Editor instances simultaneously
 - **Custom Tool API** — Add your own tools with C# attributes, auto-discovered at startup
-- **Domain Reload Safe** — Automatically reconnects after Unity script recompilation; Bridge buffers and replays in-flight requests, making reloads nearly transparent to MCP clients
+- **Domain Reload Safe** — Automatically reconnects after Unity script recompilation; Python server buffers and replays in-flight requests, making reloads nearly transparent to MCP clients
+- **Dependency Detection** — First-run check for Python/uv/uvx environment with guided installation
+- **Update Checker** — Daily automatic check for new versions, shown in settings window
+- **Call Diagnostics** — Logs recent tool calls with name, duration, and success/failure status
 
 ---
 
@@ -102,84 +121,191 @@ If it returns the scene hierarchy, you're all set.
 | `gameobject_set_parent` | Set parent-child relationship |
 | `gameobject_duplicate` | Duplicate GameObject |
 | `gameobject_get_components` | Get component list |
+| `gameobject_look_at` | Look at target |
+| `gameobject_move_relative` | Move relative |
+| `gameobject_set_sibling_index` | Set sibling order |
 | `component_add` | Add component |
 | `component_remove` | Remove component |
 | `component_get` | View component properties |
 | `component_modify` | Modify component properties |
+| `component_copy_values` | Copy component values |
 
 </details>
 
 <details>
-<summary><b>Scene & Asset (23 tools)</b></summary>
+<summary><b>Scene (15 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `scene_create` / `scene_open` / `scene_save` | Scene management |
 | `scene_get_hierarchy` / `scene_list_all` | Hierarchy viewing |
-| `scene_set_active` / `scene_unload` / `scene_get_build_settings` | Multi-scene management |
-| `asset_find` / `asset_get_info` | Asset search and info |
-| `asset_create_folder` / `asset_delete` / `asset_move` / `asset_copy` | Asset file operations |
-| `asset_refresh` / `asset_import` / `asset_get_dependencies` | Asset import and dependencies |
+| `scene_align_with_view` / `scene_move_to_view` | View alignment |
+| `scene_frame_selected` | Frame selected object |
+| `scene_view_get` / `scene_view_set` | Scene view position control |
+| `scene_view_get_settings` / `scene_view_set_settings` | Scene view settings |
+| `game_view_get_settings` / `game_view_set_settings` | Game view settings |
+| `scene_view_snap_angle` | Snap to preset angle |
 
 </details>
 
 <details>
-<summary><b>Material, Shader & Script (15 tools)</b></summary>
+<summary><b>Asset (10 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `material_create` / `material_modify` / `material_get_info` | Material management |
-| `shader_list` / `shader_get_properties` / `shader_create` | Shader operations |
-| `script_create` / `script_read` / `script_update` | C# script CRUD |
-| `texture_import` / `texture_get_info` / `texture_modify` | Texture management |
+| `asset_find` / `asset_get_info` | Asset search and info |
+| `asset_create_folder` / `asset_delete` / `asset_move` / `asset_copy` | Asset file operations |
+| `asset_refresh` | Refresh AssetDatabase |
+| `asset_set_import_settings` / `asset_set_model_import` | Import settings |
+| `asset_find_references` | Find references |
 
 </details>
 
 <details>
-<summary><b>Prefab & Animation (16 tools)</b></summary>
+<summary><b>Material & Shader (13 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `material_create` / `material_modify` | Material creation and modification |
+| `material_set_render_mode` | Set render mode |
+| `material_get_keywords` / `material_set_keywords` | Material keyword management |
+| `shader_list` / `shader_get_properties` | Shader queries |
+| `shader_create` / `shader_read` / `shader_update` / `shader_delete` | Shader CRUD |
+| `shader_info` | Shader detailed info |
+
+</details>
+
+<details>
+<summary><b>Script (3 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `script_create` / `script_read` / `script_update` | C# script CRUD |
+
+</details>
+
+<details>
+<summary><b>Prefab (10 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `prefab_create` / `prefab_instantiate` | Prefab workflow |
-| `prefab_open` / `prefab_save_close` / `prefab_unpack` | Prefab editing |
-| `prefab_get_info` / `prefab_apply_overrides` | Prefab info and overrides |
-| `animation_create_clip` / `animation_manage_controller` | Animation management |
-| `animation_add_transition` / `animation_set_parameter` | Animator control |
+| `prefab_open` / `prefab_save_close` | Prefab editing mode |
+| `prefab_get_hierarchy` / `prefab_get_stage_objects` | Prefab hierarchy viewing |
+| `prefab_modify_contents` | Modify prefab contents |
+| `prefab_apply_overrides` / `prefab_revert_overrides` | Override management |
+| `prefab_unpack` | Unpack prefab |
 
 </details>
 
 <details>
-<summary><b>UI, VFX & Audio (19 tools)</b></summary>
+<summary><b>Animation (6 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `uitoolkit_create_uxml` / `uitoolkit_create_uss` | UI Toolkit |
+| `animation_create_clip` | Create animation clip |
+| `animation_manage_controller` | Manage Animator Controller |
+| `animation_add_transition` | Add state transition |
+| `animation_add_layer` | Add animation layer |
+| `animation_create_blend_tree` | Create blend tree |
+| `animation_set_clip_curve` | Set animation curve |
+
+</details>
+
+<details>
+<summary><b>UI Toolkit (7 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `uitoolkit_create` / `uitoolkit_read` / `uitoolkit_update` / `uitoolkit_delete` | UXML/USS CRUD |
+| `uitoolkit_list` | List UI assets |
+| `uitoolkit_attach` | Attach UIDocument |
+| `uitoolkit_get_visual_tree` | Get runtime visual tree |
+
+</details>
+
+<details>
+<summary><b>VFX & Audio (12 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
 | `vfx_create_particle` / `vfx_modify_particle` | Particle systems |
 | `vfx_create_graph` / `vfx_get_info` | VFX Graph |
-| `audio_create_source` / `audio_create_mixer` | Audio system |
+| `vfx_create_line` / `vfx_modify_line` / `vfx_create_trail` | Lines and trails |
+| `audio_create_source` / `audio_modify_source` / `audio_get_source_info` | Audio source management |
+| `audio_set_clip_import` | Audio import settings |
+| `audio_create_listener` | Audio listener |
 
 </details>
 
 <details>
-<summary><b>Graphics, Lighting & Camera (25 tools)</b></summary>
+<summary><b>Graphics & Lighting (21 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `graphics_get_settings` / `graphics_set_quality` | Graphics settings |
-| `lighting_bake` / `lighting_get_settings` / `lighting_set_settings` | Lightmap baking |
-| `light_create` / `light_modify` / `light_create_probe` | Light management |
-| `camera_create` / `camera_modify` / `camera_get_info` | Camera management |
+| `graphics_get_skybox` / `graphics_set_skybox` | Skybox |
+| `graphics_get_fog` / `graphics_set_fog` | Fog |
+| `graphics_get_ambient` / `graphics_set_ambient` | Ambient lighting |
+| `graphics_get_render_pipeline` | Render pipeline info |
+| `graphics_get_quality` / `graphics_set_quality` | Quality settings |
+| `graphics_get_stats` | Graphics stats |
+| `graphics_bake_lighting` / `graphics_get_lightmap_settings` | Lightmap baking |
+| `light_create` / `light_modify` / `light_get_info` | Light management |
+| `lighting_get_environment` / `lighting_set_environment` | Environment lighting |
+| `lighting_bake` / `lighting_get_bake_status` / `lighting_cancel_bake` | Bake control |
+| `light_create_probe` | Light probe |
 
 </details>
 
 <details>
-<summary><b>Physics, NavMesh & Terrain (19 tools)</b></summary>
+<summary><b>Camera (4 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `physics_raycast` / `physics_set_gravity` / `physics_add_collider` | Physics system |
-| `navmesh_bake` / `navmesh_add_agent` / `navmesh_set_area` | Navigation mesh |
-| `terrain_create` / `terrain_modify` / `terrain_paint` | Terrain system |
+| `camera_create` | Create camera |
+| `camera_configure` | Configure camera parameters |
+| `camera_get_info` | Get camera info |
+| `camera_look_at` | Point camera at target |
+
+</details>
+
+<details>
+<summary><b>Physics & NavMesh (13 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `physics_add_rigidbody` / `physics_add_collider` | Physics components |
+| `physics_create_material` | Physics material |
+| `physics_raycast` | Raycast |
+| `physics_get_settings` / `physics_set_gravity` | Physics settings |
+| `navmesh_add_agent` / `navmesh_modify_agent` | Navigation agents |
+| `navmesh_add_obstacle` / `navmesh_add_surface` | NavMesh obstacles and surfaces |
+| `navmesh_bake` / `navmesh_clear` | NavMesh baking |
+| `navmesh_get_info` | NavMesh info |
+
+</details>
+
+<details>
+<summary><b>Terrain (6 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `terrain_create` | Create terrain |
+| `terrain_get_info` | Get terrain info |
+| `terrain_set_height` / `terrain_flatten` | Height editing |
+| `terrain_add_layer` | Add terrain layer |
+| `terrain_add_tree` | Add trees |
+
+</details>
+
+<details>
+<summary><b>Texture (3 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `texture_get_info` | Get texture info |
+| `texture_set_import` | Modify texture import settings |
+| `texture_search` | Search texture assets |
 
 </details>
 
@@ -191,15 +317,26 @@ If it returns the scene hierarchy, you're all set.
 | `editor_get_state` / `editor_set_playmode` | Editor state control |
 | `editor_execute_menu` | Execute menu commands |
 | `editor_selection_get` / `editor_selection_set` | Selection management |
+| `editor_undo` / `editor_redo` | Undo/Redo |
+| `editor_open_window` | Open editor window |
+| `editor_refresh` | Refresh AssetDatabase |
+| `editor_get_compile_status` | Script compile status |
 | `screenshot_scene` / `screenshot_game` | Scene/Game view screenshots (returns MCP images) |
 | `console_get_logs` | Console logs |
 | `test_run` / `test_get_results` | Test runner |
-| `package_list` / `package_add` / `package_remove` | UPM package management |
-| `build_player` / `build_get_settings` / `build_set_settings` | Build management |
-| `settings_get_player` / `settings_set_player` | Project settings |
-| `so_create` / `so_modify` / `so_get` | ScriptableObject management |
+| `package_list` / `package_add` / `package_remove` / `package_search` / `package_get_info` | UPM package management |
+| `build_player` / `build_get_settings` / `build_set_scenes` / `build_switch_platform` | Build management |
+| `build_get_player_settings` / `build_set_player_settings` | Player Settings |
+| `settings_get_tags` / `settings_add_tag` / `settings_get_layers` / `settings_add_layer` | Tag and layer management |
+| `settings_get_sorting_layers` / `settings_add_sorting_layer` | Sorting layers |
+| `settings_get_quality` / `settings_set_quality` | Quality levels |
+| `settings_get_time` / `settings_set_time` | Time settings |
+| `so_create` / `so_get` / `so_modify` / `so_list_types` | ScriptableObject management |
+| `code_execute` / `code_validate` | C# code execution |
 | `batch_execute` | Atomic batch execution |
 | `instance_list` / `instance_set_active` | Multi-instance management |
+| `editor_is_clone` / `editor_get_mppm_tags` | MPPM support |
+| `probuilder_create_shape` / `probuilder_get_mesh_info` / `probuilder_extrude_faces` / `probuilder_set_material` | ProBuilder modeling |
 
 </details>
 
@@ -218,7 +355,8 @@ If it returns the scene hierarchy, you're all set.
 | `unity://assets/search/{filter}` | Asset search |
 | `unity://packages/list` | Installed UPM packages |
 | `unity://tests/{mode}` | Test list |
-| `unity://tags` / `unity://layers` | Tags and layers |
+| `unity://tags` | Tag list |
+| `unity://layers` | Layer list |
 | `unity://menu/items` | Menu items |
 
 </details>
@@ -279,30 +417,35 @@ unity-mcp/
 ├── unity-mcp/                  # UPM Package (com.mzbswh.unity-mcp)
 │   ├── Editor/
 │   │   ├── Core/               # McpServer, TcpTransport, RequestHandler, ToolRegistry
-│   │   ├── Tools/              # 180+ built-in tools
+│   │   │                         ToolCallLogger, DependencyChecker, PackageUpdateChecker
+│   │   ├── Tools/              # 189 built-in tools (32 tool files)
 │   │   ├── Resources/          # 13 read-only resources
 │   │   ├── Prompts/            # 48 best-practice prompts
-│   │   └── Window/             # Settings UI
+│   │   ├── Utils/              # Editor utilities
+│   │   └── Window/             # Settings UI, client configuration
 │   ├── Runtime/                # Runtime mode (requires UNITY_MCP_RUNTIME define)
 │   ├── Shared/                 # Code shared between Editor and Runtime
 │   │   ├── Attributes/         # [McpTool], [McpResource], [McpPrompt], [Desc]
-│   │   ├── Models/             # ToolResult, McpConst, McpCapabilities
-│   │   └── Utils/              # ParameterBinder, JsonSchemaGenerator, SecurityChecker
+│   │   ├── Models/             # ToolResult, McpConst, McpCapabilities, Pagination
+│   │   ├── Interfaces/         # IToolRegistry, ITcpTransport, IMainThreadDispatcher
+│   │   ├── Instance/           # Multi-instance discovery (InstanceDiscovery)
+│   │   └── Utils/              # PaginationHelper, ParameterBinder, JsonSchemaGenerator
 │   ├── Samples~/               # Custom tool examples
-│   └── Tests/                  # Tests
-├── unity-bridge/               # C# stdio-to-TCP Bridge (.NET 8)
-├── unity-server/               # Python FastMCP server
-└── scripts/                    # Build scripts
+│   └── Tests/                  # EditMode tests (9 test files)
+├── unity-server/               # Python FastMCP server (PyPI: unity-mcp-server)
+│   ├── unity_mcp_server/
+│   │   ├── server.py           # FastMCP entry point + dynamic tool discovery
+│   │   ├── unity_connection.py # TCP connection management + auto-reconnect
+│   │   └── config.py           # Environment variable configuration
+│   ├── pyproject.toml          # PyPI package configuration
+│   ├── Dockerfile              # Docker deployment
+│   └── docker-compose.yml
+└── scripts/                    # bump-version.sh version management
 ```
 
-### Dual Server Modes
+### How It Works
 
-| | Mode A: Built-in (C# Bridge) | Mode B: Python (FastMCP) |
-|---|---|---|
-| **Dependencies** | None (self-contained executable) | Python 3.10+ (`uvx` auto-installs) |
-| **Transport** | stdio | stdio / Streamable HTTP |
-| **Extra Tools** | — | `analyze_script`, `validate_assets` |
-| **Best For** | Out-of-the-box, zero config | Python analysis tools, HTTP deployment, or Docker |
+The Unity plugin starts a TCP server when the Editor launches, scanning all methods with `[McpTool]`/`[McpResource]`/`[McpPrompt]` attributes and registering them. The MCP client launches the Python FastMCP server via stdio, which connects to Unity's TCP port and uses a `discover` command to fetch all tool/resource/prompt definitions, dynamically registering them with FastMCP. All subsequent MCP calls flow through Python → TCP → Unity main thread.
 
 ---
 
@@ -310,43 +453,16 @@ unity-mcp/
 
 Control a running game via MCP. Add `UNITY_MCP_RUNTIME` to `Player Settings > Scripting Define Symbols` to enable.
 
-Runtime tools: `runtime_get_stats` / `runtime_time_scale` / `runtime_load_scene` / `runtime_invoke` / `runtime_get_logs` / `screenshot_game`
+Runtime tools (8): `runtime_get_stats` / `runtime_time_scale` / `runtime_load_scene` / `runtime_invoke` / `runtime_get_logs` / `runtime_profiler_snapshot` / `screenshot_game` / `screenshot_camera`
 
 Runtime server listens on `port + 1`.
 
 ---
 
-## Mode B: Python Server
+## Docker Deployment
 
 <details>
-<summary><b>Installation & Configuration</b></summary>
-
-In Unity, open `Window > Unity MCP`, set Server Mode to **Python**, then use the Clients tab to configure your client.
-
-MCP client config example (Cursor):
-
-```json
-{
-  "mcpServers": {
-    "unity": {
-      "command": "uvx",
-      "args": ["unity-mcp-server"]
-    }
-  }
-}
-```
-
-> `uvx` automatically downloads and runs from PyPI — no manual install needed. You can also `pip install unity-mcp-server` and run `unity-mcp-server` directly.
-> Default port is 51279. For multi-instance setups, specify `UNITY_MCP_PORT` via the `env` field.
-
-Extra Python tools:
-- `analyze_script` — C# script static analysis
-- `validate_assets` — Asset naming and directory validation
-
-</details>
-
-<details>
-<summary><b>Docker Deployment</b></summary>
+<summary><b>Docker Configuration</b></summary>
 
 ```bash
 cd unity-server
@@ -368,7 +484,7 @@ docker run -it --rm \
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `UNITY_MCP_HOST` | `host.docker.internal` | Unity Editor host address |
+| `UNITY_MCP_HOST` | `127.0.0.1` | Unity Editor host address |
 | `UNITY_MCP_PORT` | `51279` | Unity Editor TCP port |
 | `UNITY_MCP_TIMEOUT` | `60` | Request timeout (seconds) |
 | `UNITY_MCP_TRANSPORT` | `stdio` | Transport mode: `stdio` or `streamable-http` |
@@ -384,11 +500,8 @@ Access via `Window > Unity MCP`:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Server Mode | Built-in | `Built-in` (C# Bridge) or `Python` (FastMCP) |
 | Port | 51279 | TCP port, change for multi-instance setups |
 | Auto Start | On | Auto-start MCP server when Unity opens |
-| Transport | Stdio | Python transport mode: `Stdio` or `Streamable HTTP` |
-| HTTP Port | 8080 | Streamable HTTP port (Python mode only) |
 | Request Timeout | 60s | Max tool execution timeout |
 | Log Level | Info | Debug / Info / Warning / Error / Off |
 | Audit Log | Off | Log each tool call with timing |
@@ -404,6 +517,7 @@ Access via `Window > Unity MCP`:
 - Check the status indicator in `Window > Unity MCP`. Green = running.
 - Click **Restart**.
 - Check Unity Console for `[MCP]` log messages.
+- On first run, if prompted about missing Python/uv, follow the guided installation.
 
 </details>
 
@@ -411,8 +525,8 @@ Access via `Window > Unity MCP`:
 <summary><b>MCP client can't connect</b></summary>
 
 - Verify the port in client config matches `Window > Unity MCP`.
-- Mode A: Ensure the Bridge binary exists (included automatically via Git URL install).
-- Mode B: Ensure `UNITY_MCP_PORT` environment variable is correct.
+- Ensure Python 3.10+ and `uvx` are installed (run `uvx --version` to check).
+- For multi-instance setups, ensure `UNITY_MCP_PORT` environment variable is correct.
 - Check the Clients tab for **Configured** status.
 
 </details>
@@ -430,12 +544,12 @@ Access via `Window > Unity MCP`:
 <details>
 <summary><b>Domain reload causes disconnection</b></summary>
 
-This is expected behavior. The TCP connection briefly drops during Unity script recompilation, but the Bridge handles it automatically:
+This is expected behavior. The TCP connection briefly drops during Unity script recompilation, but it's handled automatically:
 
 1. Unity sends a `notifications/reloading` notification before domain reload
-2. After TCP disconnects, Bridge enters exponential backoff reconnection (0s → 1s → 2s → 4s → ...)
-3. Requests from the MCP client during reconnection are buffered in an in-memory queue
-4. Once Unity finishes recompilation and TCP recovers, Bridge replays all buffered requests
+2. After TCP disconnects, Python server enters exponential backoff reconnection (0s → 1s → 2s → 4s → ...)
+3. Requests from the MCP client during reconnection are buffered
+4. Once Unity finishes recompilation and TCP recovers, buffered requests are replayed
 
 The entire process is nearly transparent to MCP clients, typically recovering within 2-5 seconds.
 
@@ -446,10 +560,8 @@ The entire process is nearly transparent to MCP clients, typically recovering wi
 ## Requirements
 
 - **Unity** 2021.2+
-- **Mode A**: No extra dependencies (Bridge is a self-contained executable, pre-built in `Bridge~/`)
-- **Mode B**: Python 3.10+ (recommend `uvx` for automatic dependency management)
+- **Python** 3.10+ (recommend `uvx` for automatic dependency management)
 - **Unity Dependency**: `com.unity.nuget.newtonsoft-json` 3.2.1+ (auto-resolved)
-- **Rebuild Bridge** (optional): [.NET 8+ SDK](https://dotnet.microsoft.com/download), run `./scripts/build_bridge.sh --current-only`
 
 ## License
 
