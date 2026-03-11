@@ -83,11 +83,12 @@ namespace UnityMcp.Editor.Window
                 clientConfigSection.Refresh();
                 bool reconfigure = EditorUtility.DisplayDialog(
                     "Server Configuration Changed",
-                    "Server configuration has changed. Do you want to update all client configs now?\n\n" +
-                    "If you skip, remember to reconfigure clients in the Client Config tab before restarting MCP clients.",
-                    "Update All Clients", "Skip");
+                    "Server configuration has changed. Update already-configured clients now?\n\n" +
+                    "Only clients that have been previously configured will be updated.\n" +
+                    "If you skip, remember to reconfigure clients in the Client Config tab.",
+                    "Update Configured Clients", "Skip");
                 if (reconfigure)
-                    clientConfigSection.ReconfigureAll();
+                    clientConfigSection.ReconfigureConfigured();
             };
 
             UpdateHeaderStatus();

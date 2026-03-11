@@ -316,7 +316,38 @@ namespace UnityMcp.Editor.Window.Sections
         /// <summary>Refresh the displayed status and config snippet for the current client.</summary>
         public void Refresh() => UpdateSelectedClient();
 
-        /// <summary>Re-configure all detected clients with current settings.</summary>
-        public void ReconfigureAll() => OnConfigureAllClicked();
+        /// <summary>Re-configure only clients that are already configured.</summary>
+        public void ReconfigureConfigured()
+        {
+            var settings = McpSettings.Instance;
+            string transport = settings.Transport == McpSettings.TransportMode.StreamableHttp
+                ? "streamable-http" : "stdio";
+            int updated = 0, skipped = 0;
+
+            foreach (var profile in ClientRegistry.All)
+            {
+                try
+                {
+                    var writer = ClientRegistry.GetWriter(profile.Strategy);
+                    var status = writer.CheckStatus(profile, settings.Port, transport);
+                    if (status == McpStatus.NotConfigured)
+                    {
+                        skipped++;
+                        continue;
+                    }
+                    writer.Configure(profile, settings.Port, transport, settings.HttpPort);
+                    updated++;
+                }
+                catch
+                {
+                    // skip failures silently
+                }
+            }
+
+            if (updated > 0)
+                McpLogger.Info($"Updated {updated} client config(s), skipped {skipped} unconfigured");
+
+            UpdateSelectedClient();
+        }
     }
 }

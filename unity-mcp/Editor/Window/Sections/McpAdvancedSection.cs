@@ -137,7 +137,7 @@ namespace UnityMcp.Editor.Window.Sections
                     _uvxPathField.value = "";
                     McpSettings.Instance.UvxPath = "";
                     UpdateUvxPathStatus();
-                    OnServerConfigChanged?.Invoke();
+                    // OnServerConfigChanged fires via RegisterValueChangedCallback
                 }
             ));
 
@@ -153,7 +153,7 @@ namespace UnityMcp.Editor.Window.Sections
                 {
                     _serverSourceField.value = "";
                     McpSettings.Instance.ServerSourceOverride = "";
-                    OnServerConfigChanged?.Invoke();
+                    // OnServerConfigChanged fires via RegisterValueChangedCallback
                 }
             ));
 
@@ -349,7 +349,7 @@ namespace UnityMcp.Editor.Window.Sections
                 _uvxPathField.value = picked;
                 McpSettings.Instance.UvxPath = picked;
                 UpdateUvxPathStatus();
-                OnServerConfigChanged?.Invoke();
+                // OnServerConfigChanged fires via RegisterValueChangedCallback
             }
         }
 
@@ -361,7 +361,7 @@ namespace UnityMcp.Editor.Window.Sections
                 picked = ResolveServerPath(picked);
                 _serverSourceField.value = picked;
                 McpSettings.Instance.ServerSourceOverride = picked;
-                OnServerConfigChanged?.Invoke();
+                // OnServerConfigChanged fires via RegisterValueChangedCallback
             }
         }
 
