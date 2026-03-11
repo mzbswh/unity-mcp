@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityMcp.Editor.Window;
 using UnityMcp.Shared.Instance;
 using UnityMcp.Shared.Utils;
 
@@ -31,6 +32,14 @@ namespace UnityMcp.Editor.Core
             // 0. Sync log settings
             McpLogger.CurrentLogLevel = (McpLogger.LogLevel)(int)settings.LogLevel;
             McpLogger.AuditEnabled = settings.EnableAuditLog;
+
+            // 0b. Dependency check (first run only)
+            if (!EditorPrefs.GetBool("UnityMcp_SetupDone", false))
+            {
+                var deps = DependencyChecker.Check();
+                if (!deps.AllSatisfied)
+                    McpSetupWindow.ShowWindow(deps);
+            }
 
             // 1. Scan and register all tools
             Registry = new ToolRegistry();

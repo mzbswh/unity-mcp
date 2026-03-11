@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement class="setup-root">
+        <ui:Label text="Unity MCP Setup" class="setup-title" />
+        <ui:Label text="The following dependencies are required to run the MCP Python bridge." class="setup-subtitle" />
+
+        <ui:VisualElement class="dep-section">
+            <ui:VisualElement class="dep-row">
+                <ui:VisualElement name="python-dot" class="dep-dot" />
+                <ui:Label text="Python 3.10+" class="dep-name" />
+                <ui:Label name="python-version" text="" class="dep-version" />
+                <ui:Button name="btn-install-python" text="Install" class="dep-btn" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="dep-row">
+                <ui:VisualElement name="uv-dot" class="dep-dot" />
+                <ui:Label text="uv" class="dep-name" />
+                <ui:Label name="uv-version" text="" class="dep-version" />
+                <ui:Button name="btn-install-uv" text="Install" class="dep-btn" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="dep-row">
+                <ui:VisualElement name="uvx-dot" class="dep-dot" />
+                <ui:Label text="uvx" class="dep-name" />
+                <ui:Label name="uvx-version" text="" class="dep-version" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement class="setup-actions">
+            <ui:Button name="btn-refresh" text="Refresh" class="action-btn" />
+            <ui:Button name="btn-done" text="Done" class="action-btn action-btn-primary" />
+            <ui:Button name="btn-skip" text="Skip (not recommended)" class="action-btn action-btn-skip" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
