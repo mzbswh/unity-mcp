@@ -18,17 +18,24 @@ namespace UnityMcp.Editor.Tools
             Group = "material")]
         public static ToolResult Create(
             [Desc("Material name")] string name,
-            [Desc("Shader name (e.g. 'Standard', 'Universal Render Pipeline/Lit')")] string shaderName = "Standard",
-            [Desc("Save path (e.g. Assets/Materials/MyMat.mat)")] string path = null)
+            [Desc("Shader name (e.g. 'Standard', 'Universal Render Pipeline/Lit', 'Custom/MyShader')")] string shader = "Standard",
+            [Desc("Save path — can be a full file path (e.g. 'Assets/Materials/MyMat.mat') or a folder (e.g. 'Assets/Materials')")] string path = null)
         {
-            var shader = Shader.Find(shaderName);
-            if (shader == null)
-                return ToolResult.Error($"Shader not found: '{shaderName}'");
+            var foundShader = Shader.Find(shader);
+            if (foundShader == null)
+                return ToolResult.Error($"Shader not found: '{shader}'");
 
-            var material = new Material(shader) { name = name };
+            var material = new Material(foundShader) { name = name };
 
             if (string.IsNullOrEmpty(path))
                 path = $"Assets/{name}.mat";
+
+            // If path is a directory (existing folder or no extension), treat it as a folder and append name.mat
+            if (AssetDatabase.IsValidFolder(path) || (!Path.HasExtension(path) && !path.EndsWith(".mat", System.StringComparison.OrdinalIgnoreCase)))
+                path = Path.Combine(path, $"{name}.mat");
+
+            if (!path.EndsWith(".mat", System.StringComparison.OrdinalIgnoreCase))
+                path = Path.ChangeExtension(path, ".mat");
 
             var pv = PathValidator.QuickValidate(path);
             if (!pv.IsValid) return ToolResult.Error(pv.Error);
@@ -47,16 +54,18 @@ namespace UnityMcp.Editor.Tools
             {
                 path,
                 name = material.name,
-                shader = shaderName,
+                shader,
                 instanceId = material.GetInstanceID()
             });
         }
 
-        [McpTool("material_modify", "Modify properties of an existing material. For textures, pass asset path (e.g. 'Assets/Textures/X.png'). For blend/render mode changes, use material_set_render_mode instead.",
+        [McpTool("material_modify", "Modify properties of an existing material. Optionally switch shader first. For textures, pass asset path (e.g. 'Assets/Textures/X.png'). For blend/render mode changes, use material_set_render_mode instead.",
             Group = "material")]
         public static ToolResult Modify(
             [Desc("Material asset path")] string path,
-            [Desc("Properties to set as {propertyName: value}. Texture properties accept asset paths.")] JObject properties)
+            [Desc("Properties to set as {propertyName: value}. Texture properties accept asset paths (e.g. {\"_MainTex\": \"Assets/Textures/X.png\", \"_Color\": {\"r\":1,\"g\":0,\"b\":0,\"a\":1}})")] JObject properties = null,
+            [Desc("Switch shader before setting properties (e.g. 'Custom/LightningParticle', 'Particles/Standard Unlit')")] string shader = null,
+            [Desc("Shorthand: set the main texture (_MainTex) by asset path")] string texture = null)
         {
             var pv = PathValidator.QuickValidate(path);
             if (!pv.IsValid) return ToolResult.Error(pv.Error);
@@ -67,6 +76,39 @@ namespace UnityMcp.Editor.Tools
 
             Undo.RecordObject(material, "Modify Material");
             var changes = new List<string>();
+
+            // Switch shader if requested
+            if (!string.IsNullOrEmpty(shader))
+            {
+                var newShader = Shader.Find(shader);
+                if (newShader == null)
+                    return ToolResult.Error($"Shader not found: '{shader}'");
+                material.shader = newShader;
+                changes.Add($"shader={shader}");
+            }
+
+            // Shorthand texture assignment
+            if (!string.IsNullOrEmpty(texture))
+            {
+                var tex = AssetDatabase.LoadAssetAtPath<Texture>(texture);
+                if (tex != null)
+                {
+                    material.SetTexture("_MainTex", tex);
+                    changes.Add($"_MainTex={texture}");
+                }
+                else
+                {
+                    return ToolResult.Error($"Texture not found: '{texture}'");
+                }
+            }
+
+            if (properties == null || properties.Count == 0)
+            {
+                if (changes.Count == 0) return ToolResult.Text($"No properties changed on '{material.name}'");
+                EditorUtility.SetDirty(material);
+                AssetDatabase.SaveAssets();
+                return ToolResult.Text($"Material '{material.name}' updated: {string.Join(", ", changes)}");
+            }
 
             foreach (var kv in properties)
             {
