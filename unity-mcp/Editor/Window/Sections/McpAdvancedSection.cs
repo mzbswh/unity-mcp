@@ -28,8 +28,7 @@ namespace UnityMcp.Editor.Window.Sections
         private TextField _serverSourceField;
         private Toggle _devModeRefreshToggle;
         private VisualElement _uvxPathStatus;
-        private VisualElement _healthIndicator;
-        private Label _healthStatusLabel;
+        private VisualElement _healthContainer;
 
         /// <summary>Fired when uvx path, server source, or dev mode changes.</summary>
         public event Action OnServerConfigChanged;
@@ -183,29 +182,19 @@ namespace UnityMcp.Editor.Window.Sections
             healthTitle.AddToClassList("section-title");
             healthBox.Add(healthTitle);
 
-            var healthRow = new VisualElement();
-            healthRow.style.flexDirection = FlexDirection.Row;
-            healthRow.style.alignItems = Align.Center;
+            // Check items container
+            _healthContainer = new VisualElement();
+            _healthContainer.Add(BuildHealthRow("unity-tcp", "Unity TCP Server", out _));
+            _healthContainer.Add(BuildHealthRow("mcp-connected", "MCP Server Connected", out _));
+            _healthContainer.Add(BuildHealthRow("uvx-available", "uvx Command", out _));
+            healthBox.Add(_healthContainer);
 
-            _healthIndicator = new VisualElement();
-            _healthIndicator.style.width = 12;
-            _healthIndicator.style.height = 12;
-            _healthIndicator.style.borderTopLeftRadius = _healthIndicator.style.borderTopRightRadius =
-                _healthIndicator.style.borderBottomLeftRadius = _healthIndicator.style.borderBottomRightRadius = 6;
-            _healthIndicator.style.marginRight = 8;
-            _healthIndicator.style.backgroundColor = new Color(0.6f, 0.6f, 0.6f); // gray = unknown
-            healthRow.Add(_healthIndicator);
-
-            _healthStatusLabel = new Label("Not tested");
-            _healthStatusLabel.style.flexGrow = 1;
-            healthRow.Add(_healthStatusLabel);
-
-            var testBtn = new Button { text = "Test Connection" };
+            var testBtn = new Button { text = "Run Health Check" };
             testBtn.AddToClassList("action-btn");
+            testBtn.style.marginTop = 6;
             testBtn.clicked += OnTestConnectionClicked;
-            healthRow.Add(testBtn);
+            healthBox.Add(testBtn);
 
-            healthBox.Add(healthRow);
             _root.Add(healthBox);
 
             // === Settings Section ===
@@ -415,50 +404,128 @@ namespace UnityMcp.Editor.Window.Sections
             }
         }
 
+        private static VisualElement BuildHealthRow(string name, string label, out Label statusLabel)
+        {
+            var row = new VisualElement { name = name };
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.marginBottom = 4;
+
+            var dot = new VisualElement { name = "dot" };
+            dot.style.width = 10;
+            dot.style.height = 10;
+            dot.style.borderTopLeftRadius = dot.style.borderTopRightRadius =
+                dot.style.borderBottomLeftRadius = dot.style.borderBottomRightRadius = 5;
+            dot.style.marginRight = 8;
+            dot.style.backgroundColor = new Color(0.5f, 0.5f, 0.5f); // gray = untested
+            row.Add(dot);
+
+            var lbl = new Label(label);
+            lbl.style.minWidth = 160;
+            lbl.style.fontSize = 11;
+            lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+            row.Add(lbl);
+
+            statusLabel = new Label("—") { name = "status" };
+            statusLabel.style.fontSize = 11;
+            statusLabel.style.flexGrow = 1;
+            statusLabel.style.color = new Color(0.6f, 0.6f, 0.6f);
+            row.Add(statusLabel);
+
+            return row;
+        }
+
+        private void SetHealthStatus(string rowName, bool ok, string text)
+        {
+            var row = _healthContainer.Q(rowName);
+            if (row == null) return;
+            var dot = row.Q("dot");
+            var status = row.Q<Label>("status");
+            if (dot != null)
+                dot.style.backgroundColor = ok
+                    ? new Color(0.3f, 0.8f, 0.3f)
+                    : new Color(0.9f, 0.3f, 0.3f);
+            if (status != null)
+                status.text = text;
+        }
+
+        private void SetHealthPending(string rowName, string text)
+        {
+            var row = _healthContainer.Q(rowName);
+            if (row == null) return;
+            var dot = row.Q("dot");
+            var status = row.Q<Label>("status");
+            if (dot != null)
+                dot.style.backgroundColor = new Color(1f, 0.6f, 0f); // orange
+            if (status != null)
+                status.text = text;
+        }
+
         private async void OnTestConnectionClicked()
         {
-            _healthStatusLabel.text = "Testing...";
-            _healthIndicator.style.backgroundColor = new Color(1f, 0.6f, 0f); // orange
+            SetHealthPending("unity-tcp", "Checking...");
+            SetHealthPending("mcp-connected", "Checking...");
+            SetHealthPending("uvx-available", "Checking...");
 
             var settings = McpSettings.Instance;
             int port = settings.Port;
 
+            // 1. Unity TCP Server
+            var transport = McpServer.Transport;
+            bool tcpRunning = transport?.IsRunning ?? false;
+            if (tcpRunning)
+                SetHealthStatus("unity-tcp", true, $"Running on port {port}");
+            else
+                SetHealthStatus("unity-tcp", false, $"Not running (port {port})");
+
+            // 2. MCP Server Connected (Python server connects to Unity as a TCP client)
+            int clientCount = transport?.ClientCount ?? 0;
+            if (clientCount > 0)
+                SetHealthStatus("mcp-connected", true, $"{clientCount} client(s) connected");
+            else
+                SetHealthStatus("mcp-connected", false, "No MCP server connected");
+
+            // 3. uvx command available
+            string uvxCmd = string.IsNullOrEmpty(settings.UvxPath) ? "uvx" : settings.UvxPath;
             try
             {
-                bool tcpOk = await Task.Run(() =>
+                string uvxResult = await Task.Run(() =>
                 {
                     try
                     {
-                        using var client = new TcpClient();
-                        var result = client.BeginConnect("127.0.0.1", port, null, null);
-                        bool connected = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(3));
-                        if (connected && client.Connected)
+                        var psi = new System.Diagnostics.ProcessStartInfo
                         {
-                            client.EndConnect(result);
-                            return true;
-                        }
-                        return false;
+                            FileName = uvxCmd,
+                            Arguments = "--version",
+                            UseShellExecute = false,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            CreateNoWindow = true
+                        };
+                        using var proc = System.Diagnostics.Process.Start(psi);
+                        string output = proc.StandardOutput.ReadToEnd().Trim();
+                        string error = proc.StandardError.ReadToEnd().Trim();
+                        proc.WaitForExit(5000);
+                        return proc.ExitCode == 0 ? output : $"exit {proc.ExitCode}: {error}";
                     }
-                    catch { return false; }
+                    catch (Exception ex)
+                    {
+                        return $"ERROR:{ex.Message}";
+                    }
                 });
 
-                if (tcpOk)
+                if (uvxResult.StartsWith("ERROR:"))
                 {
-                    var transport = McpServer.Transport;
-                    int clients = transport?.ClientCount ?? 0;
-                    _healthStatusLabel.text = $"Connected — TCP:{port}, {clients} client(s)";
-                    _healthIndicator.style.backgroundColor = new Color(0.3f, 0.8f, 0.3f); // green
+                    SetHealthStatus("uvx-available", false, $"Not found: {uvxCmd}");
                 }
                 else
                 {
-                    _healthStatusLabel.text = $"Cannot connect to TCP:{port}. Is the server running?";
-                    _healthIndicator.style.backgroundColor = new Color(0.9f, 0.3f, 0.3f); // red
+                    SetHealthStatus("uvx-available", true, uvxResult);
                 }
             }
             catch (Exception e)
             {
-                _healthStatusLabel.text = $"Error: {e.Message}";
-                _healthIndicator.style.backgroundColor = new Color(0.9f, 0.3f, 0.3f); // red
+                SetHealthStatus("uvx-available", false, e.Message);
             }
         }
 
