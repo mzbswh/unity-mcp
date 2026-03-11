@@ -76,9 +76,9 @@ If it returns the scene hierarchy, you're all set.
 
 ## Features
 
-- **60+ Editor Tools** — GameObject, Component, Scene, Asset, Material, Animation, Prefab, Script, UI, VFX, Package, Test, Screenshot, Console
-- **12 Resource Endpoints** — Read-only data queries (scene hierarchy, project info, editor state, console logs, etc.)
-- **40+ Prompt Templates** — Unity best-practice guides (architecture, scripting, performance, shaders, XR, ECS, networking, etc.)
+- **180+ Editor Tools** — GameObject, Component, Scene, Asset, Material, Animation, Prefab, Script, UI, VFX, Audio, Camera, Graphics, Lighting, NavMesh, Physics, Terrain, Shader, Texture, Build, Package, Test, Screenshot, Console, and more
+- **13 Resource Endpoints** — Read-only data queries (scene hierarchy, project info, editor state, console logs, current selection, etc.)
+- **48 Prompt Templates** — Unity best-practice guides (architecture, scripting, performance, shaders, XR, ECS, networking, etc.)
 - **Batch Execute** — Run multiple tool operations in a single request with atomic rollback
 - **Runtime Mode** — Optional runtime MCP server for controlling the running game
 - **Dual Server Architecture** — Mode A (C# stdio Bridge, lightweight) or Mode B (Python FastMCP, extra analysis tools)
@@ -91,7 +91,7 @@ If it returns the scene hierarchy, you're all set.
 ## Tools Overview
 
 <details>
-<summary><b>GameObject & Component</b></summary>
+<summary><b>GameObject & Component (15 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -110,61 +110,101 @@ If it returns the scene hierarchy, you're all set.
 </details>
 
 <details>
-<summary><b>Scene & Asset</b></summary>
+<summary><b>Scene & Asset (23 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `scene_create` / `scene_open` / `scene_save` | Scene management |
 | `scene_get_hierarchy` / `scene_list_all` | Hierarchy viewing |
+| `scene_set_active` / `scene_unload` / `scene_get_build_settings` | Multi-scene management |
 | `asset_find` / `asset_get_info` | Asset search and info |
 | `asset_create_folder` / `asset_delete` / `asset_move` / `asset_copy` | Asset file operations |
-| `asset_refresh` | Refresh AssetDatabase |
+| `asset_refresh` / `asset_import` / `asset_get_dependencies` | Asset import and dependencies |
 
 </details>
 
 <details>
-<summary><b>Material & Script</b></summary>
+<summary><b>Material, Shader & Script (15 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `material_create` / `material_modify` | Material creation and modification |
-| `shader_list` | List available shaders |
+| `material_create` / `material_modify` / `material_get_info` | Material management |
+| `shader_list` / `shader_get_properties` / `shader_create` | Shader operations |
 | `script_create` / `script_read` / `script_update` | C# script CRUD |
+| `texture_import` / `texture_get_info` / `texture_modify` | Texture management |
 
 </details>
 
 <details>
-<summary><b>Prefab & Animation & UI & VFX</b></summary>
+<summary><b>Prefab & Animation (16 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `prefab_create` / `prefab_instantiate` | Prefab workflow |
 | `prefab_open` / `prefab_save_close` / `prefab_unpack` | Prefab editing |
+| `prefab_get_info` / `prefab_apply_overrides` | Prefab info and overrides |
 | `animation_create_clip` / `animation_manage_controller` | Animation management |
-| `vfx_create_particle` / `vfx_modify_particle` | Particle systems |
-| `vfx_create_graph` / `vfx_get_info` | VFX Graph |
+| `animation_add_transition` / `animation_set_parameter` | Animator control |
 
 </details>
 
 <details>
-<summary><b>Editor & Utility</b></summary>
+<summary><b>UI, VFX & Audio (19 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `uitoolkit_create_uxml` / `uitoolkit_create_uss` | UI Toolkit |
+| `vfx_create_particle` / `vfx_modify_particle` | Particle systems |
+| `vfx_create_graph` / `vfx_get_info` | VFX Graph |
+| `audio_create_source` / `audio_create_mixer` | Audio system |
+
+</details>
+
+<details>
+<summary><b>Graphics, Lighting & Camera (25 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `graphics_get_settings` / `graphics_set_quality` | Graphics settings |
+| `lighting_bake` / `lighting_get_settings` / `lighting_set_settings` | Lightmap baking |
+| `light_create` / `light_modify` / `light_create_probe` | Light management |
+| `camera_create` / `camera_modify` / `camera_get_info` | Camera management |
+
+</details>
+
+<details>
+<summary><b>Physics, NavMesh & Terrain (19 tools)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `physics_raycast` / `physics_set_gravity` / `physics_add_collider` | Physics system |
+| `navmesh_bake` / `navmesh_add_agent` / `navmesh_set_area` | Navigation mesh |
+| `terrain_create` / `terrain_modify` / `terrain_paint` | Terrain system |
+
+</details>
+
+<details>
+<summary><b>Editor & Utility (50+ tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `editor_get_state` / `editor_set_playmode` | Editor state control |
 | `editor_execute_menu` | Execute menu commands |
 | `editor_selection_get` / `editor_selection_set` | Selection management |
-| `screenshot_scene` / `screenshot_game` | Scene/Game view screenshots |
+| `screenshot_scene` / `screenshot_game` | Scene/Game view screenshots (returns MCP images) |
 | `console_get_logs` | Console logs |
 | `test_run` / `test_get_results` | Test runner |
-| `package_list` / `package_add` | UPM package management |
+| `package_list` / `package_add` / `package_remove` | UPM package management |
+| `build_player` / `build_get_settings` / `build_set_settings` | Build management |
+| `settings_get_player` / `settings_set_player` | Project settings |
+| `so_create` / `so_modify` / `so_get` | ScriptableObject management |
 | `batch_execute` | Atomic batch execution |
 | `instance_list` / `instance_set_active` | Multi-instance management |
 
 </details>
 
 <details>
-<summary><b>Resources</b></summary>
+<summary><b>Resources (13 endpoints)</b></summary>
 
 | URI | Description |
 |-----|-------------|
@@ -172,6 +212,7 @@ If it returns the scene hierarchy, you're all set.
 | `unity://scene/list` | Scenes in Build Settings |
 | `unity://project/info` | Project metadata |
 | `unity://editor/state` | Editor state |
+| `unity://editor/selection` | Current selection |
 | `unity://console/logs` | Console logs |
 | `unity://gameobject/{id}` | GameObject details |
 | `unity://assets/search/{filter}` | Asset search |
@@ -238,9 +279,9 @@ unity-mcp/
 ├── unity-mcp/                  # UPM Package (com.mzbswh.unity-mcp)
 │   ├── Editor/
 │   │   ├── Core/               # McpServer, TcpTransport, RequestHandler, ToolRegistry
-│   │   ├── Tools/              # 60+ built-in tools
-│   │   ├── Resources/          # 12 read-only resources
-│   │   ├── Prompts/            # 40+ best-practice prompts
+│   │   ├── Tools/              # 180+ built-in tools
+│   │   ├── Resources/          # 13 read-only resources
+│   │   ├── Prompts/            # 48 best-practice prompts
 │   │   └── Window/             # Settings UI
 │   ├── Runtime/                # Runtime mode (requires UNITY_MCP_RUNTIME define)
 │   ├── Shared/                 # Code shared between Editor and Runtime

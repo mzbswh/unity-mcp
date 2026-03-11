@@ -16,8 +16,8 @@
 
 ```
 MCP 客户端 (Claude/Cursor/VS Code/Windsurf)
-        ↕  stdio (JSON-RPC 2.0)
-  C# Bridge / Python FastMCP
+        ↕  stdio / streamable-http (JSON-RPC 2.0)
+  Python FastMCP 服务器 (动态工具发现)
         ↕  TCP (自定义帧协议)
   Unity Editor (TCP 服务器 + 工具注册表)
 ```
@@ -64,6 +64,22 @@ git clone https://github.com/mzbswh/unity-mcp.git
 
 > 其他客户端可使用 **Copy Config to Clipboard** 手动粘贴。
 
+MCP 客户端配置示例（以 Cursor 为例）：
+
+```json
+{
+  "mcpServers": {
+    "unity": {
+      "command": "uvx",
+      "args": ["unity-mcp-server"]
+    }
+  }
+}
+```
+
+> `uvx` 会自动从 PyPI 下载并运行，无需手动安装。也可以用 `pip install unity-mcp-server` 安装后直接运行 `unity-mcp-server`。
+> 默认连接端口 51279，多实例场景可通过 `env` 字段指定 `UNITY_MCP_PORT`。
+
 ### 3. 验证
 
 向你的 AI 助手说：
@@ -76,22 +92,25 @@ git clone https://github.com/mzbswh/unity-mcp.git
 
 ## 特性
 
-- **60+ 编辑器工具** — GameObject、Component、Scene、Asset、Material、Animation、Prefab、Script、UI、VFX、Package、Test、Screenshot、Console
-- **12 个资源端点** — 只读数据查询（场景层级、项目信息、编辑器状态、控制台日志等）
-- **40+ 提示词模板** — Unity 最佳实践指南（架构、脚本、性能、Shader、XR、ECS、网络等）
+- **189 个编辑器工具** — GameObject、Component、Scene、Asset、Material、Animation、Prefab、Script、UI Toolkit、VFX、Audio、Camera、Graphics、Lighting、NavMesh、Physics、Terrain、Shader、Texture、Build、Package、Test、Screenshot、Console、ProBuilder 等
+- **13 个资源端点** — 只读数据查询（场景层级、项目信息、编辑器状态、控制台日志、当前选中等）
+- **48 个提示词模板** — Unity 最佳实践指南（架构、脚本、性能、Shader、XR、ECS、网络等）
 - **批量执行** — 单次请求执行多个工具操作，支持原子回滚
-- **运行时模式** — 可选的运行时 MCP 服务器，控制运行中的游戏
-- **双服务器架构** — Mode A（C# stdio Bridge，轻量）或 Mode B（Python FastMCP，额外分析工具）
+- **运行时模式** — 可选的运行时 MCP 服务器，控制运行中的游戏（8 个运行时工具）
+- **动态工具发现** — Python 服务器启动时从 Unity 自动发现并注册所有工具/资源/提示词
 - **多实例支持** — 同时运行多个 Unity Editor 实例
 - **自定义工具 API** — 用 C# 特性添加自定义工具，启动时自动发现
-- **域重载安全** — Unity 脚本重编译后自动重连，Bridge 自动缓存并重放期间收到的请求，对 MCP 客户端近乎无感
+- **域重载安全** — Unity 脚本重编译后自动重连；Python 服务器自动缓存并重放期间收到的请求，对 MCP 客户端近乎无感
+- **依赖检测** — 首次启动自动检查 Python/uv/uvx 环境，引导安装
+- **版本更新检查** — 每日自动检查新版本，在设置窗口提示更新
+- **工具调用诊断** — 记录最近工具调用的名称、耗时和成功/失败状态
 
 ---
 
 ## 工具一览
 
 <details>
-<summary><b>GameObject & Component</b></summary>
+<summary><b>GameObject & Component (15 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
@@ -102,69 +121,227 @@ git clone https://github.com/mzbswh/unity-mcp.git
 | `gameobject_set_parent` | 设置父子关系 |
 | `gameobject_duplicate` | 复制 GameObject |
 | `gameobject_get_components` | 获取组件列表 |
+| `gameobject_look_at` | 朝向目标 |
+| `gameobject_move_relative` | 相对移动 |
+| `gameobject_set_sibling_index` | 设置同级排序 |
 | `component_add` | 添加组件 |
 | `component_remove` | 移除组件 |
 | `component_get` | 查看组件属性 |
 | `component_modify` | 修改组件属性 |
+| `component_copy_values` | 复制组件值 |
 
 </details>
 
 <details>
-<summary><b>Scene & Asset</b></summary>
+<summary><b>Scene (15 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
 | `scene_create` / `scene_open` / `scene_save` | 场景管理 |
 | `scene_get_hierarchy` / `scene_list_all` | 层级查看 |
-| `asset_find` / `asset_get_info` | 资源搜索和信息 |
-| `asset_create_folder` / `asset_delete` / `asset_move` / `asset_copy` | 资源文件操作 |
-| `asset_refresh` | 刷新 AssetDatabase |
+| `scene_align_with_view` / `scene_move_to_view` | 视图对齐 |
+| `scene_frame_selected` | 聚焦选中对象 |
+| `scene_view_get` / `scene_view_set` | Scene 视图位置控制 |
+| `scene_view_get_settings` / `scene_view_set_settings` | Scene 视图设置 |
+| `game_view_get_settings` / `game_view_set_settings` | Game 视图设置 |
+| `scene_view_snap_angle` | 吸附到预设角度 |
 
 </details>
 
 <details>
-<summary><b>Material & Script</b></summary>
+<summary><b>Asset (10 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `asset_find` / `asset_get_info` | 资源搜索和信息 |
+| `asset_create_folder` / `asset_delete` / `asset_move` / `asset_copy` | 资源文件操作 |
+| `asset_refresh` | 刷新资源数据库 |
+| `asset_set_import_settings` / `asset_set_model_import` | 导入设置 |
+| `asset_find_references` | 查找引用 |
+
+</details>
+
+<details>
+<summary><b>Material & Shader (13 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
 | `material_create` / `material_modify` | 材质创建和修改 |
-| `shader_list` | 列出可用 Shader |
+| `material_set_render_mode` | 设置渲染模式 |
+| `material_get_keywords` / `material_set_keywords` | 材质关键字管理 |
+| `shader_list` / `shader_get_properties` | Shader 查询 |
+| `shader_create` / `shader_read` / `shader_update` / `shader_delete` | Shader CRUD |
+| `shader_info` | Shader 详细信息 |
+
+</details>
+
+<details>
+<summary><b>Script (3 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
 | `script_create` / `script_read` / `script_update` | C# 脚本增删改查 |
 
 </details>
 
 <details>
-<summary><b>Prefab & Animation & UI & VFX</b></summary>
+<summary><b>Prefab (10 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
 | `prefab_create` / `prefab_instantiate` | Prefab 工作流 |
-| `prefab_open` / `prefab_save_close` / `prefab_unpack` | Prefab 编辑 |
-| `animation_create_clip` / `animation_manage_controller` | 动画管理 |
-| `vfx_create_particle` / `vfx_modify_particle` | 粒子系统 |
-| `vfx_create_graph` / `vfx_get_info` | VFX Graph |
+| `prefab_open` / `prefab_save_close` | Prefab 编辑模式 |
+| `prefab_get_hierarchy` / `prefab_get_stage_objects` | Prefab 层级查看 |
+| `prefab_modify_contents` | 修改 Prefab 内容 |
+| `prefab_apply_overrides` / `prefab_revert_overrides` | 覆盖管理 |
+| `prefab_unpack` | 解包 Prefab |
 
 </details>
 
 <details>
-<summary><b>Editor & Utility</b></summary>
+<summary><b>Animation (6 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `animation_create_clip` | 创建动画剪辑 |
+| `animation_manage_controller` | 管理 Animator Controller |
+| `animation_add_transition` | 添加状态转换 |
+| `animation_add_layer` | 添加动画层 |
+| `animation_create_blend_tree` | 创建混合树 |
+| `animation_set_clip_curve` | 设置动画曲线 |
+
+</details>
+
+<details>
+<summary><b>UI Toolkit (7 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `uitoolkit_create` / `uitoolkit_read` / `uitoolkit_update` / `uitoolkit_delete` | UXML/USS CRUD |
+| `uitoolkit_list` | 列出 UI 资源 |
+| `uitoolkit_attach` | 绑定 UIDocument |
+| `uitoolkit_get_visual_tree` | 获取运行时视觉树 |
+
+</details>
+
+<details>
+<summary><b>VFX & Audio (12 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `vfx_create_particle` / `vfx_modify_particle` | 粒子系统 |
+| `vfx_create_graph` / `vfx_get_info` | VFX Graph |
+| `vfx_create_line` / `vfx_modify_line` / `vfx_create_trail` | 线条和拖尾 |
+| `audio_create_source` / `audio_modify_source` / `audio_get_source_info` | 音频源管理 |
+| `audio_set_clip_import` | 音频导入设置 |
+| `audio_create_listener` | 音频监听器 |
+
+</details>
+
+<details>
+<summary><b>Graphics & Lighting (21 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `graphics_get_skybox` / `graphics_set_skybox` | 天空盒 |
+| `graphics_get_fog` / `graphics_set_fog` | 雾效 |
+| `graphics_get_ambient` / `graphics_set_ambient` | 环境光 |
+| `graphics_get_render_pipeline` | 渲染管线信息 |
+| `graphics_get_quality` / `graphics_set_quality` | 画质设置 |
+| `graphics_get_stats` | 图形统计 |
+| `graphics_bake_lighting` / `graphics_get_lightmap_settings` | 光照烘焙 |
+| `light_create` / `light_modify` / `light_get_info` | 灯光管理 |
+| `lighting_get_environment` / `lighting_set_environment` | 环境光照 |
+| `lighting_bake` / `lighting_get_bake_status` / `lighting_cancel_bake` | 烘焙控制 |
+| `light_create_probe` | 光照探针 |
+
+</details>
+
+<details>
+<summary><b>Camera (4 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `camera_create` | 创建摄像机 |
+| `camera_configure` | 配置摄像机参数 |
+| `camera_get_info` | 获取摄像机信息 |
+| `camera_look_at` | 摄像机朝向目标 |
+
+</details>
+
+<details>
+<summary><b>Physics & NavMesh (13 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `physics_add_rigidbody` / `physics_add_collider` | 物理组件 |
+| `physics_create_material` | 物理材质 |
+| `physics_raycast` | 射线检测 |
+| `physics_get_settings` / `physics_set_gravity` | 物理设置 |
+| `navmesh_add_agent` / `navmesh_modify_agent` | 导航代理 |
+| `navmesh_add_obstacle` / `navmesh_add_surface` | 导航障碍和表面 |
+| `navmesh_bake` / `navmesh_clear` | 导航网格烘焙 |
+| `navmesh_get_info` | 导航网格信息 |
+
+</details>
+
+<details>
+<summary><b>Terrain (6 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `terrain_create` | 创建地形 |
+| `terrain_get_info` | 获取地形信息 |
+| `terrain_set_height` / `terrain_flatten` | 高度编辑 |
+| `terrain_add_layer` | 添加地形层 |
+| `terrain_add_tree` | 添加树木 |
+
+</details>
+
+<details>
+<summary><b>Texture (3 tools)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `texture_get_info` | 获取纹理信息 |
+| `texture_set_import` | 修改纹理导入设置 |
+| `texture_search` | 搜索纹理资源 |
+
+</details>
+
+<details>
+<summary><b>Editor & Utility (50+ tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
 | `editor_get_state` / `editor_set_playmode` | 编辑器状态控制 |
 | `editor_execute_menu` | 执行菜单命令 |
 | `editor_selection_get` / `editor_selection_set` | 选中对象管理 |
-| `screenshot_scene` / `screenshot_game` | Scene/Game 视图截图 |
+| `editor_undo` / `editor_redo` | 撤销/重做 |
+| `editor_open_window` | 打开编辑器窗口 |
+| `editor_refresh` | 刷新 AssetDatabase |
+| `editor_get_compile_status` | 脚本编译状态 |
+| `screenshot_scene` / `screenshot_game` | Scene/Game 视图截图（返回 MCP 图片） |
 | `console_get_logs` | 控制台日志 |
 | `test_run` / `test_get_results` | 测试运行 |
-| `package_list` / `package_add` | UPM 包管理 |
+| `package_list` / `package_add` / `package_remove` / `package_search` / `package_get_info` | UPM 包管理 |
+| `build_player` / `build_get_settings` / `build_set_scenes` / `build_switch_platform` | 构建管理 |
+| `build_get_player_settings` / `build_set_player_settings` | Player Settings |
+| `settings_get_tags` / `settings_add_tag` / `settings_get_layers` / `settings_add_layer` | 标签和层管理 |
+| `settings_get_sorting_layers` / `settings_add_sorting_layer` | 排序层 |
+| `settings_get_quality` / `settings_set_quality` | 画质等级 |
+| `settings_get_time` / `settings_set_time` | 时间设置 |
+| `so_create` / `so_get` / `so_modify` / `so_list_types` | ScriptableObject 管理 |
+| `code_execute` / `code_validate` | C# 代码执行 |
 | `batch_execute` | 原子化批量执行 |
 | `instance_list` / `instance_set_active` | 多实例管理 |
+| `editor_is_clone` / `editor_get_mppm_tags` | MPPM 支持 |
+| `probuilder_create_shape` / `probuilder_get_mesh_info` / `probuilder_extrude_faces` / `probuilder_set_material` | ProBuilder 建模 |
 
 </details>
 
 <details>
-<summary><b>资源端点 (Resources)</b></summary>
+<summary><b>资源端点 (13 Resources)</b></summary>
 
 | URI | 说明 |
 |-----|------|
@@ -172,12 +349,14 @@ git clone https://github.com/mzbswh/unity-mcp.git
 | `unity://scene/list` | Build Settings 中的场景列表 |
 | `unity://project/info` | 项目元数据 |
 | `unity://editor/state` | 编辑器状态 |
+| `unity://editor/selection` | 当前选中对象 |
 | `unity://console/logs` | 控制台日志 |
 | `unity://gameobject/{id}` | GameObject 详细信息 |
 | `unity://assets/search/{filter}` | 资源搜索 |
 | `unity://packages/list` | 已安装的 UPM 包 |
 | `unity://tests/{mode}` | 测试列表 |
-| `unity://tags` / `unity://layers` | 标签和层 |
+| `unity://tags` | 标签列表 |
+| `unity://layers` | 层列表 |
 | `unity://menu/items` | 菜单项 |
 
 </details>
@@ -238,30 +417,35 @@ unity-mcp/
 ├── unity-mcp/                  # UPM 包 (com.mzbswh.unity-mcp)
 │   ├── Editor/
 │   │   ├── Core/               # McpServer, TcpTransport, RequestHandler, ToolRegistry
-│   │   ├── Tools/              # 60+ 内置工具
-│   │   ├── Resources/          # 12 个只读资源
-│   │   ├── Prompts/            # 40+ 最佳实践提示词
-│   │   └── Window/             # 设置界面
+│   │   │                         ToolCallLogger, DependencyChecker, PackageUpdateChecker
+│   │   ├── Tools/              # 189 个内置工具（32 个工具文件）
+│   │   ├── Resources/          # 13 个只读资源
+│   │   ├── Prompts/            # 48 个最佳实践提示词
+│   │   ├── Utils/              # 编辑器辅助工具
+│   │   └── Window/             # 设置界面、客户端配置
 │   ├── Runtime/                # 运行时模式 (需定义 UNITY_MCP_RUNTIME)
 │   ├── Shared/                 # Editor 与 Runtime 共享代码
 │   │   ├── Attributes/         # [McpTool], [McpResource], [McpPrompt], [Desc]
-│   │   ├── Models/             # ToolResult, McpConst, McpCapabilities
-│   │   └── Utils/              # ParameterBinder, JsonSchemaGenerator, SecurityChecker
+│   │   ├── Models/             # ToolResult, McpConst, McpCapabilities, Pagination
+│   │   ├── Interfaces/         # IToolRegistry, ITcpTransport, IMainThreadDispatcher
+│   │   ├── Instance/           # 多实例发现 (InstanceDiscovery)
+│   │   └── Utils/              # PaginationHelper, ParameterBinder, JsonSchemaGenerator
 │   ├── Samples~/               # 自定义工具示例
-│   └── Tests/                  # 测试
-├── unity-bridge/               # C# stdio-to-TCP Bridge (.NET 8)
-├── unity-server/               # Python FastMCP 服务器
-└── scripts/                    # 构建脚本
+│   └── Tests/                  # EditMode 测试（9 个测试文件）
+├── unity-server/               # Python FastMCP 服务器（PyPI: unity-mcp-server）
+│   ├── unity_mcp_server/
+│   │   ├── server.py           # FastMCP 入口 + 动态工具发现注册
+│   │   ├── unity_connection.py # TCP 连接管理 + 自动重连
+│   │   └── config.py           # 环境变量配置
+│   ├── pyproject.toml          # PyPI 包配置
+│   ├── Dockerfile              # Docker 部署
+│   └── docker-compose.yml
+└── scripts/                    # bump-version.sh 版本管理
 ```
 
-### 双服务器模式
+### 工作原理
 
-| | Mode A: Built-in (C# Bridge) | Mode B: Python (FastMCP) |
-|---|---|---|
-| **外部依赖** | 无（自包含可执行文件） | Python 3.10+（`uvx` 自动安装） |
-| **传输模式** | stdio | stdio / Streamable HTTP |
-| **额外工具** | — | `analyze_script`, `validate_assets` |
-| **适合场景** | 开箱即用，零配置 | 需要 Python 分析工具、HTTP 部署或 Docker |
+Unity 插件在 Editor 启动时启动 TCP 服务器，扫描所有带 `[McpTool]`/`[McpResource]`/`[McpPrompt]` 特性的方法并注册。MCP 客户端通过 stdio 启动 Python FastMCP 服务器，Python 服务器连接到 Unity 的 TCP 端口，通过 `discover` 命令获取所有工具/资源/提示词定义，动态注册到 FastMCP。之后所有 MCP 调用都通过 Python → TCP → Unity 主线程执行。
 
 ---
 
@@ -269,43 +453,16 @@ unity-mcp/
 
 通过 MCP 控制运行中的游戏。在 `Player Settings > Scripting Define Symbols` 中添加 `UNITY_MCP_RUNTIME` 以启用。
 
-运行时工具：`runtime_get_stats` / `runtime_time_scale` / `runtime_load_scene` / `runtime_invoke` / `runtime_get_logs` / `screenshot_game`
+运行时工具（8 个）：`runtime_get_stats` / `runtime_time_scale` / `runtime_load_scene` / `runtime_invoke` / `runtime_get_logs` / `runtime_profiler_snapshot` / `screenshot_game` / `screenshot_camera`
 
 运行时服务器监听端口为 `port + 1`。
 
 ---
 
-## Mode B: Python 服务器
+## Docker 部署
 
 <details>
-<summary><b>安装和配置</b></summary>
-
-在 Unity 中 `Window > Unity MCP`，将 Server Mode 设为 **Python**，然后使用 Clients 标签页配置客户端。
-
-MCP 客户端配置示例（以 Cursor 为例）：
-
-```json
-{
-  "mcpServers": {
-    "unity": {
-      "command": "uvx",
-      "args": ["unity-mcp-server"]
-    }
-  }
-}
-```
-
-> `uvx` 会自动从 PyPI 下载并运行，无需手动安装。也可以用 `pip install unity-mcp-server` 安装后直接运行 `unity-mcp-server`。
-> 默认连接端口 51279，多实例场景可通过 `env` 字段指定 `UNITY_MCP_PORT`。
-
-Python 服务器额外提供：
-- `analyze_script` — C# 脚本静态分析
-- `validate_assets` — 资源命名和目录验证
-
-</details>
-
-<details>
-<summary><b>Docker 部署</b></summary>
+<summary><b>Docker 配置</b></summary>
 
 ```bash
 cd unity-server
@@ -327,7 +484,7 @@ docker run -it --rm \
 
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
-| `UNITY_MCP_HOST` | `host.docker.internal` | Unity Editor 主机地址 |
+| `UNITY_MCP_HOST` | `127.0.0.1` | Unity Editor 主机地址 |
 | `UNITY_MCP_PORT` | `51279` | Unity Editor TCP 端口 |
 | `UNITY_MCP_TIMEOUT` | `60` | 请求超时时间（秒） |
 | `UNITY_MCP_TRANSPORT` | `stdio` | 传输模式：`stdio` 或 `streamable-http` |
@@ -343,11 +500,8 @@ docker run -it --rm \
 
 | 设置 | 默认值 | 说明 |
 |------|--------|------|
-| Server Mode | Built-in | `Built-in`（C# Bridge）或 `Python`（FastMCP） |
 | Port | 51279 | TCP 端口，多实例场景可修改 |
 | Auto Start | 开启 | Unity 启动时自动启动 MCP 服务 |
-| Transport | Stdio | Python 模式传输方式：`Stdio` 或 `Streamable HTTP` |
-| HTTP Port | 8080 | Streamable HTTP 模式的端口（仅 Python 模式） |
 | Request Timeout | 60s | 工具执行最大超时 |
 | Log Level | Info | Debug / Info / Warning / Error / Off |
 | Audit Log | 关闭 | 记录每次工具调用及耗时 |
@@ -363,6 +517,7 @@ docker run -it --rm \
 - 检查 `Window > Unity MCP` 中的状态指示灯。绿色 = 运行中。
 - 点击 **Restart** 按钮重启。
 - 查看 Unity Console 中的 `[MCP]` 日志。
+- 首次启动如果提示缺少 Python/uv，按照引导安装依赖。
 
 </details>
 
@@ -370,8 +525,8 @@ docker run -it --rm \
 <summary><b>MCP 客户端无法连接</b></summary>
 
 - 确认客户端配置中的端口与 `Window > Unity MCP` 显示的端口一致。
-- Mode A：确保 Bridge 二进制文件存在（通过 Git URL 安装时已自动包含）。
-- Mode B：确保 `UNITY_MCP_PORT` 环境变量设置正确。
+- 确保 Python 3.10+ 和 `uvx` 已安装（运行 `uvx --version` 检查）。
+- 如使用多实例，确保 `UNITY_MCP_PORT` 环境变量设置正确。
 - 在 Clients 标签页检查客户端是否显示为 **Configured**。
 
 </details>
@@ -389,12 +544,12 @@ docker run -it --rm \
 <details>
 <summary><b>域重载导致断开连接</b></summary>
 
-这是预期行为。Unity 脚本重编译时 TCP 连接会短暂中断，但 Bridge 会自动处理：
+这是预期行为。Unity 脚本重编译时 TCP 连接会短暂中断，但会自动处理：
 
 1. Unity 在域重载前发送 `notifications/reloading` 通知
-2. TCP 断开后 Bridge 自动进入指数退避重连（0s → 1s → 2s → 4s → ...）
-3. 重连期间 MCP 客户端发来的请求会被 Bridge 缓存在内存队列中
-4. Unity 重编译完成后 TCP 恢复，Bridge 自动重放缓存的请求
+2. TCP 断开后 Python 服务器自动进入指数退避重连（0s → 1s → 2s → 4s → ...）
+3. 重连期间 MCP 客户端发来的请求会被缓存
+4. Unity 重编译完成后 TCP 恢复，自动重放缓存的请求
 
 整个过程对 MCP 客户端近乎透明，通常 2-5 秒内自动恢复。
 
@@ -405,10 +560,8 @@ docker run -it --rm \
 ## 系统要求
 
 - **Unity** 2021.2+
-- **Mode A**：无额外依赖（Bridge 为自包含可执行文件，已预编译打包于 `Bridge~/`）
-- **Mode B**：Python 3.10+（推荐使用 `uvx`，自动安装依赖）
+- **Python** 3.10+（推荐使用 `uvx`，自动安装依赖）
 - **Unity 依赖**：`com.unity.nuget.newtonsoft-json` 3.2.1+（自动解析）
-- **重新构建 Bridge**（可选）：[.NET 8+ SDK](https://dotnet.microsoft.com/download)，运行 `./scripts/build_bridge.sh --current-only`
 
 ## 许可证
 
