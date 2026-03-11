@@ -1,0 +1,314 @@
+/* ============================
+   Unity MCP Settings Window
+   ============================ */
+
+/* Header */
+.header {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 10px;
+    background-color: var(--unity-colors-toolbar-background);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--unity-colors-toolbar-border);
+    min-height: 28px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    margin-right: 6px;
+}
+
+.status-green { background-color: #4CAF50; }
+.status-yellow { background-color: #FF9800; }
+.status-red { background-color: #F44336; }
+.status-gray { background-color: #9E9E9E; }
+
+.status-label {
+    -unity-font-style: bold;
+    font-size: 12px;
+}
+
+.version-label {
+    color: var(--unity-colors-default-text-hover);
+    font-size: 11px;
+    margin-right: 6px;
+}
+
+.spacer { flex-grow: 1; }
+
+.link-btn {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    color: var(--unity-colors-link-text);
+    padding: 2px 6px;
+    font-size: 11px;
+    -unity-font-style: italic;
+}
+.link-btn:hover {
+    color: var(--unity-colors-highlight-text);
+}
+
+/* Tab bar */
+.tab-bar {
+    flex-direction: row;
+    background-color: var(--unity-colors-toolbar-background);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--unity-colors-toolbar-border);
+    padding: 0 4px;
+}
+
+.tab-btn {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(0, 0, 0, 0);
+    padding: 6px 14px;
+    margin: 0 2px;
+    -unity-font-style: bold;
+    font-size: 12px;
+    border-radius: 0;
+    color: var(--unity-colors-default-text);
+}
+.tab-btn:hover {
+    background-color: var(--unity-colors-highlight-background);
+}
+.tab-active {
+    border-bottom-color: var(--unity-colors-highlight-text);
+    color: var(--unity-colors-highlight-text);
+}
+
+/* Content area */
+.content-area {
+    flex-grow: 1;
+    padding: 10px 12px;
+}
+
+.hidden { display: none; }
+
+/* ============================
+   Section styles
+   ============================ */
+
+.section-box {
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-inspector_titlebar-border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+
+.section-title {
+    -unity-font-style: bold;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: var(--unity-colors-default-text);
+}
+
+.section-subtitle {
+    font-size: 11px;
+    color: var(--unity-colors-default-text-hover);
+    margin-bottom: 4px;
+}
+
+.field-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+    min-height: 22px;
+}
+
+.field-label {
+    min-width: 140px;
+    -unity-text-align: middle-left;
+}
+
+.field-value {
+    flex-grow: 1;
+}
+
+/* Buttons */
+.action-btn {
+    padding: 4px 12px;
+    min-height: 24px;
+}
+
+.action-btn-primary {
+    padding: 4px 12px;
+    min-height: 24px;
+    background-color: var(--unity-colors-highlight-background);
+    color: var(--unity-colors-highlight-text);
+    -unity-font-style: bold;
+}
+
+/* Client card */
+.client-card {
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-inspector_titlebar-border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 4px;
+}
+
+.client-card-configured {
+    border-left-width: 3px;
+    border-left-color: #4CAF50;
+}
+
+.client-card-header {
+    flex-direction: row;
+    align-items: center;
+}
+
+.client-name {
+    -unity-font-style: bold;
+    font-size: 12px;
+    flex-grow: 1;
+}
+
+.client-status {
+    font-size: 11px;
+    margin-right: 8px;
+}
+
+.client-status-configured { color: #4CAF50; }
+.client-status-not-configured { color: #9E9E9E; }
+
+.client-detail {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top-width: 1px;
+    border-top-color: var(--unity-colors-inspector_titlebar-border);
+}
+
+.client-path {
+    font-size: 10px;
+    color: var(--unity-colors-default-text-hover);
+    margin-bottom: 4px;
+    -unity-font-style: italic;
+}
+
+.client-actions {
+    flex-direction: row;
+    margin-top: 4px;
+}
+
+.client-actions > Button {
+    margin-right: 4px;
+}
+
+/* Tool list */
+.tool-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 2px 4px;
+    min-height: 20px;
+}
+.tool-row:hover {
+    background-color: var(--unity-colors-highlight-background);
+}
+
+.tool-name {
+    font-size: 11px;
+    min-width: 200px;
+    -unity-font-style: bold;
+}
+
+.tool-desc {
+    font-size: 11px;
+    color: var(--unity-colors-default-text-hover);
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tool-group-header {
+    -unity-font-style: bold;
+    font-size: 12px;
+    padding: 4px 0;
+    margin-top: 4px;
+}
+
+/* Count badges */
+.badge-row {
+    flex-direction: row;
+    margin-bottom: 8px;
+}
+
+.badge {
+    flex-grow: 1;
+    align-items: center;
+    padding: 6px;
+    margin: 0 2px;
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-inspector_titlebar-border);
+    border-radius: 4px;
+}
+
+.badge-count {
+    -unity-font-style: bold;
+    font-size: 18px;
+    -unity-text-align: middle-center;
+}
+
+.badge-label {
+    font-size: 11px;
+    -unity-text-align: middle-center;
+    color: var(--unity-colors-default-text-hover);
+}
+
+/* Info box */
+.info-box {
+    background-color: var(--unity-colors-helpbox-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-helpbox-border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+}
+
+.info-box > Label {
+    font-size: 11px;
+    white-space: normal;
+}
+
+/* Diagnostics */
+.diag-row {
+    flex-direction: row;
+    padding: 2px 0;
+}
+
+.diag-key {
+    min-width: 120px;
+    font-size: 11px;
+    color: var(--unity-colors-default-text-hover);
+}
+
+.diag-value {
+    font-size: 11px;
+    flex-grow: 1;
+}
+
+/* Connected clients */
+.connected-client-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.connected-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background-color: #4CAF50;
+    margin-right: 6px;
+}
+
+/* Search bar */
+.search-bar {
+    margin-bottom: 8px;
+}
