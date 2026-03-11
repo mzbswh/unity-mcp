@@ -25,7 +25,7 @@ Unity Engine APIs
 unity-mcp/                    # Unity package (com.mzbswh.unity-mcp)
 ├── Editor/
 │   ├── Core/                 # McpServer, McpSettings, TcpTransport, ToolRegistry, RequestHandler, McpServices, ToolCallLogger, PackageUpdateChecker, DependencyChecker
-│   ├── Tools/                # Built-in MCP tool implementations (28 files, includes CameraTools, TextureTools)
+│   ├── Tools/                # Built-in MCP tool implementations (32 files, includes ShaderTools, UIToolkitTools, GraphicsTools, ProBuilderTools)
 │   └── Window/               # Settings window (UI Toolkit) + McpSetupWindow (dependency wizard)
 ├── Runtime/Tools/            # Runtime MCP tools (play mode)
 ├── Shared/
@@ -116,6 +116,9 @@ See `Samples~/CustomTools/MyCustomToolExample.cs` for a complete example.
 ### Texture
 `texture_get_info`, `texture_set_import`, `texture_search` (paginated)
 
+### Screenshot
+`screenshot_scene`, `screenshot_game` — supports `maxResolution` for AI-friendly downsampling (recommended: 640-1024)
+
 ### Animation
 `animation_create_clip`, `animation_add_keyframe`
 
@@ -127,6 +130,18 @@ See `Samples~/CustomTools/MyCustomToolExample.cs` for a complete example.
 
 ### Build
 `build_player`, `build_get_settings`
+
+### Shader
+`shader_create`, `shader_read`, `shader_update`, `shader_delete`, `shader_info`, `shader_list`
+
+### UI Toolkit
+`uitoolkit_create`, `uitoolkit_read`, `uitoolkit_update`, `uitoolkit_delete`, `uitoolkit_list`, `uitoolkit_attach`, `uitoolkit_get_visual_tree`
+
+### Graphics
+`graphics_get_skybox`, `graphics_set_skybox`, `graphics_get_fog`, `graphics_set_fog`, `graphics_get_ambient`, `graphics_set_ambient`, `graphics_get_render_pipeline`, `graphics_get_quality`, `graphics_set_quality`, `graphics_get_stats`, `graphics_bake_lighting`, `graphics_get_lightmap_settings`
+
+### ProBuilder (conditional: PROBUILDER_ENABLED)
+`probuilder_create_shape`, `probuilder_get_mesh_info`, `probuilder_extrude_faces`, `probuilder_set_material`
 
 ### Code Execution
 `execute_code`

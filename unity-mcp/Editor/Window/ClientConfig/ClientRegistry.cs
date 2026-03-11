@@ -165,6 +165,126 @@ namespace UnityMcp.Editor.Window.ClientConfig
                     },
                     InstallSteps = new[] { "Click Configure to write claude_desktop_config.json" },
                 },
+                new ClientProfile
+                {
+                    Id = "vscode-insiders", DisplayName = "VS Code Insiders",
+                    Strategy = ConfigStrategy.JsonFile, IsProjectLevel = true,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(".vscode-insiders", "mcp.json"),
+                        Mac = Path.Combine(".vscode-insiders", "mcp.json"),
+                        Linux = Path.Combine(".vscode-insiders", "mcp.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write .vscode-insiders/mcp.json" },
+                },
+                new ClientProfile
+                {
+                    Id = "rider", DisplayName = "JetBrains Rider",
+                    Strategy = ConfigStrategy.JsonFile, IsProjectLevel = true,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(".idea", "mcp.json"),
+                        Mac = Path.Combine(".idea", "mcp.json"),
+                        Linux = Path.Combine(".idea", "mcp.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write .idea/mcp.json" },
+                },
+                new ClientProfile
+                {
+                    Id = "kiro", DisplayName = "Kiro",
+                    Strategy = ConfigStrategy.JsonFile, IsProjectLevel = true,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(".kiro", "mcp.json"),
+                        Mac = Path.Combine(".kiro", "mcp.json"),
+                        Linux = Path.Combine(".kiro", "mcp.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write .kiro/mcp.json" },
+                },
+                new ClientProfile
+                {
+                    Id = "gemini-cli", DisplayName = "Gemini CLI",
+                    Strategy = ConfigStrategy.JsonFile,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(home, ".gemini", "settings.json"),
+                        Mac = Path.Combine(home, ".gemini", "settings.json"),
+                        Linux = Path.Combine(home, ".gemini", "settings.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write Gemini CLI settings" },
+                },
+                new ClientProfile
+                {
+                    Id = "codex", DisplayName = "OpenAI Codex CLI",
+                    Strategy = ConfigStrategy.JsonFile, IsProjectLevel = true,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(".codex", "mcp.json"),
+                        Mac = Path.Combine(".codex", "mcp.json"),
+                        Linux = Path.Combine(".codex", "mcp.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write .codex/mcp.json" },
+                },
+                new ClientProfile
+                {
+                    Id = "copilot-cli", DisplayName = "GitHub Copilot CLI",
+                    Strategy = ConfigStrategy.JsonFile,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(home, ".github-copilot", "mcp.json"),
+                        Mac = Path.Combine(home, ".github-copilot", "mcp.json"),
+                        Linux = Path.Combine(home, ".github-copilot", "mcp.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write GitHub Copilot config" },
+                },
+                new ClientProfile
+                {
+                    Id = "kilo-code", DisplayName = "Kilo Code",
+                    Strategy = ConfigStrategy.JsonFile,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(home, "AppData", "Roaming", "Code", "User", "globalStorage", "kilocode.kilo-code", "settings", "mcp_settings.json"),
+                        Mac = Path.Combine(home, "Library", "Application Support", "Code", "User", "globalStorage", "kilocode.kilo-code", "settings", "mcp_settings.json"),
+                        Linux = Path.Combine(home, ".config", "Code", "User", "globalStorage", "kilocode.kilo-code", "settings", "mcp_settings.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write Kilo Code settings" },
+                },
+                new ClientProfile
+                {
+                    Id = "open-code", DisplayName = "OpenCode",
+                    Strategy = ConfigStrategy.JsonFile,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(home, ".opencode", "mcp.json"),
+                        Mac = Path.Combine(home, ".opencode", "mcp.json"),
+                        Linux = Path.Combine(home, ".opencode", "mcp.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write OpenCode config" },
+                },
+                new ClientProfile
+                {
+                    Id = "qwen-code", DisplayName = "Qwen Code",
+                    Strategy = ConfigStrategy.JsonFile,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(home, ".qwen-code", "mcp.json"),
+                        Mac = Path.Combine(home, ".qwen-code", "mcp.json"),
+                        Linux = Path.Combine(home, ".qwen-code", "mcp.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write Qwen Code config" },
+                },
+                new ClientProfile
+                {
+                    Id = "codebuddy", DisplayName = "CodeBuddy CLI",
+                    Strategy = ConfigStrategy.JsonFile,
+                    Paths = new PlatformPaths
+                    {
+                        Windows = Path.Combine(home, ".codebuddy", "mcp.json"),
+                        Mac = Path.Combine(home, ".codebuddy", "mcp.json"),
+                        Linux = Path.Combine(home, ".codebuddy", "mcp.json"),
+                    },
+                    InstallSteps = new[] { "Click Configure to write CodeBuddy config" },
+                },
             };
         }
     }
