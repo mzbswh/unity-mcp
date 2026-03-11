@@ -31,6 +31,9 @@ namespace UnityMcp.Editor.Window.Sections
         private VisualElement _healthIndicator;
         private Label _healthStatusLabel;
 
+        /// <summary>Fired when uvx path, server source, or dev mode changes.</summary>
+        public event Action OnServerConfigChanged;
+
         public McpAdvancedSection(VisualElement panel)
         {
             _root = panel;
@@ -76,6 +79,7 @@ namespace UnityMcp.Editor.Window.Sections
             {
                 settings.UvxPath = e.newValue?.Trim() ?? "";
                 UpdateUvxPathStatus();
+                OnServerConfigChanged?.Invoke();
             });
 
             // Server source override
@@ -87,12 +91,16 @@ namespace UnityMcp.Editor.Window.Sections
                 if (val != e.newValue?.Trim())
                     _serverSourceField.SetValueWithoutNotify(val);
                 settings.ServerSourceOverride = val;
+                OnServerConfigChanged?.Invoke();
             });
 
             // Dev mode force refresh
             _devModeRefreshToggle.value = settings.DevModeForceRefresh;
             _devModeRefreshToggle.RegisterValueChangedCallback(e =>
-                settings.DevModeForceRefresh = e.newValue);
+            {
+                settings.DevModeForceRefresh = e.newValue;
+                OnServerConfigChanged?.Invoke();
+            });
 
             // Diagnostics
             _diagPortStatus = _root.Q<Label>("diag-port-status");
@@ -130,6 +138,7 @@ namespace UnityMcp.Editor.Window.Sections
                     _uvxPathField.value = "";
                     McpSettings.Instance.UvxPath = "";
                     UpdateUvxPathStatus();
+                    OnServerConfigChanged?.Invoke();
                 }
             ));
 
@@ -145,6 +154,7 @@ namespace UnityMcp.Editor.Window.Sections
                 {
                     _serverSourceField.value = "";
                     McpSettings.Instance.ServerSourceOverride = "";
+                    OnServerConfigChanged?.Invoke();
                 }
             ));
 
@@ -350,6 +360,7 @@ namespace UnityMcp.Editor.Window.Sections
                 _uvxPathField.value = picked;
                 McpSettings.Instance.UvxPath = picked;
                 UpdateUvxPathStatus();
+                OnServerConfigChanged?.Invoke();
             }
         }
 
@@ -361,6 +372,7 @@ namespace UnityMcp.Editor.Window.Sections
                 picked = ResolveServerPath(picked);
                 _serverSourceField.value = picked;
                 McpSettings.Instance.ServerSourceOverride = picked;
+                OnServerConfigChanged?.Invoke();
             }
         }
 

@@ -312,5 +312,11 @@ namespace UnityMcp.Editor.Window.Sections
             EditorGUIUtility.systemCopyBuffer = _configJsonField.value;
             McpLogger.Info("Configuration copied to clipboard");
         }
+
+        /// <summary>Refresh the displayed status and config snippet for the current client.</summary>
+        public void Refresh() => UpdateSelectedClient();
+
+        /// <summary>Re-configure all detected clients with current settings.</summary>
+        public void ReconfigureAll() => OnConfigureAllClicked();
     }
 }

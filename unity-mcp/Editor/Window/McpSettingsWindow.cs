@@ -73,11 +73,22 @@ namespace UnityMcp.Editor.Window
 
             // Initialize sections
             var connectionSection = new McpConnectionSection(_panels[0]);
-            _ = new McpClientConfigSection(_panels[1]);
+            var clientConfigSection = new McpClientConfigSection(_panels[1]);
             _ = new McpToolsSection(_panels[2]);
-            _ = new McpAdvancedSection(_panels[3]);
+            var advancedSection = new McpAdvancedSection(_panels[3]);
 
             connectionSection.OnStatusChanged += UpdateHeaderStatus;
+            advancedSection.OnServerConfigChanged += () =>
+            {
+                clientConfigSection.Refresh();
+                bool reconfigure = EditorUtility.DisplayDialog(
+                    "Server Configuration Changed",
+                    "Server configuration has changed. Do you want to update all client configs now?\n\n" +
+                    "If you skip, remember to reconfigure clients in the Client Config tab before restarting MCP clients.",
+                    "Update All Clients", "Skip");
+                if (reconfigure)
+                    clientConfigSection.ReconfigureAll();
+            };
 
             UpdateHeaderStatus();
             SwitchTab(0);
