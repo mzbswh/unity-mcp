@@ -63,6 +63,9 @@ namespace UnityMcp.Editor.Tools
         public static ToolResult Save(
             [Desc("Path to save to (empty = save current scene in place)")] string path = null)
         {
+            if (EditorApplication.isPlaying)
+                return ToolResult.Error("Cannot save scene during Play Mode. Exit Play Mode first.");
+
             if (!string.IsNullOrEmpty(path))
             {
                 var pv = PathValidator.QuickValidate(path);
