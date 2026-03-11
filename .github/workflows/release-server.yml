@@ -1,0 +1,42 @@
+name: Release Python Server
+
+on:
+  push:
+    tags: ["server-v*"]
+
+permissions:
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify version matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#server-v}"
+          PKG_VERSION=$(python3 -c "
+          import tomllib
+          with open('unity-server/pyproject.toml', 'rb') as f:
+              print(tomllib.load(f)['project']['version'])
+          ")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) != pyproject.toml version ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - name: Build
+        run: |
+          pip install build
+          cd unity-server && python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: unity-server/dist/
