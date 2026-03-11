@@ -60,7 +60,6 @@ namespace UnityMcp.Samples
 
             return ToolResult.Json(new
             {
-                success = true,
                 objectsCreated = count,
                 parentObject = parent.name
             });

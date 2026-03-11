@@ -44,7 +44,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 path,
                 name = material.name,
                 shader = shaderName,

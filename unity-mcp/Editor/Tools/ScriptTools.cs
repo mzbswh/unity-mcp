@@ -62,7 +62,6 @@ public class {name} : MonoBehaviour
 
             return ToolResult.Json(new
             {
-                success = true,
                 path,
                 name,
                 message = $"Created script: {path}"

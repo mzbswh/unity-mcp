@@ -42,7 +42,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 activeInstance = new
                 {
                     port = target.Port,

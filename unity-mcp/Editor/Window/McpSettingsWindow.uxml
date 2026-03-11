@@ -1,0 +1,27 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <!-- Header status bar -->
+    <ui:VisualElement name="header" class="header">
+        <ui:VisualElement name="status-indicator" class="status-dot status-gray" />
+        <ui:Label name="status-text" text="Stopped" class="status-label" />
+        <ui:VisualElement class="spacer" />
+        <ui:Label name="version-label" class="version-label" />
+        <ui:Button name="docs-btn" text="Docs" class="link-btn" />
+        <ui:Button name="issues-btn" text="Issues" class="link-btn" />
+    </ui:VisualElement>
+
+    <!-- Tab bar -->
+    <ui:VisualElement name="tab-bar" class="tab-bar">
+        <ui:Button name="tab-connection" text="Connection" class="tab-btn tab-active" />
+        <ui:Button name="tab-clients" text="Clients" class="tab-btn" />
+        <ui:Button name="tab-tools" text="Tools" class="tab-btn" />
+        <ui:Button name="tab-advanced" text="Advanced" class="tab-btn" />
+    </ui:VisualElement>
+
+    <!-- Content area -->
+    <ui:ScrollView name="content-area" class="content-area">
+        <ui:VisualElement name="panel-connection" />
+        <ui:VisualElement name="panel-clients" class="hidden" />
+        <ui:VisualElement name="panel-tools" class="hidden" />
+        <ui:VisualElement name="panel-advanced" class="hidden" />
+    </ui:ScrollView>
+</ui:UXML>

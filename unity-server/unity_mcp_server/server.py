@@ -391,6 +391,23 @@ def validate_assets(project_path: str) -> str:
     return json.dumps(_validate(project_path), indent=2)
 
 
+@mcp.resource("unity://server/status")
+def server_status() -> str:
+    """Python MCP server status and connection info."""
+    status = {
+        "serverName": "Unity MCP Python Bridge",
+        "version": __version__,
+        "connected": unity is not None and unity.connected if unity else False,
+        "registeredTools": len(_registered_tools),
+        "registeredResources": len(_registered_resources),
+        "registeredPrompts": len(_registered_prompts),
+        "transport": TRANSPORT,
+        "unityHost": UNITY_HOST,
+        "unityPort": UNITY_PORT,
+    }
+    return json.dumps(status, indent=2)
+
+
 def main():
     """Entry point for the Unity MCP Python server."""
     if TRANSPORT == "streamable-http":

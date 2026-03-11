@@ -39,7 +39,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 path,
                 name = prefab.name,
                 instanceId = prefab.GetInstanceID(),
@@ -80,7 +79,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = instance.GetInstanceID(),
                 name = instance.name,
                 prefabPath = path,
@@ -275,7 +273,7 @@ namespace UnityMcp.Editor.Tools
                         { errors.Add($"Unknown component type: {typeName}"); continue; }
                         var comp = targetGo.GetComponent(compType);
                         if (comp != null)
-                        { UnityEngine.Object.DestroyImmediate(comp); modified = true; }
+                        { Undo.DestroyObjectImmediate(comp); modified = true; }
                         else
                         { errors.Add($"Component '{typeName}' not found on '{targetGo.name}'"); }
                     }
@@ -313,7 +311,6 @@ namespace UnityMcp.Editor.Tools
                 {
                     return ToolResult.Json(new
                     {
-                        success = true,
                         prefabPath = path,
                         target = targetGo.name,
                         modified = false,

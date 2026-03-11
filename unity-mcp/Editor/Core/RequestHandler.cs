@@ -139,6 +139,7 @@ namespace UnityMcp.Editor.Core
             sw.Stop();
             McpLogger.Audit(toolName, arguments?.ToString(Newtonsoft.Json.Formatting.None),
                 sw.ElapsedMilliseconds, result.IsSuccess, result.ErrorMessage);
+            ToolCallLogger.Log(toolName, sw.ElapsedMilliseconds, result.IsSuccess);
 
             return result.ToMcpResponse();
         }

@@ -224,5 +224,28 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Error($"Unknown window type: {windowType}");
         }
+
+        [McpTool("editor_refresh", "Force refresh the AssetDatabase (reimport changed assets)",
+            Group = "editor")]
+        public static ToolResult Refresh()
+        {
+            AssetDatabase.Refresh();
+            return ToolResult.Text("AssetDatabase refreshed");
+        }
+
+        [McpTool("editor_get_compile_status", "Check if scripts are currently compiling",
+            Group = "editor", ReadOnly = true)]
+        public static ToolResult GetCompileStatus()
+        {
+            return ToolResult.Json(new
+            {
+                isCompiling = EditorApplication.isCompiling,
+                isUpdating = EditorApplication.isUpdating,
+                isPlaying = EditorApplication.isPlaying,
+                message = EditorApplication.isCompiling
+                    ? "Scripts are compiling. Wait before making scene changes."
+                    : "Ready. No compilation in progress."
+            });
+        }
     }
 }

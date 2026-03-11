@@ -1,0 +1,115 @@
+# Unity MCP
+> Model Context Protocol server for Unity Editor integration
+
+Unity MCP provides tools, resources, and prompts for AI assistants to control
+Unity Editor. It connects via a TCP bridge between a Python MCP server and the
+Unity C# editor plugin.
+
+## Tools
+
+### Scene
+- scene_create: Create a new empty scene
+- scene_open: Open a scene by path
+- scene_save: Save the current scene
+- scene_get_hierarchy: Get the scene hierarchy tree (paginated)
+
+### GameObject
+- gameobject_create: Create a new GameObject
+- gameobject_destroy: Delete a GameObject
+- gameobject_find: Find GameObjects by name/tag/layer (paginated)
+- gameobject_get_info: Get detailed info about a GameObject
+- gameobject_modify: Modify GameObject properties
+- gameobject_duplicate: Duplicate a GameObject
+- gameobject_set_parent: Set parent of a GameObject
+
+### Component
+- component_add: Add a component to a GameObject
+- component_remove: Remove a component
+- component_modify: Modify component properties
+- component_list: List components on a GameObject
+
+### Asset
+- asset_find: Search for assets (paginated)
+- asset_create_folder: Create asset folders
+- asset_move: Move/rename assets
+- asset_delete: Delete assets
+- asset_get_info: Get asset information
+
+### Editor
+- editor_get_state: Get editor state (playing, compiling, etc.)
+- editor_set_playmode: Control play mode
+- editor_execute_menu: Execute menu items
+- editor_selection_get: Get current selection
+- editor_selection_set: Set editor selection
+- editor_refresh: Refresh AssetDatabase
+- editor_get_compile_status: Check compilation state
+- editor_undo: Undo
+- editor_redo: Redo
+- editor_open_window: Open editor windows
+
+### Camera
+- camera_create: Create a camera
+- camera_configure: Configure camera settings
+- camera_get_info: Get camera parameters
+- camera_look_at: Point camera at target
+
+### Material
+- material_create: Create materials
+- material_modify: Modify material properties
+- material_get_info: Get material information
+
+### Script
+- script_create: Create C# scripts
+- script_read: Read script content
+- script_search: Search scripts
+
+### Prefab
+- prefab_create: Create prefabs from GameObjects
+- prefab_instantiate: Instantiate prefabs
+- prefab_unpack: Unpack prefab instances
+- prefab_apply: Apply prefab overrides
+
+### ScriptableObject
+- so_create: Create ScriptableObject assets
+- so_read: Read ScriptableObject fields
+- so_modify: Modify ScriptableObject fields
+- so_list: List ScriptableObjects by type
+
+### Texture
+- texture_get_info: Get texture information
+- texture_set_import: Modify import settings
+- texture_search: Search textures (paginated)
+
+### Animation
+- animation_create_clip: Create animation clips
+- animation_add_keyframe: Add keyframes
+
+### Lighting
+- lighting_create_light: Create lights
+- lighting_configure: Configure lighting settings
+
+### Physics
+- physics_add_rigidbody: Add Rigidbody components
+- physics_add_collider: Add collider components
+- physics_raycast: Perform raycasts
+
+### Build
+- build_player: Build the project
+- build_get_settings: Get build settings
+
+### Code Execution
+- execute_code: Execute arbitrary C# code in the editor
+
+## Resources
+- unity://editor/state: Editor state (compiling, playing, selection, scene)
+- unity://editor/selection: Currently selected objects
+- unity://project/info: Project metadata, render pipeline, and packages
+- unity://scene/hierarchy: Scene hierarchy tree
+- unity://scene/list: Build scenes and loaded scenes
+- unity://console/logs: Recent console logs
+- unity://server/status: Python server connection status
+
+## Prompts
+- script_create_prompt: Generate C# script templates
+- architecture_review: Review project architecture
+- system_design: Design system architecture

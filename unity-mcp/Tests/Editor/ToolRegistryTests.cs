@@ -85,5 +85,48 @@ namespace UnityMcp.Tests.Editor
                     "Each prompt must have a name");
             }
         }
+
+        [Test]
+        public void SetToolEnabled_DisablesTool()
+        {
+            _registry.ScanAll();
+            var tools = _registry.GetToolList();
+            if (tools.Count == 0) Assert.Ignore("No tools registered");
+            var firstName = tools[0]["name"].ToString();
+
+            _registry.SetToolEnabled(firstName, false);
+            Assert.IsFalse(_registry.IsToolEnabled(firstName));
+            Assert.IsNull(_registry.GetTool(firstName), "Disabled tool should not be returned");
+
+            _registry.SetToolEnabled(firstName, true);
+            Assert.IsTrue(_registry.IsToolEnabled(firstName));
+            Assert.IsNotNull(_registry.GetTool(firstName));
+        }
+
+        [Test]
+        public void MatchResource_FindsExistingUri()
+        {
+            _registry.ScanAll();
+            var entry = _registry.MatchResource("unity://editor/state");
+            Assert.IsNotNull(entry, "Should match unity://editor/state resource");
+        }
+
+        [Test]
+        public void MatchResource_ReturnsNullForUnknown()
+        {
+            _registry.ScanAll();
+            var entry = _registry.MatchResource("unity://nonexistent/thing");
+            Assert.IsNull(entry);
+        }
+
+        [Test]
+        public void GetAllToolEntries_ReturnsAllRegistered()
+        {
+            _registry.ScanAll();
+            int count = 0;
+            foreach (var _ in _registry.GetAllToolEntries()) count++;
+            Assert.AreEqual(_registry.ToolCount, count,
+                "GetAllToolEntries should return all registered tools");
+        }
     }
 }

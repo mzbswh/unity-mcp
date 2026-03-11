@@ -25,9 +25,13 @@ namespace UnityMcp.Editor.Core
         private readonly ConcurrentDictionary<TcpClient, object> _writeLocks = new();
         private readonly ConcurrentDictionary<TcpClient, ConnectedClientInfo> _clientInfos = new();
         private Timer _heartbeatTimer;
+        private int _reconnectCount;
+        private DateTime? _lastConnectedAt;
 
         public int Port { get; }
         public bool IsRunning { get; private set; }
+        public int ReconnectCount => _reconnectCount;
+        public DateTime? LastConnectedAt => _lastConnectedAt;
 
         public int ClientCount
         {
@@ -60,6 +64,7 @@ namespace UnityMcp.Editor.Core
         public void Start()
         {
             if (IsRunning) return;
+            if (_lastConnectedAt.HasValue) _reconnectCount++;
             _cts = new CancellationTokenSource();
             _listener = new TcpListener(IPAddress.Loopback, Port);
             _listener.Start();
@@ -78,7 +83,7 @@ namespace UnityMcp.Editor.Core
             lock (_clientsLock)
             {
                 foreach (var client in _clients)
-                    try { client.Close(); } catch { }
+                    try { client.Close(); } catch (Exception ex) { McpLogger.Debug($"Close error: {ex.Message}"); }
                 _clients.Clear();
             }
             _writeLocks.Clear();
@@ -126,6 +131,7 @@ namespace UnityMcp.Editor.Core
                         ConnectedAt = DateTime.Now
                     };
                     lock (_clientsLock) _clients.Add(client);
+                    _lastConnectedAt = DateTime.Now;
                     McpLogger.Info($"Bridge connected from {endpoint}");
                     _ = HandleClient(client, ct);
                 }
@@ -183,7 +189,7 @@ namespace UnityMcp.Editor.Core
                     await stream.FlushAsync(ct);
                 }
             }
-            catch (IOException) { }
+            catch (IOException ex) { McpLogger.Debug($"Client IO: {ex.Message}"); }
             catch (OperationCanceledException) { }
             catch (Exception ex) { McpLogger.Error($"Client error: {ex.Message}"); }
             finally
@@ -192,7 +198,7 @@ namespace UnityMcp.Editor.Core
                 _writeLocks.TryRemove(client, out _);
                 _clientInfos.TryRemove(client, out _);
                 lock (_clientsLock) _clients.Remove(client);
-                try { client.Close(); } catch { }
+                try { client.Close(); } catch (Exception ex) { McpLogger.Debug($"Close error: {ex.Message}"); }
             }
         }
 
@@ -240,7 +246,7 @@ namespace UnityMcp.Editor.Core
                     stream.Flush();
                     return true;
                 }
-                catch { return false; }
+                catch (Exception ex) { McpLogger.Debug($"Heartbeat send: {ex.Message}"); return false; }
             }
         }
 
@@ -280,8 +286,9 @@ namespace UnityMcp.Editor.Core
                     if (!TrySendFrame(client, McpConst.MsgTypeNotification, s_pingPayload))
                         (dead ??= new List<TcpClient>()).Add(client);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    McpLogger.Debug($"Heartbeat check: {ex.Message}");
                     (dead ??= new List<TcpClient>()).Add(client);
                 }
             }
@@ -296,7 +303,7 @@ namespace UnityMcp.Editor.Core
                         _clients.Remove(client);
                         _writeLocks.TryRemove(client, out _);
                         _clientInfos.TryRemove(client, out _);
-                        try { client.Close(); } catch { }
+                        try { client.Close(); } catch (Exception ex) { McpLogger.Debug($"Close error: {ex.Message}"); }
                     }
                 }
             }
@@ -316,7 +323,7 @@ namespace UnityMcp.Editor.Core
                     info.Version = ci["version"]?.ToString();
                 }
             }
-            catch { /* ignore parse errors */ }
+            catch (Exception ex) { McpLogger.Debug($"Notification parse: {ex.Message}"); }
         }
 
         private static async Task ReadExactAsync(

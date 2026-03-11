@@ -97,7 +97,6 @@ namespace UnityMcp.Editor.Tools
 
                 return ToolResult.Json(new
                 {
-                    success = true,
                     returnValue = result,
                     returnType = result?.GetType().Name ?? "null",
                     consoleOutput = consoleOutput.ToString(),

@@ -48,7 +48,6 @@ namespace UnityMcp.Editor.Tools
             var pkg = request.Result;
             return ToolResult.Json(new
             {
-                success = true,
                 name = pkg.name,
                 version = pkg.version,
                 displayName = pkg.displayName,

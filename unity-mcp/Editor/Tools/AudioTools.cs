@@ -51,7 +51,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = go.GetInstanceID(),
                 name = go.name,
                 hasClip = source.clip != null,

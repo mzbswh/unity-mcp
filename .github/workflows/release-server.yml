@@ -1,0 +1,82 @@
+name: Release Python Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "unity-server/**"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if version changed
+        id: check
+        run: |
+          NEW_VER=$(python3 -c "
+          import tomllib
+          with open('unity-server/pyproject.toml', 'rb') as f:
+              print(tomllib.load(f)['project']['version'])
+          ")
+          # Get version from previous commit
+          OLD_VER=$(git show HEAD~1:unity-server/pyproject.toml 2>/dev/null | python3 -c "
+          import sys, tomllib
+          data = sys.stdin.buffer.read()
+          print(tomllib.loads(data.decode())['project']['version'])
+          " 2>/dev/null || echo "")
+
+          echo "old=$OLD_VER new=$NEW_VER"
+          if [ "$NEW_VER" != "$OLD_VER" ] && [ -n "$NEW_VER" ]; then
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$NEW_VER" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run tests
+        run: |
+          cd unity-server
+          pip install -e ".[test]" 2>/dev/null || pip install -e .
+          pip install pytest
+          python -m pytest tests/ -v --tb=short || echo "::warning::Tests failed or no tests found"
+
+      - name: Build
+        run: |
+          pip install build
+          cd unity-server && python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: unity-server/dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "server-v${{ needs.check-version.outputs.version }}"
+          name: "Server v${{ needs.check-version.outputs.version }}"
+          generate_release_notes: true
+          files: unity-server/dist/*

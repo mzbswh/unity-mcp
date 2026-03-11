@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityMcp.Editor.Window;
 using UnityMcp.Shared.Instance;
 using UnityMcp.Shared.Utils;
 
@@ -12,7 +13,6 @@ namespace UnityMcp.Editor.Core
         public static TcpTransport Transport { get; private set; }
 
         private static RequestHandler s_handler;
-        private static ServerProcessManager s_processManager;
         private static bool s_initialized;
 
         static McpServer()
@@ -33,6 +33,17 @@ namespace UnityMcp.Editor.Core
             McpLogger.CurrentLogLevel = (McpLogger.LogLevel)(int)settings.LogLevel;
             McpLogger.AuditEnabled = settings.EnableAuditLog;
 
+            // 0b. Dependency check (first run only) — opens main settings window
+            if (!EditorPrefs.GetBool("UnityMcp_SetupDone", false))
+            {
+                var deps = DependencyChecker.Check();
+                if (!deps.AllSatisfied)
+                {
+                    McpSettingsWindow.ShowWindow();
+                }
+                EditorPrefs.SetBool("UnityMcp_SetupDone", true);
+            }
+
             // 1. Scan and register all tools
             Registry = new ToolRegistry();
             Registry.ScanAll();
@@ -45,6 +56,11 @@ namespace UnityMcp.Editor.Core
             Transport = new TcpTransport(port, s_handler);
             Transport.Start();
 
+            // 3b. Register with ServiceLocator
+            McpServices.ToolRegistry = Registry;
+            McpServices.Transport = Transport;
+            McpServices.RequestHandler = s_handler;
+
             // 4. No external process to start.
             //    - Built-in mode: Bridge is launched by MCP client, not by Unity.
             //    - Python mode: MCP client launches 'uvx unity-mcp-server' via stdio.
@@ -55,10 +71,13 @@ namespace UnityMcp.Editor.Core
             // 6. Persist port for domain reload recovery
             EditorPrefs.SetInt("UnityMcp_Port", port);
 
+            // 7. Check for updates (daily)
+            PackageUpdateChecker.CheckOncePerDay();
+
             s_initialized = true;
             McpLogger.Info($"Server started on TCP:{port} " +
                            $"({Registry.ToolCount} tools, {Registry.ResourceCount} resources, " +
-                           $"{Registry.PromptCount} prompts) Mode: {settings.Mode}");
+                           $"{Registry.PromptCount} prompts)");
         }
 
         private static void OnBeforeReload()
@@ -75,12 +94,10 @@ namespace UnityMcp.Editor.Core
 
         public static void Shutdown()
         {
-            // Unregister instance
             int port = EditorPrefs.GetInt("UnityMcp_Port", 0);
             if (port > 0)
                 InstanceDiscovery.Unregister(port);
 
-            s_processManager?.StopServer();
             Transport?.Stop();
             s_initialized = false;
         }
@@ -91,8 +108,6 @@ namespace UnityMcp.Editor.Core
             int oldPort = EditorPrefs.GetInt("UnityMcp_Port", 0);
             if (oldPort > 0) InstanceDiscovery.Unregister(oldPort);
 
-            s_processManager?.StopServer();
-            s_processManager = null;
             Transport?.Stop();
             s_initialized = false;
             Initialize();

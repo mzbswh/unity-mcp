@@ -29,7 +29,6 @@ namespace UnityMcp.Editor.Tools
             var component = Undo.AddComponent(go, componentType);
             return ToolResult.Json(new
             {
-                success = true,
                 gameObject = go.name,
                 component = component.GetType().Name,
                 instanceId = component.GetInstanceID()

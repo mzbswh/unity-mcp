@@ -39,7 +39,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 gameObject = go.name,
                 speed,
                 radius,

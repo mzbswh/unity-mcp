@@ -35,7 +35,7 @@ namespace UnityMcp.Editor.Tools
                 activate ? NewSceneMode.Single : NewSceneMode.Additive);
 
             EditorSceneManager.SaveScene(scene, path);
-            return ToolResult.Json(new { success = true, path, name = scene.name });
+            return ToolResult.Json(new { path, name = scene.name });
         }
 
         [McpTool("scene_open", "Open a scene by path",
@@ -55,7 +55,7 @@ namespace UnityMcp.Editor.Tools
                 : OpenSceneMode.Single;
 
             var scene = EditorSceneManager.OpenScene(path, openMode);
-            return ToolResult.Json(new { success = true, name = scene.name, path = scene.path });
+            return ToolResult.Json(new { name = scene.name, path = scene.path });
         }
 
         [McpTool("scene_save", "Save the current scene",
@@ -149,7 +149,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 gameObject = go.name,
                 position = new { x = go.transform.position.x, y = go.transform.position.y, z = go.transform.position.z },
                 rotation = new { x = go.transform.eulerAngles.x, y = go.transform.eulerAngles.y, z = go.transform.eulerAngles.z }
@@ -175,7 +174,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 gameObject = go.name,
                 position = new { x = go.transform.position.x, y = go.transform.position.y, z = go.transform.position.z }
             });

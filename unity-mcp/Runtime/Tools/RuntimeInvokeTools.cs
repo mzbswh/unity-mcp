@@ -53,7 +53,6 @@ namespace UnityMcp.Runtime.Tools
                 var result = method.Invoke(target, args);
                 return ToolResult.Json(new
                 {
-                    success = true,
                     gameObject = gameObjectPath,
                     component = componentType,
                     method = methodName,

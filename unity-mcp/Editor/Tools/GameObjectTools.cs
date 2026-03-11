@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityMcp.Editor.Utils;
 using UnityMcp.Shared.Attributes;
 using UnityMcp.Shared.Models;
+using UnityMcp.Shared.Utils;
 
 namespace UnityMcp.Editor.Tools
 {
@@ -38,7 +39,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = go.GetInstanceID(),
                 name = go.name,
                 message = $"Created GameObject '{name}'"
@@ -60,14 +60,15 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Text($"Destroyed GameObject '{goName}'");
         }
 
-        [McpTool("gameobject_find", "Find GameObjects by name, tag, path, or component type",
+        [McpTool("gameobject_find", "Find GameObjects by name, tag, path, or component type (paginated)",
             Group = "gameobject", ReadOnly = true)]
         public static ToolResult Find(
             [Desc("Name to search for (partial match)")] string name = null,
             [Desc("Tag to filter by")] string tag = null,
             [Desc("Full hierarchy path")] string path = null,
             [Desc("Component type name to filter by")] string componentType = null,
-            [Desc("Max results to return")] int maxCount = 50)
+            [Desc("Page size (default 50, max 200)")] int pageSize = 50,
+            [Desc("Pagination cursor from previous response")] string cursor = null)
         {
             IEnumerable<GameObject> results;
 
@@ -92,7 +93,7 @@ namespace UnityMcp.Editor.Tools
                 results = results.Where(g =>
                     g.GetComponents<Component>().Any(c => c != null && c.GetType().Name == componentType));
 
-            var list = results.Take(maxCount).Select(g => new
+            var allResults = results.Select(g => new
             {
                 instanceId = g.GetInstanceID(),
                 name = g.name,
@@ -102,7 +103,7 @@ namespace UnityMcp.Editor.Tools
                 layer = LayerMask.LayerToName(g.layer)
             }).ToArray();
 
-            return ToolResult.Json(new { count = list.Length, gameObjects = list });
+            return PaginationHelper.ToPaginatedResult(allResults, pageSize, cursor);
         }
 
         [McpTool("gameobject_modify", "Modify GameObject properties (name, tag, layer, active, static)",
@@ -180,7 +181,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = clone.GetInstanceID(),
                 name = clone.name,
                 message = $"Duplicated '{go.name}'"
@@ -293,7 +293,6 @@ namespace UnityMcp.Editor.Tools
             var pos = go.transform.position;
             return ToolResult.Json(new
             {
-                success = true,
                 gameObject = go.name,
                 newPosition = new { x = pos.x, y = pos.y, z = pos.z }
             });
