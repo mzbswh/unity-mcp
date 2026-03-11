@@ -24,15 +24,15 @@ Unity Engine APIs
 ```
 unity-mcp/                    # Unity package (com.mzbswh.unity-mcp)
 ├── Editor/
-│   ├── Core/                 # McpServer, McpSettings, TcpTransport, ToolRegistry, RequestHandler
-│   ├── Tools/                # Built-in MCP tool implementations (26 files)
-│   └── Window/               # Settings window (UI Toolkit)
+│   ├── Core/                 # McpServer, McpSettings, TcpTransport, ToolRegistry, RequestHandler, McpServices, ToolCallLogger, PackageUpdateChecker, DependencyChecker
+│   ├── Tools/                # Built-in MCP tool implementations (28 files, includes CameraTools, TextureTools)
+│   └── Window/               # Settings window (UI Toolkit) + McpSetupWindow (dependency wizard)
 ├── Runtime/Tools/            # Runtime MCP tools (play mode)
 ├── Shared/
 │   ├── Attributes/           # [McpTool], [McpResource], [McpToolGroup], [Desc] etc.
 │   ├── Models/               # McpConst, ToolResult, JSON-RPC models
 │   ├── Interfaces/           # ITransport etc.
-│   └── Utils/                # PortResolver etc.
+│   └── Utils/                # PortResolver, PaginationHelper etc.
 ├── Samples~/CustomTools/     # Example custom tool
 └── package.json              # Unity package manifest
 
@@ -80,6 +80,66 @@ See `Samples~/CustomTools/MyCustomToolExample.cs` for a complete example.
 - **Python**: Standard Python conventions, `asyncio` for async, `pytest` for tests
 - **Commits**: Conventional commits (`feat:`, `fix:`, `refactor:`, `ci:`, `docs:`)
 - **Unity version**: Minimum 2021.2 (UI Toolkit support)
+
+## Available Tools by Category
+
+### Scene
+`scene_create`, `scene_open`, `scene_save`, `scene_get_hierarchy`
+
+### GameObject
+`gameobject_create`, `gameobject_destroy`, `gameobject_find` (paginated), `gameobject_get_info`, `gameobject_modify`, `gameobject_duplicate`, `gameobject_set_parent`
+
+### Component
+`component_add`, `component_remove`, `component_modify`, `component_list`
+
+### Asset
+`asset_find` (paginated), `asset_create_folder`, `asset_move`, `asset_delete`, `asset_get_info`
+
+### Editor
+`editor_get_state`, `editor_set_playmode`, `editor_execute_menu`, `editor_selection_get`, `editor_selection_set`, `editor_refresh`, `editor_get_compile_status`, `editor_undo`, `editor_redo`, `editor_open_window`
+
+### Camera
+`camera_create`, `camera_configure`, `camera_get_info`, `camera_look_at`
+
+### Material
+`material_create`, `material_modify`, `material_get_info`
+
+### Script
+`script_create`, `script_read`, `script_search`
+
+### Prefab
+`prefab_create`, `prefab_instantiate`, `prefab_unpack`, `prefab_apply`
+
+### ScriptableObject
+`so_create`, `so_read`, `so_modify`, `so_list`
+
+### Texture
+`texture_get_info`, `texture_set_import`, `texture_search` (paginated)
+
+### Animation
+`animation_create_clip`, `animation_add_keyframe`
+
+### Lighting
+`lighting_create_light`, `lighting_configure`
+
+### Physics
+`physics_add_rigidbody`, `physics_add_collider`, `physics_raycast`
+
+### Build
+`build_player`, `build_get_settings`
+
+### Code Execution
+`execute_code`
+
+## Available Resources
+
+- `unity://editor/state` — Editor state (compiling, playing, scene, selection, platform)
+- `unity://editor/selection` — Detailed info about currently selected objects
+- `unity://project/info` — Project metadata, render pipeline, packages
+- `unity://scene/hierarchy` — Scene hierarchy tree
+- `unity://scene/list` — Build scenes and loaded scenes
+- `unity://console/logs` — Recent console logs
+- `unity://server/status` — Python server connection status
 
 ## Build & Test
 
