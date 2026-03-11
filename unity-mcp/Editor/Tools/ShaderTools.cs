@@ -53,7 +53,7 @@ namespace UnityMcp.Editor.Tools
                 path,
                 name,
                 hasErrors = shader != null && ShaderUtil.ShaderHasError(shader),
-                passCount = shader != null ? ShaderUtil.GetShaderActiveSubshaderIndex(shader) : 0,
+                passCount = shader != null ? shader.passCount : 0,
             });
         }
 

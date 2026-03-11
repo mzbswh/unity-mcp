@@ -40,8 +40,8 @@ namespace UnityMcp.Editor.Tools
             if (mat == null)
                 return ToolResult.Error($"Material not found: {materialPath}");
 
-            Undo.RecordObject(RenderSettings.GetRenderSettings(), "Set Skybox");
             RenderSettings.skybox = mat;
+            EditorUtility.SetDirty(RenderSettings.skybox);
             return ToolResult.Json(new { skybox = mat.name, path = materialPath });
         }
 
@@ -72,8 +72,6 @@ namespace UnityMcp.Editor.Tools
             [Desc("Start distance (for Linear mode)")] float? startDistance = null,
             [Desc("End distance (for Linear mode)")] float? endDistance = null)
         {
-            Undo.RecordObject(RenderSettings.GetRenderSettings(), "Set Fog");
-
             if (enabled.HasValue) RenderSettings.fog = enabled.Value;
             if (!string.IsNullOrEmpty(mode) && Enum.TryParse<FogMode>(mode, true, out var fogMode))
                 RenderSettings.fogMode = fogMode;
@@ -116,8 +114,6 @@ namespace UnityMcp.Editor.Tools
             [Desc("Ground color (hex, for Trilight)")] string groundColor = null,
             [Desc("Intensity multiplier")] float? intensity = null)
         {
-            Undo.RecordObject(RenderSettings.GetRenderSettings(), "Set Ambient");
-
             if (!string.IsNullOrEmpty(mode) && Enum.TryParse<AmbientMode>(mode, true, out var ambientMode))
                 RenderSettings.ambientMode = ambientMode;
             if (!string.IsNullOrEmpty(skyColor) && ColorUtility.TryParseHtmlString(skyColor, out var sc))

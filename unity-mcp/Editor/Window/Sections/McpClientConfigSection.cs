@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityMcp.Editor.Core;
 using UnityMcp.Editor.Window.ClientConfig;
+using UnityMcp.Shared.Utils;
 
 namespace UnityMcp.Editor.Window.Sections
 {

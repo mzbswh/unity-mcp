@@ -1,10 +1,12 @@
 using System;
 using System.Text;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityMcp.Editor.Core;
 using UnityMcp.Shared.Models;
+using UnityMcp.Shared.Utils;
 
 namespace UnityMcp.Editor.Window.Sections
 {

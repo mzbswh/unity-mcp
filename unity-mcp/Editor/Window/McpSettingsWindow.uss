@@ -143,6 +143,50 @@
     -unity-font-style: bold;
 }
 
+.action-btn-start {
+    background-color: #2E7D32;
+    color: #FFFFFF;
+    -unity-font-style: bold;
+    border-radius: 3px;
+    margin-right: 4px;
+}
+.action-btn-start:hover {
+    background-color: #388E3C;
+}
+.action-btn-start:disabled {
+    background-color: #1B5E20;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.action-btn-stop {
+    background-color: #C62828;
+    color: #FFFFFF;
+    -unity-font-style: bold;
+    border-radius: 3px;
+    margin-right: 4px;
+}
+.action-btn-stop:hover {
+    background-color: #D32F2F;
+}
+.action-btn-stop:disabled {
+    background-color: #4E342E;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.action-btn-restart {
+    background-color: #1565C0;
+    color: #FFFFFF;
+    -unity-font-style: bold;
+    border-radius: 3px;
+}
+.action-btn-restart:hover {
+    background-color: #1976D2;
+}
+.action-btn-restart:disabled {
+    background-color: #0D47A1;
+    color: rgba(255, 255, 255, 0.3);
+}
+
 /* Client card */
 .client-card {
     background-color: var(--unity-colors-inspector_titlebar-background);
@@ -307,6 +351,15 @@
     background-color: #4CAF50;
     margin-right: 6px;
 }
+
+/* Dependency dot */
+.dep-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+}
+.dep-dot-green { background-color: #4CAF50; }
+.dep-dot-red { background-color: #F44336; }
 
 /* Search bar */
 .search-bar {

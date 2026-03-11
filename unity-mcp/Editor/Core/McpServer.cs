@@ -33,12 +33,15 @@ namespace UnityMcp.Editor.Core
             McpLogger.CurrentLogLevel = (McpLogger.LogLevel)(int)settings.LogLevel;
             McpLogger.AuditEnabled = settings.EnableAuditLog;
 
-            // 0b. Dependency check (first run only)
+            // 0b. Dependency check (first run only) — opens main settings window
             if (!EditorPrefs.GetBool("UnityMcp_SetupDone", false))
             {
                 var deps = DependencyChecker.Check();
                 if (!deps.AllSatisfied)
-                    McpSetupWindow.ShowWindow(deps);
+                {
+                    McpSettingsWindow.ShowWindow();
+                }
+                EditorPrefs.SetBool("UnityMcp_SetupDone", true);
             }
 
             // 1. Scan and register all tools
