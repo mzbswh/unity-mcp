@@ -255,9 +255,16 @@ class UnityConnection:
 
 
 def _get_instances_dir() -> Path:
-    """Return the UnityMCP instances directory (matches C# InstanceDiscovery)."""
+    """Return the UnityMCP instances directory (matches C# InstanceDiscovery).
+
+    Unity's .NET runtime maps Environment.SpecialFolder.LocalApplicationData to:
+    - macOS: ~/.local/share  (NOT ~/Library/Application Support)
+    - Windows: %LOCALAPPDATA%
+    - Linux: $XDG_DATA_HOME or ~/.local/share
+    """
     if platform.system() == "Darwin":
-        base = Path.home() / "Library" / "Application Support"
+        # Unity uses .NET's LocalApplicationData which maps to ~/.local/share on macOS
+        base = Path.home() / ".local" / "share"
     elif platform.system() == "Windows":
         base = Path(
             __import__("os").environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")

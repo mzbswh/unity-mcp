@@ -171,36 +171,132 @@ async def _wait_for_unity_ready(max_wait: float = 30.0, poll_interval: float = 0
     return False
 
 
-async def _forward_tool(tool_name: str, ctx: Context = None, **kwargs):
-    """Forward a tool call to Unity and return the result.
+async def _wait_for_connection(max_wait: float = 20.0, poll_interval: float = 0.5) -> bool:
+    """Wait for Unity TCP connection to be established after reload.
 
-    Returns str for text-only results, or a list of ContentBlock for mixed content (images + text).
+    The status file may flip to 'ready' before the TCP server is actually
+    listening. This polls ensure_connected() until it succeeds or times out.
+
+    Returns True if connected, False if timed out.
+    """
+    import time
+    deadline = time.monotonic() + max_wait
+    while time.monotonic() < deadline:
+        try:
+            await _ensure_connected()
+            return True
+        except (ConnectionError, OSError):
+            await asyncio.sleep(poll_interval)
+    return False
+
+
+async def _wait_for_reload_and_reconnect(label: str) -> None:
+    """Wait for Unity to finish reloading and re-establish TCP connection.
+
+    Two-phase wait inspired by mcpprojects/unity-mcp:
+    1. Poll status file until Unity is no longer reloading
+    2. Poll TCP connection until Unity is accepting connections
+
+    Args:
+        label: Human-readable label for log messages (e.g. tool name, resource URI).
+
+    Raises:
+        UnityToolError: If Unity doesn't become ready within the timeout.
+    """
+    logger.info(f"Unity is reloading, waiting before calling {label}...")
+    ready = await _wait_for_unity_ready()
+    if not ready:
+        raise UnityToolError(
+            "Unity is still reloading after timeout. Please retry later."
+        )
+    # Status file says ready, but TCP may not be listening yet
+    connected = await _wait_for_connection()
+    if not connected:
+        raise UnityToolError(
+            "Unity finished reloading but TCP connection could not be established. "
+            "Please retry later."
+        )
+
+
+async def _with_reload_retry(send_fn, label: str, fallback_fn=None):
+    """Execute send_fn with automatic reload detection and retry.
+
+    Handles three scenarios:
+    1. Preflight: status file shows reloading → wait for reload + reconnect, then send
+    2. Happy path: send directly
+    3. Connection error: always wait for reconnection (bounded), then retry.
+       Unity may have just finished reloading (status=ready) but TCP isn't up yet,
+       or a domain reload may have started after the preflight check.
+
+    Args:
+        send_fn: Async callable that sends the request and returns the result.
+        label: Human-readable label for log messages.
+        fallback_fn: Optional callable(status) that returns a fallback response
+                     when Unity is unreachable, or None to skip.
     """
     try:
         # Preflight: check if Unity is reloading via status file
         status = read_instance_status()
         if status and status.get("IsReloading", False):
-            # For offline-capable tools, return immediately from status file
-            if tool_name in _OFFLINE_FALLBACK_TOOLS:
-                fallback = _offline_fallback(tool_name, status)
+            if fallback_fn:
+                fallback = fallback_fn(status)
                 if fallback:
                     return fallback
+            await _wait_for_reload_and_reconnect(label)
+            return await send_fn()
 
-            # For other tools, wait for Unity to finish reloading
-            logger.info(f"Unity is reloading, waiting before calling {tool_name}...")
-            ready = await _wait_for_unity_ready()
-            if not ready:
-                raise UnityToolError(
-                    f"Unity is still reloading after timeout. Please retry later."
-                )
+        return await send_fn()
+    except UnityToolError:
+        raise
+    except asyncio.TimeoutError:
+        if fallback_fn:
+            fallback = fallback_fn(read_instance_status())
+            if fallback:
+                return fallback
+        logger.error(f"Timeout: {label}")
+        raise UnityToolError(f"Execution timeout: {label}")
+    except (ConnectionError, OSError) as e:
+        # Connection failed. This can happen when:
+        # - Unity is mid-reload (status file may or may not reflect this yet)
+        # - Unity just finished reloading but TCP server hasn't started yet
+        # - Unity is genuinely not running
+        #
+        # Following mcpprojects/unity-mcp's approach: always attempt a bounded
+        # wait for reconnection rather than failing immediately.
+        # _wait_for_reload_and_reconnect handles both cases:
+        # - If status file shows reloading: waits up to 30s for reload + 20s for TCP
+        # - If status file shows ready: _wait_for_unity_ready returns immediately,
+        #   then waits up to 20s for TCP connection
+        status = read_instance_status()
+        if fallback_fn:
+            fallback = fallback_fn(status)
+            if fallback:
+                return fallback
+        # If no status file at all, Unity is likely not running — fail fast.
+        if status is None:
+            logger.error(f"Connection error [{label}]: {e} (no Unity instance found)")
+            raise UnityToolError(f"Unity connection error: {e}")
+        try:
+            logger.info(f"Connection error, waiting for Unity to recover for {label}...")
+            await _wait_for_reload_and_reconnect(label)
+            return await send_fn()
+        except UnityToolError:
+            raise
+        except Exception as retry_err:
+            logger.error(f"Retry failed [{label}]: {retry_err}")
+            raise UnityToolError(f"Unity connection error after retry: {retry_err}")
+    except Exception as e:
+        logger.error(f"Forwarding error [{label}]: {e}")
+        raise UnityToolError(f"Forwarding error: {e}")
 
+
+async def _forward_tool(tool_name: str, ctx: Context = None, **kwargs):
+    """Forward a tool call to Unity and return the result."""
+    async def send():
         await _ensure_connected()
         await _try_send_client_identity(ctx)
-        # If no tools have been registered yet (Unity was offline at startup),
-        # attempt re-discovery now that we have a connection
         if not _registered_tools:
             await _try_rediscover(mcp)
-        # Filter out None values (optional params not provided by client)
         filtered_args = {k: v for k, v in kwargs.items() if v is not None}
         result = await unity.send_request("tools/call", {
             "name": tool_name,
@@ -210,19 +306,14 @@ async def _forward_tool(tool_name: str, ctx: Context = None, **kwargs):
             error = result["error"]
             msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
             raise UnityToolError(msg)
-        # Unity returns MCP content structure: {"content":[{"type":"text","text":"..."}, {"type":"image",...}], "isError":...}
         mcp_result = result.get("result", {})
         is_error = mcp_result.get("isError", False)
         content_list = mcp_result.get("content", [])
-
         if is_error:
-            # Extract error text
             for item in content_list:
                 if isinstance(item, dict) and item.get("type") == "text":
                     raise UnityToolError(item.get("text", "Unknown error"))
             raise UnityToolError("Unknown error from Unity")
-
-        # Convert Unity MCP content items to FastMCP-compatible return values
         blocks = []
         for item in content_list:
             if not isinstance(item, dict):
@@ -236,41 +327,22 @@ async def _forward_tool(tool_name: str, ctx: Context = None, **kwargs):
                 ))
             elif content_type == "text":
                 blocks.append(TextContent(type="text", text=item.get("text", "")))
-
-        # If only text, return as string (avoids double-wrapping)
         if len(blocks) == 1 and isinstance(blocks[0], TextContent):
             return blocks[0].text
         if blocks:
             return blocks
         return json.dumps(mcp_result, indent=2)
-    except UnityToolError:
-        raise  # Let FastMCP handle this as an MCP error response
-    except asyncio.TimeoutError:
-        fallback = _offline_fallback(tool_name, read_instance_status())
-        if fallback:
-            return fallback
-        logger.error(f"Tool call timeout: {tool_name}")
-        raise UnityToolError(f"Tool execution timeout: {tool_name}")
-    except (ConnectionError, OSError) as e:
-        # On connection error, try to return fallback from status file
-        fallback = _offline_fallback(tool_name, read_instance_status())
-        if fallback:
-            return fallback
-        logger.error(f"Tool connection error [{tool_name}]: {e}")
-        raise UnityToolError(f"Unity connection error: {e}")
-    except Exception as e:
-        logger.error(f"Tool forwarding error [{tool_name}]: {e}")
-        raise UnityToolError(f"Tool forwarding error: {e}")
+
+    fallback_fn = None
+    if tool_name in _OFFLINE_FALLBACK_TOOLS:
+        fallback_fn = lambda status: _offline_fallback(tool_name, status)
+
+    return await _with_reload_retry(send, tool_name, fallback_fn)
 
 
 async def _forward_resource(uri: str) -> str:
     """Forward a resource read to Unity and return the result as JSON string."""
-    try:
-        # Wait for Unity reload before attempting resource read
-        status = read_instance_status()
-        if status and status.get("IsReloading", False):
-            logger.info(f"Unity is reloading, waiting before reading resource {uri}...")
-            await _wait_for_unity_ready()
+    async def send():
         await _ensure_connected()
         if not _registered_resources:
             await _try_rediscover(mcp)
@@ -279,8 +351,6 @@ async def _forward_resource(uri: str) -> str:
             error = result["error"]
             msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
             raise UnityToolError(f"Resource error: {msg}")
-        # Unity returns MCP contents structure: {"contents":[{"uri":"...","mimeType":"...","text":"..."}]}
-        # Extract the inner text to avoid double-wrapping by FastMCP
         mcp_result = result.get("result", {})
         contents = mcp_result.get("contents", [])
         if contents and isinstance(contents, list):
@@ -288,17 +358,8 @@ async def _forward_resource(uri: str) -> str:
             if isinstance(first, dict) and "text" in first:
                 return first["text"]
         return json.dumps(mcp_result, indent=2)
-    except UnityToolError:
-        raise
-    except asyncio.TimeoutError:
-        logger.error(f"Resource read timeout: {uri}")
-        raise UnityToolError(f"Resource read timeout: {uri}")
-    except ConnectionError as e:
-        logger.error(f"Resource connection error [{uri}]: {e}")
-        raise UnityToolError(f"Unity connection error: {e}")
-    except Exception as e:
-        logger.error(f"Resource forwarding error [{uri}]: {e}")
-        raise UnityToolError(f"Resource forwarding error: {e}")
+
+    return await _with_reload_retry(send, f"resource:{uri}")
 
 
 async def _discover_and_register(server: FastMCP):
@@ -502,7 +563,7 @@ def _register_dynamic_resource(server: FastMCP, uri: str, res_def: dict):
 
 async def _forward_prompt(name: str, arguments: dict | None = None) -> str:
     """Forward a prompt get to Unity and return the result."""
-    try:
+    async def send():
         await _ensure_connected()
         result = await unity.send_request("prompts/get", {
             "name": name,
@@ -512,7 +573,6 @@ async def _forward_prompt(name: str, arguments: dict | None = None) -> str:
             error = result["error"]
             msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
             raise UnityToolError(f"Prompt error: {msg}")
-        # Unity returns: {"description":"...","messages":[{"role":"user","content":{"type":"text","text":"..."}}]}
         mcp_result = result.get("result", {})
         messages = mcp_result.get("messages", [])
         if messages and isinstance(messages, list):
@@ -521,17 +581,8 @@ async def _forward_prompt(name: str, arguments: dict | None = None) -> str:
             if isinstance(content, dict) and content.get("type") == "text":
                 return content.get("text", "")
         return json.dumps(mcp_result, indent=2)
-    except UnityToolError:
-        raise
-    except asyncio.TimeoutError:
-        logger.error(f"Prompt get timeout: {name}")
-        raise UnityToolError(f"Prompt execution timeout: {name}")
-    except ConnectionError as e:
-        logger.error(f"Prompt connection error [{name}]: {e}")
-        raise UnityToolError(f"Unity connection error: {e}")
-    except Exception as e:
-        logger.error(f"Prompt forwarding error [{name}]: {e}")
-        raise UnityToolError(f"Prompt forwarding error: {e}")
+
+    return await _with_reload_retry(send, f"prompt:{name}")
 
 
 def _register_dynamic_prompt(server: FastMCP, name: str, prompt_def: dict):

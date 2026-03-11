@@ -95,7 +95,17 @@ namespace UnityMcp.Editor.Core
         private static void OnAfterReload()
         {
             s_initialized = false;
-            EditorApplication.delayCall += Initialize;
+            // Use EditorApplication.update instead of delayCall because
+            // delayCall does NOT fire when the Unity Editor is unfocused/in background.
+            // This ensures the TCP server restarts immediately after domain reload,
+            // even when the user is working in another application (e.g. AI client).
+            EditorApplication.update += InitializeOnce;
+        }
+
+        private static void InitializeOnce()
+        {
+            EditorApplication.update -= InitializeOnce;
+            Initialize();
         }
 
         public static void Shutdown()
