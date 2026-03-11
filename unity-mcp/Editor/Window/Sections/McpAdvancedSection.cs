@@ -118,72 +118,35 @@ namespace UnityMcp.Editor.Window.Sections
             overrideBox.Add(overrideTitle);
 
             // UVX Path
-            var uvxRow = new VisualElement();
-            uvxRow.style.flexDirection = FlexDirection.Row;
-            uvxRow.style.alignItems = Align.Center;
-            uvxRow.style.marginBottom = 4;
-
-            _uvxPathField = new TextField("UVX Path") { name = "field-uvx-path" };
-            _uvxPathField.tooltip = "Override path to uvx executable. Leave empty to use system PATH.";
-            _uvxPathField.style.flexGrow = 1;
-            uvxRow.Add(_uvxPathField);
-
-            _uvxPathStatus = new VisualElement();
-            _uvxPathStatus.style.width = 10;
-            _uvxPathStatus.style.height = 10;
-            _uvxPathStatus.style.borderTopLeftRadius = _uvxPathStatus.style.borderTopRightRadius =
-                _uvxPathStatus.style.borderBottomLeftRadius = _uvxPathStatus.style.borderBottomRightRadius = 5;
-            _uvxPathStatus.style.marginLeft = 4;
-            _uvxPathStatus.style.marginRight = 4;
-            uvxRow.Add(_uvxPathStatus);
-
-            var browseUvxBtn = new Button { text = "..." };
-            browseUvxBtn.tooltip = "Browse for uvx executable";
-            browseUvxBtn.style.width = 30;
-            browseUvxBtn.clicked += OnBrowseUvxClicked;
-            uvxRow.Add(browseUvxBtn);
-
-            var clearUvxBtn = new Button { text = "×" };
-            clearUvxBtn.tooltip = "Clear override and use system PATH";
-            clearUvxBtn.style.width = 24;
-            clearUvxBtn.clicked += () =>
-            {
-                _uvxPathField.value = "";
-                McpSettings.Instance.UvxPath = "";
-                UpdateUvxPathStatus();
-            };
-            uvxRow.Add(clearUvxBtn);
-
-            overrideBox.Add(uvxRow);
+            overrideBox.Add(BuildPathField(
+                "UVX Path",
+                "Override path to uvx executable. Leave empty to use system PATH.",
+                "field-uvx-path",
+                out _uvxPathField,
+                out _uvxPathStatus,
+                OnBrowseUvxClicked,
+                () =>
+                {
+                    _uvxPathField.value = "";
+                    McpSettings.Instance.UvxPath = "";
+                    UpdateUvxPathStatus();
+                }
+            ));
 
             // Server source override
-            var srcRow = new VisualElement();
-            srcRow.style.flexDirection = FlexDirection.Row;
-            srcRow.style.alignItems = Align.Center;
-            srcRow.style.marginBottom = 4;
-
-            _serverSourceField = new TextField("Server Source") { name = "field-server-source" };
-            _serverSourceField.tooltip = "Override server source for uvx --from. Leave empty to use default PyPI package.\nExample: /path/to/unity-mcp/unity-server";
-            _serverSourceField.style.flexGrow = 1;
-            srcRow.Add(_serverSourceField);
-
-            var browseSrcBtn = new Button { text = "..." };
-            browseSrcBtn.tooltip = "Select local server source folder (containing pyproject.toml)";
-            browseSrcBtn.style.width = 30;
-            browseSrcBtn.clicked += OnBrowseServerSourceClicked;
-            srcRow.Add(browseSrcBtn);
-
-            var clearSrcBtn = new Button { text = "×" };
-            clearSrcBtn.tooltip = "Clear override and use default PyPI package";
-            clearSrcBtn.style.width = 24;
-            clearSrcBtn.clicked += () =>
-            {
-                _serverSourceField.value = "";
-                McpSettings.Instance.ServerSourceOverride = "";
-            };
-            srcRow.Add(clearSrcBtn);
-
-            overrideBox.Add(srcRow);
+            overrideBox.Add(BuildPathField(
+                "Server Source",
+                "Override server source for uvx --from. Leave empty to use default PyPI package.\nExample: /path/to/unity-mcp/unity-server",
+                "field-server-source",
+                out _serverSourceField,
+                out _,
+                OnBrowseServerSourceClicked,
+                () =>
+                {
+                    _serverSourceField.value = "";
+                    McpSettings.Instance.ServerSourceOverride = "";
+                }
+            ));
 
             // Dev mode force refresh toggle
             _devModeRefreshToggle = new Toggle("Dev Mode (--no-cache --refresh)") { name = "field-dev-mode" };
@@ -310,6 +273,68 @@ namespace UnityMcp.Editor.Window.Sections
             valueLabel.AddToClassList("diag-value");
             row.Add(valueLabel);
             return row;
+        }
+
+        private static VisualElement BuildPathField(
+            string label, string tooltip, string fieldName,
+            out TextField textField, out VisualElement statusDot,
+            Action onBrowse, Action onClear)
+        {
+            var container = new VisualElement();
+            container.style.marginBottom = 6;
+
+            // Label row with status dot
+            var labelRow = new VisualElement();
+            labelRow.style.flexDirection = FlexDirection.Row;
+            labelRow.style.alignItems = Align.Center;
+            labelRow.style.marginBottom = 2;
+
+            var lbl = new Label(label);
+            lbl.style.fontSize = 11;
+            lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+            labelRow.Add(lbl);
+
+            statusDot = new VisualElement();
+            statusDot.style.width = 8;
+            statusDot.style.height = 8;
+            statusDot.style.borderTopLeftRadius = statusDot.style.borderTopRightRadius =
+                statusDot.style.borderBottomLeftRadius = statusDot.style.borderBottomRightRadius = 4;
+            statusDot.style.marginLeft = 6;
+            statusDot.style.backgroundColor = new Color(0.6f, 0.6f, 0.6f);
+            labelRow.Add(statusDot);
+
+            container.Add(labelRow);
+
+            // Input row: textfield + browse + clear
+            var inputRow = new VisualElement();
+            inputRow.style.flexDirection = FlexDirection.Row;
+            inputRow.style.alignItems = Align.Center;
+
+            textField = new TextField { name = fieldName };
+            textField.tooltip = tooltip;
+            textField.style.flexGrow = 1;
+            textField.style.flexShrink = 1;
+            textField.style.minWidth = 0;
+            inputRow.Add(textField);
+
+            var browseBtn = new Button { text = "..." };
+            browseBtn.tooltip = "Browse...";
+            browseBtn.style.width = 28;
+            browseBtn.style.flexShrink = 0;
+            browseBtn.style.marginLeft = 4;
+            browseBtn.clicked += onBrowse;
+            inputRow.Add(browseBtn);
+
+            var clearBtn = new Button { text = "×" };
+            clearBtn.tooltip = "Clear";
+            clearBtn.style.width = 24;
+            clearBtn.style.flexShrink = 0;
+            clearBtn.style.marginLeft = 2;
+            clearBtn.clicked += onClear;
+            inputRow.Add(clearBtn);
+
+            container.Add(inputRow);
+            return container;
         }
 
         private void OnBrowseUvxClicked()
