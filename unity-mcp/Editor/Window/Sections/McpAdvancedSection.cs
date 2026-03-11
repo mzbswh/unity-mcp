@@ -108,6 +108,8 @@ namespace UnityMcp.Editor.Window.Sections
             diagBox.Add(CreateDiagRow("Connected Clients:", "diag-client-count"));
             diagBox.Add(CreateDiagRow("Server Version:", "diag-version"));
             diagBox.Add(CreateDiagRow("Unity Version:", "diag-unity-version"));
+            diagBox.Add(CreateDiagRow("Reconnects:", "diag-reconnects"));
+            diagBox.Add(CreateDiagRow("Last Connected:", "diag-last-connected"));
 
             var copyBtn = new Button { name = "btn-copy-diag", text = "Copy Diagnostics" };
             copyBtn.AddToClassList("action-btn");
@@ -115,6 +117,19 @@ namespace UnityMcp.Editor.Window.Sections
             diagBox.Add(copyBtn);
 
             _root.Add(diagBox);
+
+            // Recent Tool Calls
+            var logBox = new VisualElement();
+            logBox.AddToClassList("section-box");
+            logBox.style.marginTop = 8;
+
+            var logTitle = new Label("Recent Tool Calls");
+            logTitle.AddToClassList("section-title");
+            logBox.Add(logTitle);
+
+            var logContainer = new VisualElement { name = "call-log-container" };
+            logBox.Add(logContainer);
+            _root.Add(logBox);
         }
 
         private static VisualElement CreateDiagRow(string key, string valueName)
@@ -141,6 +156,64 @@ namespace UnityMcp.Editor.Window.Sections
             _diagClientCount.text = clients.ToString();
             _diagVersion.text = $"v{McpConst.ServerVersion}";
             _diagUnityVersion.text = Application.unityVersion;
+
+            var diagReconnects = _root.Q<Label>("diag-reconnects");
+            if (diagReconnects != null)
+                diagReconnects.text = (transport?.ReconnectCount ?? 0).ToString();
+
+            var diagLastConnected = _root.Q<Label>("diag-last-connected");
+            if (diagLastConnected != null)
+                diagLastConnected.text = transport?.LastConnectedAt?.ToString("HH:mm:ss") ?? "—";
+
+            // Update banner
+            if (PackageUpdateChecker.HasUpdate && _root.Q("update-banner") == null)
+            {
+                var banner = new VisualElement { name = "update-banner" };
+                banner.style.backgroundColor = new Color(0.85f, 0.65f, 0.0f, 0.3f);
+                banner.style.borderBottomLeftRadius = banner.style.borderBottomRightRadius =
+                    banner.style.borderTopLeftRadius = banner.style.borderTopRightRadius = 4;
+                banner.style.paddingTop = banner.style.paddingBottom = 4;
+                banner.style.paddingLeft = banner.style.paddingRight = 8;
+                banner.style.marginBottom = 8;
+                var label = new Label($"Update available: v{PackageUpdateChecker.LatestVersion} (current: v{McpConst.ServerVersion})");
+                label.style.color = new Color(0.9f, 0.7f, 0.0f);
+                banner.Add(label);
+                _root.Insert(0, banner);
+            }
+
+            // Refresh call log
+            var logContainer = _root.Q("call-log-container");
+            if (logContainer != null)
+            {
+                logContainer.Clear();
+                var history = ToolCallLogger.GetHistory();
+                if (history.Count == 0)
+                {
+                    var msg = new Label("No tool calls recorded yet.");
+                    msg.style.color = new Color(0.5f, 0.5f, 0.5f);
+                    logContainer.Add(msg);
+                }
+                else
+                {
+                    for (int i = history.Count - 1; i >= 0; i--)
+                    {
+                        var record = history[i];
+                        var row = new VisualElement();
+                        row.AddToClassList("diag-row");
+                        var nameLabel = new Label(record.ToolName);
+                        nameLabel.AddToClassList("diag-key");
+                        nameLabel.style.width = 200;
+                        row.Add(nameLabel);
+                        var statusLabel = new Label($"{record.DurationMs}ms {(record.Success ? "OK" : "ERR")}");
+                        statusLabel.AddToClassList("diag-value");
+                        statusLabel.style.color = record.Success
+                            ? new Color(0.3f, 0.8f, 0.3f)
+                            : new Color(0.9f, 0.3f, 0.3f);
+                        row.Add(statusLabel);
+                        logContainer.Add(row);
+                    }
+                }
+            }
         }
 
         private void CopyDiagnostics()
