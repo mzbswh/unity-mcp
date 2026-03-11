@@ -10,7 +10,7 @@ import logging
 from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import ImageContent, TextContent
-from .unity_connection import UnityConnection
+from .unity_connection import UnityConnection, read_instance_status
 from . import __version__
 from .config import UNITY_HOST, UNITY_PORT, TRANSPORT, HTTP_PORT
 
@@ -112,12 +112,88 @@ async def _try_send_client_identity(ctx: Context = None):
         logger.debug(f"Failed to send client identity: {e}")
 
 
+# Tools that can return a fallback response when Unity is unreachable
+_OFFLINE_FALLBACK_TOOLS = {"editor_get_compile_status", "editor_get_state"}
+
+
+def _offline_fallback(tool_name: str, status: dict | None = None) -> str | None:
+    """Build a fallback response for select tools when Unity connection is unavailable.
+
+    Args:
+        tool_name: The tool being called.
+        status: Instance status dict from status file (may be None).
+
+    Returns a JSON string, or None if no fallback is available for this tool.
+    """
+    if tool_name not in _OFFLINE_FALLBACK_TOOLS:
+        return None
+
+    is_reloading = status.get("IsReloading", False) if status else True
+    status_str = (status.get("Status", "unknown") if status else "unavailable")
+
+    if tool_name == "editor_get_compile_status":
+        return json.dumps({
+            "isCompiling": is_reloading,
+            "isUpdating": is_reloading,
+            "isPlaying": False,
+            "message": f"Unity is {status_str}. Wait before making scene changes."
+                if is_reloading
+                else "Ready. No compilation in progress.",
+            "source": "status_file",
+        })
+
+    if tool_name == "editor_get_state":
+        return json.dumps({
+            "isPlaying": False,
+            "isPaused": False,
+            "isCompiling": is_reloading,
+            "isUpdating": is_reloading,
+            "status": status_str,
+            "message": f"Unity is {status_str} (TCP unavailable).",
+            "source": "status_file",
+        })
+
+    return None
+
+
+async def _wait_for_unity_ready(max_wait: float = 30.0, poll_interval: float = 0.5) -> bool:
+    """Poll the instance status file until Unity is no longer reloading.
+
+    Returns True if Unity became ready, False if timed out.
+    """
+    import time
+    deadline = time.monotonic() + max_wait
+    while time.monotonic() < deadline:
+        status = read_instance_status()
+        if status is None or not status.get("IsReloading", False):
+            return True
+        await asyncio.sleep(poll_interval)
+    return False
+
+
 async def _forward_tool(tool_name: str, ctx: Context = None, **kwargs):
     """Forward a tool call to Unity and return the result.
 
     Returns str for text-only results, or a list of ContentBlock for mixed content (images + text).
     """
     try:
+        # Preflight: check if Unity is reloading via status file
+        status = read_instance_status()
+        if status and status.get("IsReloading", False):
+            # For offline-capable tools, return immediately from status file
+            if tool_name in _OFFLINE_FALLBACK_TOOLS:
+                fallback = _offline_fallback(tool_name, status)
+                if fallback:
+                    return fallback
+
+            # For other tools, wait for Unity to finish reloading
+            logger.info(f"Unity is reloading, waiting before calling {tool_name}...")
+            ready = await _wait_for_unity_ready()
+            if not ready:
+                raise UnityToolError(
+                    f"Unity is still reloading after timeout. Please retry later."
+                )
+
         await _ensure_connected()
         await _try_send_client_identity(ctx)
         # If no tools have been registered yet (Unity was offline at startup),
@@ -170,9 +246,16 @@ async def _forward_tool(tool_name: str, ctx: Context = None, **kwargs):
     except UnityToolError:
         raise  # Let FastMCP handle this as an MCP error response
     except asyncio.TimeoutError:
+        fallback = _offline_fallback(tool_name, read_instance_status())
+        if fallback:
+            return fallback
         logger.error(f"Tool call timeout: {tool_name}")
         raise UnityToolError(f"Tool execution timeout: {tool_name}")
-    except ConnectionError as e:
+    except (ConnectionError, OSError) as e:
+        # On connection error, try to return fallback from status file
+        fallback = _offline_fallback(tool_name, read_instance_status())
+        if fallback:
+            return fallback
         logger.error(f"Tool connection error [{tool_name}]: {e}")
         raise UnityToolError(f"Unity connection error: {e}")
     except Exception as e:
@@ -183,6 +266,11 @@ async def _forward_tool(tool_name: str, ctx: Context = None, **kwargs):
 async def _forward_resource(uri: str) -> str:
     """Forward a resource read to Unity and return the result as JSON string."""
     try:
+        # Wait for Unity reload before attempting resource read
+        status = read_instance_status()
+        if status and status.get("IsReloading", False):
+            logger.info(f"Unity is reloading, waiting before reading resource {uri}...")
+            await _wait_for_unity_ready()
         await _ensure_connected()
         if not _registered_resources:
             await _try_rediscover(mcp)

@@ -9,6 +9,8 @@ import asyncio
 import struct
 import json
 import logging
+import platform
+from pathlib import Path
 from .config import UNITY_HOST, UNITY_PORT, REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -250,3 +252,53 @@ class UnityConnection:
         if self._connected:
             return
         await self.connect()
+
+
+def _get_instances_dir() -> Path:
+    """Return the UnityMCP instances directory (matches C# InstanceDiscovery)."""
+    if platform.system() == "Darwin":
+        base = Path.home() / "Library" / "Application Support"
+    elif platform.system() == "Windows":
+        base = Path(
+            __import__("os").environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")
+        )
+    else:
+        base = Path(
+            __import__("os").environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")
+        )
+    return base / "UnityMCP" / "instances"
+
+
+def read_instance_status(port: int | None = None) -> dict | None:
+    """Read the Unity instance status file written by InstanceDiscovery.
+
+    Args:
+        port: Specific port to look up. If None, returns the most recently
+              updated instance status.
+
+    Returns:
+        Parsed JSON dict or None if no status file exists.
+    """
+    instances_dir = _get_instances_dir()
+    if not instances_dir.exists():
+        return None
+
+    try:
+        if port is not None:
+            status_file = instances_dir / f"{port}.json"
+            if not status_file.exists():
+                return None
+            return json.loads(status_file.read_text(encoding="utf-8"))
+
+        # No port specified: find the most recently modified status file
+        status_files = sorted(
+            instances_dir.glob("*.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if not status_files:
+            return None
+        return json.loads(status_files[0].read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug(f"Failed to read instance status: {e}")
+        return None

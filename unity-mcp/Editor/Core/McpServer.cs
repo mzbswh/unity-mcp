@@ -14,6 +14,7 @@ namespace UnityMcp.Editor.Core
 
         private static RequestHandler s_handler;
         private static bool s_initialized;
+        private static double s_nextHeartbeat;
 
         static McpServer()
         {
@@ -21,6 +22,7 @@ namespace UnityMcp.Editor.Core
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeReload;
             AssemblyReloadEvents.afterAssemblyReload += OnAfterReload;
             EditorApplication.quitting += Shutdown;
+            EditorApplication.update += HeartbeatTick;
         }
 
         private static void Initialize()
@@ -82,6 +84,10 @@ namespace UnityMcp.Editor.Core
 
         private static void OnBeforeReload()
         {
+            // Write reloading status BEFORE stopping transport so Python can read it
+            var settings = McpSettings.Instance;
+            InstanceDiscovery.UpdateStatus(settings.Port, true, "reloading");
+
             Transport?.BroadcastReloading();
             Transport?.Stop();
         }
@@ -100,6 +106,22 @@ namespace UnityMcp.Editor.Core
 
             Transport?.Stop();
             s_initialized = false;
+        }
+
+        private static void HeartbeatTick()
+        {
+            if (!s_initialized) return;
+            double now = EditorApplication.timeSinceStartup;
+            if (now < s_nextHeartbeat) return;
+            s_nextHeartbeat = now + 1.0;
+
+            int port = EditorPrefs.GetInt("UnityMcp_Port", 0);
+            if (port > 0)
+            {
+                bool isReloading = EditorApplication.isCompiling || EditorApplication.isUpdating;
+                InstanceDiscovery.UpdateStatus(port, isReloading,
+                    isReloading ? "compiling" : "ready");
+            }
         }
 
         /// <summary>Restart the server (called from settings window).</summary>

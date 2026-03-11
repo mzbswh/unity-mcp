@@ -11,5 +11,8 @@ namespace UnityMcp.Shared.Instance
         public int Pid;
         public string UnityVersion;
         public string StartTime;
+        public bool IsReloading;
+        public string Status;
+        public string LastHeartbeat;
     }
 }

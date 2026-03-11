@@ -24,10 +24,32 @@ namespace UnityMcp.Shared.Instance
                 Pid = System.Diagnostics.Process.GetCurrentProcess().Id,
                 UnityVersion = Application.unityVersion,
                 StartTime = DateTime.UtcNow.ToString("o"),
+                IsReloading = false,
+                Status = "ready",
+                LastHeartbeat = DateTime.UtcNow.ToString("o"),
             };
 
             var filePath = Path.Combine(RegistryDir, $"{port}.json");
             File.WriteAllText(filePath, JsonUtility.ToJson(info, true));
+        }
+
+        public static void UpdateStatus(int port, bool isReloading, string status = null)
+        {
+            var filePath = Path.Combine(RegistryDir, $"{port}.json");
+            if (!File.Exists(filePath)) return;
+            try
+            {
+                var json = File.ReadAllText(filePath);
+                var info = JsonUtility.FromJson<InstanceInfo>(json);
+                info.IsReloading = isReloading;
+                info.Status = status ?? (isReloading ? "reloading" : "ready");
+                info.LastHeartbeat = DateTime.UtcNow.ToString("o");
+                File.WriteAllText(filePath, JsonUtility.ToJson(info, true));
+            }
+            catch (Exception)
+            {
+                // Status update is best-effort
+            }
         }
 
         public static void Unregister(int port)
