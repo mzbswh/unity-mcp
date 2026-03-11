@@ -19,7 +19,6 @@ namespace UnityMcp.Runtime.Tools
                 Time.timeScale = value;
                 return ToolResult.Json(new
                 {
-                    success = true,
                     timeScale = Time.timeScale,
                     message = value == 0f ? "Game paused" :
                               value == 1f ? "Normal speed" :
@@ -53,7 +52,6 @@ namespace UnityMcp.Runtime.Tools
                 SceneManager.LoadScene(index, loadMode);
                 return ToolResult.Json(new
                 {
-                    success = true,
                     sceneIndex = index,
                     mode = loadMode.ToString(),
                     message = $"Loading scene index {index} ({loadMode})"
@@ -64,7 +62,6 @@ namespace UnityMcp.Runtime.Tools
             SceneManager.LoadScene(scene, loadMode);
             return ToolResult.Json(new
             {
-                success = true,
                 sceneName = scene,
                 mode = loadMode.ToString(),
                 message = $"Loading scene '{scene}' ({loadMode})"

@@ -38,7 +38,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = go.GetInstanceID(),
                 name = go.name,
                 preset,
@@ -110,7 +109,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 name = go.name,
                 message = $"Modified ParticleSystem '{go.name}'"
             });
@@ -140,7 +138,6 @@ namespace UnityMcp.Editor.Tools
             // Check if a template asset can be created via ProjectWindowUtil
             return ToolResult.Json(new
             {
-                success = true,
                 path,
                 message = $"To create VFX Graph, use Unity Editor: Right-click in Project > Create > Visual Effects > Visual Effect Graph, then save to {path}. " +
                           "Programmatic VFX Graph creation requires direct VFX Graph API access."
@@ -330,7 +327,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = go.GetInstanceID(),
                 name = go.name,
                 pointCount = lr.positionCount,
@@ -449,7 +445,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = go.GetInstanceID(),
                 name = go.name,
                 message = $"Created TrailRenderer on '{go.name}'"

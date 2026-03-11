@@ -136,7 +136,7 @@ namespace UnityMcp.Editor.Tools
 
             bool copied = AssetDatabase.CopyAsset(source, destination);
             return copied
-                ? ToolResult.Json(new { success = true, source, destination, message = $"Copied '{source}' -> '{destination}'" })
+                ? ToolResult.Json(new { source, destination })
                 : ToolResult.Error($"Failed to copy: {source}");
         }
 

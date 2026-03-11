@@ -55,7 +55,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = go.GetInstanceID(),
                 name = go.name,
                 size = new { x = terrainData.size.x, y = terrainData.size.y, z = terrainData.size.z },
@@ -217,7 +216,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 layerIndex = existing.Length,
                 message = $"Added terrain layer (index {existing.Length})"
             });

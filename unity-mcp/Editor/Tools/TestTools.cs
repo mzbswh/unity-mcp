@@ -34,7 +34,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 message = $"Test run started ({testMode})",
                 filter = testFilter ?? "(all)"
             });

@@ -43,7 +43,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 path,
                 loop,
                 length,
@@ -92,7 +91,6 @@ namespace UnityMcp.Editor.Tools
             var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
             return ToolResult.Json(new
             {
-                success = true,
                 path,
                 message = $"Created AnimatorController: {path}"
             });
@@ -130,7 +128,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 stateName,
                 layer,
                 clipAssigned = !string.IsNullOrEmpty(clipPath),
@@ -162,7 +159,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 paramName,
                 paramType = type.ToString(),
                 message = $"Added parameter '{paramName}' ({type})"
@@ -303,7 +299,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 from,
                 to,
                 hasExitTime,
@@ -347,7 +342,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 layerName,
                 layerIndex = controller.layers.Length - 1,
                 weight,
@@ -435,7 +429,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 stateName,
                 parameter,
                 blendType,
@@ -483,7 +476,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 path,
                 relativePath,
                 componentType,

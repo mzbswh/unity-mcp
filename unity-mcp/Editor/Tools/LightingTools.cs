@@ -49,7 +49,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = go.GetInstanceID(),
                 name = go.name,
                 lightType = light.type.ToString(),
@@ -290,7 +289,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = go.GetInstanceID(),
                 name = go.name,
                 type,

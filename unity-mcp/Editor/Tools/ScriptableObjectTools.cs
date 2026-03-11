@@ -55,7 +55,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 path,
                 type = soType.Name,
                 message = $"Created ScriptableObject: {path}"

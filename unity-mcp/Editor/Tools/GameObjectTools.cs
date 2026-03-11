@@ -38,7 +38,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = go.GetInstanceID(),
                 name = go.name,
                 message = $"Created GameObject '{name}'"
@@ -180,7 +179,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = clone.GetInstanceID(),
                 name = clone.name,
                 message = $"Duplicated '{go.name}'"
@@ -293,7 +291,6 @@ namespace UnityMcp.Editor.Tools
             var pos = go.transform.position;
             return ToolResult.Json(new
             {
-                success = true,
                 gameObject = go.name,
                 newPosition = new { x = pos.x, y = pos.y, z = pos.z }
             });

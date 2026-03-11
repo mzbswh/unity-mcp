@@ -39,7 +39,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 path,
                 name = prefab.name,
                 instanceId = prefab.GetInstanceID(),
@@ -80,7 +79,6 @@ namespace UnityMcp.Editor.Tools
 
             return ToolResult.Json(new
             {
-                success = true,
                 instanceId = instance.GetInstanceID(),
                 name = instance.name,
                 prefabPath = path,
@@ -313,7 +311,6 @@ namespace UnityMcp.Editor.Tools
                 {
                     return ToolResult.Json(new
                     {
-                        success = true,
                         prefabPath = path,
                         target = targetGo.name,
                         modified = false,
