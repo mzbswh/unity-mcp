@@ -20,6 +20,7 @@ namespace UnityMcp.Editor.Window.Sections
         private TextField _configJsonField;
         private Label _installStepsLabel;
         private int _selectedIndex;
+        private McpStatus _currentStatus;
 
         public McpClientConfigSection(VisualElement panel)
         {
@@ -51,6 +52,9 @@ namespace UnityMcp.Editor.Window.Sections
             var clientNames = ClientRegistry.All.Select(p => p.DisplayName).ToList();
             _clientDropdown = new DropdownField { choices = clientNames };
             _clientDropdown.style.flexGrow = 1;
+            _clientDropdown.style.flexShrink = 1;
+            _clientDropdown.style.minWidth = 0;
+            _clientDropdown.style.overflow = Overflow.Hidden;
             if (clientNames.Count > 0)
                 _clientDropdown.index = 0;
             _clientDropdown.RegisterValueChangedCallback(_ =>
@@ -184,33 +188,38 @@ namespace UnityMcp.Editor.Window.Sections
             var writer = ClientRegistry.GetWriter(profile.Strategy);
             string transport = settings.Transport == McpSettings.TransportMode.StreamableHttp
                 ? "streamable-http" : "stdio";
-            var status = writer.CheckStatus(profile, settings.Port, transport);
+            _currentStatus = writer.CheckStatus(profile, settings.Port, transport);
 
             // Update status
             _statusDot.RemoveFromClassList("status-green");
             _statusDot.RemoveFromClassList("status-red");
             _statusDot.RemoveFromClassList("status-gray");
             _statusDot.RemoveFromClassList("status-yellow");
+            _configureBtn.RemoveFromClassList("action-btn-start");
+            _configureBtn.RemoveFromClassList("action-btn-stop");
 
-            switch (status)
+            switch (_currentStatus)
             {
                 case McpStatus.Configured:
                     _statusDot.AddToClassList("status-green");
                     _statusLabel.text = "Configured";
                     _statusLabel.style.color = new Color(0.6f, 0.8f, 0.6f);
-                    _configureBtn.text = "Update";
+                    _configureBtn.text = "Unconfigure";
+                    _configureBtn.AddToClassList("action-btn-stop");
                     break;
                 case McpStatus.NeedsUpdate:
                     _statusDot.AddToClassList("status-yellow");
                     _statusLabel.text = "Needs Update";
                     _statusLabel.style.color = new Color(1f, 0.6f, 0f);
-                    _configureBtn.text = "Update";
+                    _configureBtn.text = "Configure";
+                    _configureBtn.AddToClassList("action-btn-start");
                     break;
                 default:
                     _statusDot.AddToClassList("status-gray");
                     _statusLabel.text = "Not Configured";
                     _statusLabel.style.color = new Color(0.6f, 0.6f, 0.6f);
                     _configureBtn.text = "Configure";
+                    _configureBtn.AddToClassList("action-btn-start");
                     break;
             }
 
@@ -238,23 +247,45 @@ namespace UnityMcp.Editor.Window.Sections
 
             var profile = ClientRegistry.All[_selectedIndex];
             var settings = McpSettings.Instance;
+            var writer = ClientRegistry.GetWriter(profile.Strategy);
 
-            try
+            if (_currentStatus == McpStatus.Configured)
             {
-                var writer = ClientRegistry.GetWriter(profile.Strategy);
-                string transport = settings.Transport == McpSettings.TransportMode.StreamableHttp
-                    ? "streamable-http" : "stdio";
-                writer.Configure(profile, settings.Port, transport, settings.HttpPort);
-                McpLogger.Info($"Configured {profile.DisplayName}: {profile.Paths.Current}");
-                EditorUtility.DisplayDialog("Success",
-                    $"Unity MCP configured for {profile.DisplayName}.\n\nConfig: {profile.Paths.Current}", "OK");
-                UpdateSelectedClient();
+                // Unconfigure
+                try
+                {
+                    writer.Unconfigure(profile);
+                    McpLogger.Info($"Unconfigured {profile.DisplayName}: {profile.Paths.Current}");
+                    EditorUtility.DisplayDialog("Success",
+                        $"Unity MCP removed from {profile.DisplayName}.", "OK");
+                    UpdateSelectedClient();
+                }
+                catch (System.Exception ex)
+                {
+                    McpLogger.Error($"Failed to unconfigure {profile.DisplayName}: {ex.Message}");
+                    EditorUtility.DisplayDialog("Error",
+                        $"Failed to unconfigure {profile.DisplayName}:\n{ex.Message}", "OK");
+                }
             }
-            catch (System.Exception ex)
+            else
             {
-                McpLogger.Error($"Failed to configure {profile.DisplayName}: {ex.Message}");
-                EditorUtility.DisplayDialog("Error",
-                    $"Failed to configure {profile.DisplayName}:\n{ex.Message}", "OK");
+                // Configure
+                try
+                {
+                    string transport = settings.Transport == McpSettings.TransportMode.StreamableHttp
+                        ? "streamable-http" : "stdio";
+                    writer.Configure(profile, settings.Port, transport, settings.HttpPort);
+                    McpLogger.Info($"Configured {profile.DisplayName}: {profile.Paths.Current}");
+                    EditorUtility.DisplayDialog("Success",
+                        $"Unity MCP configured for {profile.DisplayName}.\n\nConfig: {profile.Paths.Current}", "OK");
+                    UpdateSelectedClient();
+                }
+                catch (System.Exception ex)
+                {
+                    McpLogger.Error($"Failed to configure {profile.DisplayName}: {ex.Message}");
+                    EditorUtility.DisplayDialog("Error",
+                        $"Failed to configure {profile.DisplayName}:\n{ex.Message}", "OK");
+                }
             }
         }
 

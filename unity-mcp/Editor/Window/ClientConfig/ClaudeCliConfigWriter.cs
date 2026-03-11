@@ -53,6 +53,26 @@ namespace UnityMcp.Editor.Window.ClientConfig
             McpLogger.Info($"Claude Code configured: {path}");
         }
 
+        public void Unconfigure(ClientProfile profile)
+        {
+            string path = profile.Paths.Current;
+            if (!File.Exists(path)) return;
+
+            try
+            {
+                var root = JObject.Parse(File.ReadAllText(path));
+                string projectPath = Application.dataPath.Replace("/Assets", "");
+                var mcpServers = root["projects"]?[projectPath]?["mcpServers"] as JObject;
+                if (mcpServers != null && mcpServers.ContainsKey("unity"))
+                {
+                    mcpServers.Remove("unity");
+                    File.WriteAllText(path, root.ToString(Formatting.Indented));
+                    McpLogger.Info($"Claude Code unconfigured: {path}");
+                }
+            }
+            catch { /* ignore */ }
+        }
+
         public string GetManualSnippet(ClientProfile profile, int port, string transport, int httpPort)
         {
             string projectPath = Application.dataPath.Replace("/Assets", "");

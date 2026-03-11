@@ -6,6 +6,7 @@ namespace UnityMcp.Editor.Window.ClientConfig
     {
         McpStatus CheckStatus(ClientProfile profile, int port, string transport);
         void Configure(ClientProfile profile, int port, string transport, int httpPort);
+        void Unconfigure(ClientProfile profile);
         string GetManualSnippet(ClientProfile profile, int port, string transport, int httpPort);
     }
 }

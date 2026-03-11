@@ -50,6 +50,25 @@ namespace UnityMcp.Editor.Window.ClientConfig
             File.WriteAllText(path, root.ToString(Formatting.Indented));
         }
 
+        public void Unconfigure(ClientProfile profile)
+        {
+            string path = ResolvePath(profile);
+            if (!File.Exists(path)) return;
+
+            try
+            {
+                var root = JObject.Parse(File.ReadAllText(path));
+                string serversKey = GetServersKey(profile);
+                var servers = root[serversKey] as JObject;
+                if (servers != null && servers.ContainsKey("unity"))
+                {
+                    servers.Remove("unity");
+                    File.WriteAllText(path, root.ToString(Formatting.Indented));
+                }
+            }
+            catch { /* ignore */ }
+        }
+
         public string GetManualSnippet(ClientProfile profile, int port, string transport, int httpPort)
         {
             string serversKey = GetServersKey(profile);
