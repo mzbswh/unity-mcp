@@ -365,3 +365,101 @@
 .search-bar {
     margin-bottom: 8px;
 }
+
+/* ============================
+   Tools sub-tabs
+   ============================ */
+
+.sub-tab-row {
+    flex-direction: row;
+    margin-bottom: 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--unity-colors-toolbar-border);
+}
+
+.sub-tab-btn {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(0, 0, 0, 0);
+    padding: 6px 16px;
+    margin: 0 2px;
+    -unity-font-style: bold;
+    font-size: 12px;
+    border-radius: 0;
+    color: var(--unity-colors-default-text);
+}
+.sub-tab-btn:hover {
+    background-color: var(--unity-colors-highlight-background);
+}
+.sub-tab-active {
+    border-bottom-color: #4FC3F7;
+    color: #4FC3F7;
+}
+
+/* Tools action bar */
+.tools-action-bar {
+    flex-direction: row;
+    margin-bottom: 6px;
+}
+
+.tools-action-btn {
+    padding: 3px 10px;
+    font-size: 11px;
+    margin-right: 4px;
+    min-height: 22px;
+}
+
+/* Tool category labels (Built-in / Custom) */
+.tool-category-label {
+    -unity-font-style: bold;
+    font-size: 12px;
+    padding: 4px 8px;
+    margin-top: 6px;
+    margin-bottom: 4px;
+    border-radius: 3px;
+}
+
+.tool-category-builtin {
+    color: #81C784;
+    background-color: rgba(129, 199, 132, 0.1);
+    border-left-width: 3px;
+    border-left-color: #4CAF50;
+}
+
+.tool-category-custom {
+    color: #FFB74D;
+    background-color: rgba(255, 183, 77, 0.1);
+    border-left-width: 3px;
+    border-left-color: #FF9800;
+}
+
+/* Group foldout */
+.tool-group-foldout {
+    margin-bottom: 4px;
+}
+
+.tool-group-foldout > .unity-foldout__toggle {
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-inspector_titlebar-border);
+    border-radius: 4px;
+    padding: 4px 6px;
+    -unity-font-style: bold;
+    font-size: 12px;
+}
+
+.tool-group-foldout > .unity-foldout__content {
+    padding: 4px 8px;
+    margin-left: 12px;
+}
+
+/* Group header toggle (inside foldout header) */
+.group-header-toggle {
+    margin-left: 8px;
+}
+
+/* Disabled tool name */
+.tool-name-disabled {
+    color: rgba(255, 255, 255, 0.35);
+}

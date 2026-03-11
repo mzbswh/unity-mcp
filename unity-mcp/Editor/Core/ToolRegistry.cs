@@ -41,8 +41,10 @@ namespace UnityMcp.Editor.Core
         private readonly ConcurrentDictionary<string, ToolEntry> _tools = new();
         private readonly ConcurrentDictionary<string, ResourceEntry> _resources = new();
         private readonly ConcurrentDictionary<string, PromptEntry> _prompts = new();
-        // Thread-safe cache of tool enabled state — avoids EditorPrefs access from TCP threads
+        // Thread-safe caches of enabled state — avoids EditorPrefs access from TCP threads
         private readonly ConcurrentDictionary<string, bool> _enabledCache = new();
+        private readonly ConcurrentDictionary<string, bool> _resourceEnabledCache = new();
+        private readonly ConcurrentDictionary<string, bool> _promptEnabledCache = new();
 
         public int ToolCount => _tools.Count;
         public int ResourceCount => _resources.Count;
@@ -69,6 +71,14 @@ namespace UnityMcp.Editor.Core
             _enabledCache.Clear();
             foreach (var name in _tools.Keys)
                 _enabledCache[name] = ReadToolEnabledFromPrefs(name);
+
+            _resourceEnabledCache.Clear();
+            foreach (var uri in _resources.Keys)
+                _resourceEnabledCache[uri] = ReadEnabledFromPrefs("UnityMcp_Resource_", uri, true);
+
+            _promptEnabledCache.Clear();
+            foreach (var name in _prompts.Keys)
+                _promptEnabledCache[name] = ReadEnabledFromPrefs("UnityMcp_Prompt_", name, true);
 
             McpLogger.Info($"Discovered {_tools.Count} tools, {_resources.Count} resources, " +
                            $"{_prompts.Count} prompts from {toolGroupTypes.Count} tool groups");
@@ -143,6 +153,7 @@ namespace UnityMcp.Editor.Core
                 var match = entry.UriRegex.Match(uri);
                 if (match.Success)
                 {
+                    if (!IsResourceEnabled(entry.UriTemplate)) return null;
                     extractedParams = ExtractParams(entry.UriTemplate, match);
                     return entry;
                 }
@@ -152,7 +163,7 @@ namespace UnityMcp.Editor.Core
 
         public PromptEntry GetPrompt(string name)
         {
-            return _prompts.TryGetValue(name, out var entry) ? entry : null;
+            return _prompts.TryGetValue(name, out var entry) && IsPromptEnabled(name) ? entry : null;
         }
 
         // --- List methods (MCP protocol responses) ---
@@ -191,6 +202,7 @@ namespace UnityMcp.Editor.Core
             var arr = new JArray();
             foreach (var kv in _resources)
             {
+                if (!IsResourceEnabled(kv.Key)) continue;
                 var attr = kv.Value.Attribute;
                 var res = new JObject
                 {
@@ -209,6 +221,7 @@ namespace UnityMcp.Editor.Core
             var arr = new JArray();
             foreach (var kv in _prompts)
             {
+                if (!IsPromptEnabled(kv.Key)) continue;
                 var attr = kv.Value.Attribute;
                 var prompt = new JObject
                 {
@@ -326,12 +339,12 @@ namespace UnityMcp.Editor.Core
         }
 
         /// <summary>Returns all registered resource entries.</summary>
-        public IEnumerable<(string name, string description, bool builtIn)> GetAllResourceEntries()
+        public IEnumerable<(string name, string description, string uri, bool builtIn)> GetAllResourceEntries()
         {
             foreach (var kv in _resources)
             {
                 var attr = kv.Value.Attribute;
-                yield return (attr.Name, attr.Description, IsBuiltIn(kv.Value.Method));
+                yield return (attr.Name, attr.Description, kv.Key, IsBuiltIn(kv.Value.Method));
             }
         }
 
@@ -349,6 +362,50 @@ namespace UnityMcp.Editor.Core
         {
             foreach (var name in _tools.Keys)
                 SetToolEnabled(name, enabled);
+        }
+
+        // --- Per-resource enable/disable ---
+
+        public bool IsResourceEnabled(string uri)
+        {
+            return _resourceEnabledCache.TryGetValue(uri, out var enabled) ? enabled : true;
+        }
+
+        public void SetResourceEnabled(string uri, bool enabled)
+        {
+            EditorPrefs.SetBool($"UnityMcp_Resource_{uri}", enabled);
+            _resourceEnabledCache[uri] = enabled;
+        }
+
+        public void SetAllResourcesEnabled(bool enabled)
+        {
+            foreach (var uri in _resources.Keys)
+                SetResourceEnabled(uri, enabled);
+        }
+
+        // --- Per-prompt enable/disable ---
+
+        public bool IsPromptEnabled(string name)
+        {
+            return _promptEnabledCache.TryGetValue(name, out var enabled) ? enabled : true;
+        }
+
+        public void SetPromptEnabled(string name, bool enabled)
+        {
+            EditorPrefs.SetBool($"UnityMcp_Prompt_{name}", enabled);
+            _promptEnabledCache[name] = enabled;
+        }
+
+        public void SetAllPromptsEnabled(bool enabled)
+        {
+            foreach (var name in _prompts.Keys)
+                SetPromptEnabled(name, enabled);
+        }
+
+        private static bool ReadEnabledFromPrefs(string prefix, string key, bool defaultValue)
+        {
+            string prefKey = $"{prefix}{key}";
+            return EditorPrefs.HasKey(prefKey) ? EditorPrefs.GetBool(prefKey) : defaultValue;
         }
 
         // --- URI template helpers ---
