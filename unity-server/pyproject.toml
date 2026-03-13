@@ -1,6 +1,6 @@
 [project]
 name = "unity-mcp-server"
-version = "1.0.8"
+version = "1.0.9"
 description = "Python MCP server for Unity Editor — enables AI assistants to control Unity via the Model Context Protocol"
 requires-python = ">=3.10"
 license = {text = "MIT"}
