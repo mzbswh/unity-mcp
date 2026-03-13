@@ -223,7 +223,8 @@ class LanhuClient:
     # ------------------------------------------------------------------
 
     async def get_design_slices(
-        self, url: str, design_name: str, include_metadata: bool = True
+        self, url: str, design_name: str, include_metadata: bool = True,
+        scale: int = 2,
     ) -> dict:
         """Get slice/asset info from a design. Internally fetches designs list first.
 
@@ -231,6 +232,7 @@ class LanhuClient:
             url: Lanhu project URL.
             design_name: Exact design name to fetch slices for.
             include_metadata: Include color, opacity, shadow info.
+            scale: Image scale factor (1=@1x, 2=@2x, 3=@3x, 4=@4x). Default 2 (iOS @2x).
         """
         designs_data = await self.get_designs(url)
         if "error" in designs_data:
@@ -254,6 +256,7 @@ class LanhuClient:
             team_id=params["team_id"],
             project_id=params["project_id"],
             include_metadata=include_metadata,
+            scale=scale,
         )
 
     # ------------------------------------------------------------------
@@ -263,6 +266,7 @@ class LanhuClient:
     async def download_slices(
         self, url: str, design_name: str, output_dir: str,
         name_pattern: str = "layer_path",
+        scale: int = 2,
     ) -> dict:
         """Get slices from a design and download them all to output_dir.
 
@@ -273,8 +277,9 @@ class LanhuClient:
             name_pattern: Naming strategy for files.
                 'layer_path' (default): derive name from layer_path (e.g. TopBar/Icon -> topbar_icon.png)
                 'original': use original layer name as-is.
+            scale: Image scale factor (1=@1x, 2=@2x, 3=@3x, 4=@4x). Default 2 (iOS @2x).
         """
-        slices_data = await self.get_design_slices(url, design_name, include_metadata=False)
+        slices_data = await self.get_design_slices(url, design_name, include_metadata=False, scale=scale)
         if "error" in slices_data:
             return slices_data
 
@@ -354,8 +359,18 @@ class LanhuClient:
     # Internal: fetch slices from design detail API
     # ------------------------------------------------------------------
 
+    # Scale factor to Lanhu image key mapping.
+    # Ordered by preference: exact match first, then nearest larger, then smaller.
+    _SCALE_KEYS = {
+        1: ["png", "png_hd", "png_xhd", "png_xxhd", "png_xxxhd"],
+        2: ["png_xhd", "png_xxhd", "png_xxxhd", "png_hd", "png"],
+        3: ["png_xxhd", "png_xxxhd", "png_xhd", "png_hd", "png"],
+        4: ["png_xxxhd", "png_xxhd", "png_xhd", "png_hd", "png"],
+    }
+
     async def _fetch_slices(
-        self, image_id: str, team_id: str, project_id: str, include_metadata: bool = True
+        self, image_id: str, team_id: str, project_id: str,
+        include_metadata: bool = True, scale: int = 2,
     ) -> dict:
         """Fetch slice and text info from a design's sketch JSON."""
         # 1. Get design detail
@@ -445,7 +460,8 @@ class LanhuClient:
             if not download_url:
                 images_val = obj.get("images")
                 if isinstance(images_val, dict) and images_val:
-                    for key in ["png_xxxhd", "png_xxhd", "png_xhd", "png_hd", "png"]:
+                    preferred_keys = self._SCALE_KEYS.get(scale, self._SCALE_KEYS[2])
+                    for key in preferred_keys:
                         if images_val.get(key):
                             download_url = images_val[key]
                             break
@@ -506,10 +522,12 @@ class LanhuClient:
             for item in sketch_data["info"]:
                 find_layers(item)
 
+        scale_label = {1: "@1x", 2: "@2x", 3: "@3x", 4: "@4x"}.get(scale, f"@{scale}x")
         return {
             "design_id": image_id,
             "design_name": result["name"],
             "version": latest_version["version_info"],
+            "scale": scale_label,
             "canvas_size": {
                 "width": result.get("width"),
                 "height": result.get("height"),

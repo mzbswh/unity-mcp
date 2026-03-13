@@ -698,6 +698,103 @@ def psd_parse(
 
 
 @mcp.tool(
+    name="psd_export_images",
+    description="Export all visible image layers from a PSD/PSB file as PNG files. "
+    "Returns only the list of exported images (file name, asset path, original layer name) "
+    "without the full layer tree. Duplicate images are deduplicated by content hash. "
+    "Use this when you only need the images, not the full PSD structure. "
+    "Runs locally using psd-tools (no Unity needed).",
+)
+def psd_export_images(
+    psd_path: str,
+    image_output_dir: str,
+    unity_project_path: str = None,
+) -> str:
+    from .tools.psd_parser import parse_psd
+
+    result = parse_psd(psd_path, image_output_dir, unity_project_path, export_images=True)
+    if "error" in result:
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    return json.dumps({
+        "psdName": result.get("psdName"),
+        "canvasWidth": result.get("canvasWidth"),
+        "canvasHeight": result.get("canvasHeight"),
+        "exportedImages": result.get("exportedImages", []),
+        "totalExported": len(result.get("exportedImages", [])),
+    }, indent=2, ensure_ascii=False)
+
+
+@mcp.tool(
+    name="psd_to_image",
+    description="Flatten and export a PSD/PSB file as a single PNG or JPG image. "
+    "Composites all visible layers into one image. Optionally resize with max_resolution. "
+    "Runs locally using psd-tools (no Unity needed).",
+)
+def psd_to_image(
+    psd_path: str,
+    output_path: str,
+    max_resolution: int = 0,
+    format: str = "png",
+) -> str:
+    """Flatten a PSD/PSB to a single image file.
+
+    Args:
+        psd_path: Absolute path to the PSD/PSB file.
+        output_path: Absolute path for the output image file.
+        max_resolution: If > 0, resize so the longest side does not exceed this value.
+        format: Output format, "png" or "jpg" (default "png").
+    """
+    try:
+        from psd_tools import PSDImage
+    except ImportError:
+        return json.dumps({"error": "psd-tools is not installed. Run: pip install psd-tools"})
+
+    psd_path = os.path.realpath(psd_path)
+    if not os.path.isfile(psd_path):
+        return json.dumps({"error": f"File not found: {psd_path}"})
+
+    ext = os.path.splitext(psd_path)[1].lower()
+    if ext not in (".psd", ".psb"):
+        return json.dumps({"error": f"Not a valid PSD/PSB file: {psd_path}"})
+
+    psd = PSDImage.open(psd_path)
+    img = psd.composite()
+    if img is None:
+        return json.dumps({"error": "Failed to composite PSD layers"})
+
+    # Resize if needed
+    if max_resolution > 0:
+        w, h = img.size
+        longest = max(w, h)
+        if longest > max_resolution:
+            scale = max_resolution / longest
+            new_w = int(w * scale)
+            new_h = int(h * scale)
+            img = img.resize((new_w, new_h), resample=3)  # LANCZOS
+
+    # Determine format
+    fmt = format.lower()
+    if fmt in ("jpg", "jpeg"):
+        save_fmt = "JPEG"
+        if img.mode == "RGBA":
+            img = img.convert("RGB")
+    else:
+        save_fmt = "PNG"
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    img.save(output_path, format=save_fmt)
+
+    return json.dumps({
+        "outputPath": os.path.abspath(output_path),
+        "width": img.size[0],
+        "height": img.size[1],
+        "format": save_fmt.lower(),
+        "originalWidth": psd.width,
+        "originalHeight": psd.height,
+    }, indent=2, ensure_ascii=False)
+
+
+@mcp.tool(
     name="psd_to_ui",
     description="One-step PSD to Unity UI conversion. Parses the PSD file (Python-side), "
     "exports layer images, then calls Unity to create the UI hierarchy and save as a prefab. "
@@ -862,12 +959,14 @@ async def lanhu_analyze_design(
     "One-step: internally fetches design list, finds the target by name, then extracts slices. "
     "No need to call lanhu_get_designs first. "
     "Returns slice download URLs, text content, positions, fonts, and optional metadata. "
+    "scale controls image resolution: 1=@1x, 2=@2x (default, iOS standard), 3=@3x, 4=@4x (original max). "
     "Requires lanhu_set_cookie to be called first if cookie is not configured.",
 )
 async def lanhu_get_slices(
     url: str,
     design_name: str,
     include_metadata: bool = True,
+    scale: int = 2,
 ) -> str:
     from .tools.lanhu import LanhuClient, NoCookieError
 
@@ -877,7 +976,7 @@ async def lanhu_get_slices(
         return _LANHU_NO_COOKIE_MSG
 
     try:
-        result = await client.get_design_slices(url, design_name, include_metadata)
+        result = await client.get_design_slices(url, design_name, include_metadata, scale=scale)
         return json.dumps(result, indent=2, ensure_ascii=False)
     finally:
         await client.close()
@@ -889,6 +988,7 @@ async def lanhu_get_slices(
     "One-step: fetches design list, finds the target, extracts slice URLs, downloads all images. "
     "No need to call lanhu_get_designs or lanhu_get_slices first. "
     "Files are named based on layer_path by default (e.g. TopBar_Icon.png). "
+    "scale controls image resolution: 1=@1x, 2=@2x (default, iOS standard), 3=@3x, 4=@4x (original max). "
     "Requires lanhu_set_cookie to be called first if cookie is not configured.",
 )
 async def lanhu_download_slices(
@@ -896,6 +996,7 @@ async def lanhu_download_slices(
     design_name: str,
     output_dir: str,
     name_pattern: str = "layer_path",
+    scale: int = 2,
 ) -> str:
     from .tools.lanhu import LanhuClient, NoCookieError
 
@@ -905,7 +1006,7 @@ async def lanhu_download_slices(
         return _LANHU_NO_COOKIE_MSG
 
     try:
-        result = await client.download_slices(url, design_name, output_dir, name_pattern)
+        result = await client.download_slices(url, design_name, output_dir, name_pattern, scale=scale)
         return json.dumps(result, indent=2, ensure_ascii=False)
     finally:
         await client.close()
