@@ -93,7 +93,7 @@ If it returns the scene hierarchy, you're all set.
 ## Features
 
 - **190 Editor Tools** — GameObject, Component, Scene, Asset, Material, Animation, Prefab, Script, UI Toolkit, VFX, Audio, Camera, Graphics, Lighting, NavMesh, Physics, Terrain, Shader, Texture, Build, Package, Test, Screenshot, Console, ProBuilder, and more
-- **11 Python-Side Tools** — Script analysis, asset validation, PSD parsing/export/UI generation, Lanhu design fetching/slice downloading (runs without Unity connection)
+- **12 Python-Side Tools** — Script analysis, asset validation, PSD parsing/export/flatten/UI generation, Lanhu design fetching/slice downloading (runs without Unity connection)
 - **13 Resource Endpoints** — Read-only data queries (scene hierarchy, project info, editor state, console logs, current selection, etc.)
 - **48 Prompt Templates** — Unity best-practice guides (architecture, scripting, performance, shaders, XR, ECS, networking, etc.)
 - **PSD → UI Workflow** — Parse PSD/PSB file structure, export layer images, auto-generate Unity UI hierarchy
@@ -313,15 +313,16 @@ If it returns the scene hierarchy, you're all set.
 </details>
 
 <details>
-<summary><b>PSD & Lanhu (10 tools, Python-side)</b></summary>
+<summary><b>PSD & Lanhu (11 tools, Python-side)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `psd_parse` | Parse PSD/PSB file structure (layers, dimensions, blend modes, etc.) |
-| `psd_get_summary` | Get PSD file summary info |
-| `psd_export_images` | Export PSD layers as image files |
+| `psd_summary` | Get PSD/PSB file summary (dimensions, layer count, color mode, etc.) |
+| `psd_layer_detail` | Get detailed layer info (hierarchy, blend modes, visibility, etc.) |
+| `psd_parse` | Parse PSD/PSB and return full layer tree (optionally export images) |
+| `psd_export_images` | Export all visible image layers as PNG (returns export list only) |
+| `psd_to_image` | Flatten PSD/PSB into a single PNG/JPG image (supports resizing) |
 | `psd_to_ui` | Full PSD to Unity UI workflow (parse + export + generate UI) |
-| `psd_create_ui` | Create Unity UI hierarchy from PSD structure (Unity-side) |
 | `lanhu_set_cookie` | Set Lanhu authentication cookie |
 | `lanhu_get_designs` | Get Lanhu project design list |
 | `lanhu_analyze_design` | Download Lanhu design image for AI analysis |
