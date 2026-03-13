@@ -7,6 +7,7 @@ and forwards all calls dynamically.
 import asyncio
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import ImageContent, TextContent
