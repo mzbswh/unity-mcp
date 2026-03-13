@@ -92,9 +92,12 @@ MCP 客户端配置示例（以 Cursor 为例）：
 
 ## 特性
 
-- **189 个编辑器工具** — GameObject、Component、Scene、Asset、Material、Animation、Prefab、Script、UI Toolkit、VFX、Audio、Camera、Graphics、Lighting、NavMesh、Physics、Terrain、Shader、Texture、Build、Package、Test、Screenshot、Console、ProBuilder 等
+- **190 个编辑器工具** — GameObject、Component、Scene、Asset、Material、Animation、Prefab、Script、UI Toolkit、VFX、Audio、Camera、Graphics、Lighting、NavMesh、Physics、Terrain、Shader、Texture、Build、Package、Test、Screenshot、Console、ProBuilder 等
+- **11 个 Python 端工具** — 脚本分析、资源校验、PSD 解析/导出/转 UI、蓝湖设计稿获取/切图下载（无需 Unity 连接即可运行）
 - **13 个资源端点** — 只读数据查询（场景层级、项目信息、编辑器状态、控制台日志、当前选中等）
 - **48 个提示词模板** — Unity 最佳实践指南（架构、脚本、性能、Shader、XR、ECS、网络等）
+- **PSD → UI 工作流** — 解析 PSD/PSB 文件结构，导出图层图片，自动生成 Unity UI 层级
+- **蓝湖集成** — 获取蓝湖设计稿列表、下载设计图进行 AI 分析、批量下载切图到项目
 - **批量执行** — 单次请求执行多个工具操作，支持原子回滚
 - **运行时模式** — 可选的运行时 MCP 服务器，控制运行中的游戏（8 个运行时工具）
 - **动态工具发现** — Python 服务器启动时从 Unity 自动发现并注册所有工具/资源/提示词
@@ -310,6 +313,24 @@ MCP 客户端配置示例（以 Cursor 为例）：
 </details>
 
 <details>
+<summary><b>PSD & 蓝湖 (10 tools, Python 端)</b></summary>
+
+| 工具 | 说明 |
+|------|------|
+| `psd_parse` | 解析 PSD/PSB 文件结构（图层、尺寸、混合模式等） |
+| `psd_get_summary` | 获取 PSD 文件摘要信息 |
+| `psd_export_images` | 导出 PSD 图层为图片文件 |
+| `psd_to_ui` | PSD 转 Unity UI 完整流程（解析 + 导出 + 生成 UI） |
+| `psd_create_ui` | 在 Unity 中根据 PSD 结构创建 UI 层级（Unity 端） |
+| `lanhu_set_cookie` | 设置蓝湖认证 Cookie |
+| `lanhu_get_designs` | 获取蓝湖项目设计稿列表 |
+| `lanhu_analyze_design` | 下载蓝湖设计图进行 AI 分析 |
+| `lanhu_get_slices` | 获取蓝湖设计稿切图列表 |
+| `lanhu_download_slices` | 批量下载蓝湖切图到 Unity 项目 |
+
+</details>
+
+<details>
 <summary><b>Editor & Utility (50+ tools)</b></summary>
 
 | 工具 | 说明 |
@@ -418,7 +439,7 @@ unity-mcp/
 │   ├── Editor/
 │   │   ├── Core/               # McpServer, TcpTransport, RequestHandler, ToolRegistry
 │   │   │                         ToolCallLogger, DependencyChecker, PackageUpdateChecker
-│   │   ├── Tools/              # 189 个内置工具（32 个工具文件）
+│   │   ├── Tools/              # 190 个内置工具（33 个工具文件）
 │   │   ├── Resources/          # 13 个只读资源
 │   │   ├── Prompts/            # 48 个最佳实践提示词
 │   │   ├── Utils/              # 编辑器辅助工具
@@ -436,7 +457,8 @@ unity-mcp/
 │   ├── unity_mcp_server/
 │   │   ├── server.py           # FastMCP 入口 + 动态工具发现注册
 │   │   ├── unity_connection.py # TCP 连接管理 + 自动重连
-│   │   └── config.py           # 环境变量配置
+│   │   ├── config.py           # 环境变量配置
+│   │   └── tools/              # Python 端工具（PSD 解析、蓝湖集成、脚本分析等）
 │   ├── pyproject.toml          # PyPI 包配置
 │   ├── Dockerfile              # Docker 部署
 │   └── docker-compose.yml
@@ -562,6 +584,7 @@ docker run -it --rm \
 - **Unity** 2021.2+
 - **Python** 3.10+（推荐使用 `uvx`，自动安装依赖）
 - **Unity 依赖**：`com.unity.nuget.newtonsoft-json` 3.2.1+（自动解析）
+- **Python 依赖**（自动安装）：`mcp`、`psd-tools`（PSD 解析）、`httpx`（蓝湖集成）
 
 ## 许可证
 

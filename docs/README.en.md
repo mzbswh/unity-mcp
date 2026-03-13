@@ -92,9 +92,12 @@ If it returns the scene hierarchy, you're all set.
 
 ## Features
 
-- **189 Editor Tools** — GameObject, Component, Scene, Asset, Material, Animation, Prefab, Script, UI Toolkit, VFX, Audio, Camera, Graphics, Lighting, NavMesh, Physics, Terrain, Shader, Texture, Build, Package, Test, Screenshot, Console, ProBuilder, and more
+- **190 Editor Tools** — GameObject, Component, Scene, Asset, Material, Animation, Prefab, Script, UI Toolkit, VFX, Audio, Camera, Graphics, Lighting, NavMesh, Physics, Terrain, Shader, Texture, Build, Package, Test, Screenshot, Console, ProBuilder, and more
+- **11 Python-Side Tools** — Script analysis, asset validation, PSD parsing/export/UI generation, Lanhu design fetching/slice downloading (runs without Unity connection)
 - **13 Resource Endpoints** — Read-only data queries (scene hierarchy, project info, editor state, console logs, current selection, etc.)
 - **48 Prompt Templates** — Unity best-practice guides (architecture, scripting, performance, shaders, XR, ECS, networking, etc.)
+- **PSD → UI Workflow** — Parse PSD/PSB file structure, export layer images, auto-generate Unity UI hierarchy
+- **Lanhu Integration** — Fetch Lanhu design lists, download design images for AI analysis, batch-download slices into project
 - **Batch Execute** — Run multiple tool operations in a single request with atomic rollback
 - **Runtime Mode** — Optional runtime MCP server for controlling the running game (8 runtime tools)
 - **Dynamic Tool Discovery** — Python server discovers and registers all tools/resources/prompts from Unity at startup
@@ -310,6 +313,24 @@ If it returns the scene hierarchy, you're all set.
 </details>
 
 <details>
+<summary><b>PSD & Lanhu (10 tools, Python-side)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `psd_parse` | Parse PSD/PSB file structure (layers, dimensions, blend modes, etc.) |
+| `psd_get_summary` | Get PSD file summary info |
+| `psd_export_images` | Export PSD layers as image files |
+| `psd_to_ui` | Full PSD to Unity UI workflow (parse + export + generate UI) |
+| `psd_create_ui` | Create Unity UI hierarchy from PSD structure (Unity-side) |
+| `lanhu_set_cookie` | Set Lanhu authentication cookie |
+| `lanhu_get_designs` | Get Lanhu project design list |
+| `lanhu_analyze_design` | Download Lanhu design image for AI analysis |
+| `lanhu_get_slices` | Get Lanhu design slice list |
+| `lanhu_download_slices` | Batch-download Lanhu slices to Unity project |
+
+</details>
+
+<details>
 <summary><b>Editor & Utility (50+ tools)</b></summary>
 
 | Tool | Description |
@@ -418,7 +439,7 @@ unity-mcp/
 │   ├── Editor/
 │   │   ├── Core/               # McpServer, TcpTransport, RequestHandler, ToolRegistry
 │   │   │                         ToolCallLogger, DependencyChecker, PackageUpdateChecker
-│   │   ├── Tools/              # 189 built-in tools (32 tool files)
+│   │   ├── Tools/              # 190 built-in tools (33 tool files)
 │   │   ├── Resources/          # 13 read-only resources
 │   │   ├── Prompts/            # 48 best-practice prompts
 │   │   ├── Utils/              # Editor utilities
@@ -436,7 +457,8 @@ unity-mcp/
 │   ├── unity_mcp_server/
 │   │   ├── server.py           # FastMCP entry point + dynamic tool discovery
 │   │   ├── unity_connection.py # TCP connection management + auto-reconnect
-│   │   └── config.py           # Environment variable configuration
+│   │   ├── config.py           # Environment variable configuration
+│   │   └── tools/              # Python-side tools (PSD parser, Lanhu integration, script analyzer, etc.)
 │   ├── pyproject.toml          # PyPI package configuration
 │   ├── Dockerfile              # Docker deployment
 │   └── docker-compose.yml
@@ -562,6 +584,7 @@ The entire process is nearly transparent to MCP clients, typically recovering wi
 - **Unity** 2021.2+
 - **Python** 3.10+ (recommend `uvx` for automatic dependency management)
 - **Unity Dependency**: `com.unity.nuget.newtonsoft-json` 3.2.1+ (auto-resolved)
+- **Python Dependencies** (auto-installed): `mcp`, `psd-tools` (PSD parsing), `httpx` (Lanhu integration)
 
 ## License
 
