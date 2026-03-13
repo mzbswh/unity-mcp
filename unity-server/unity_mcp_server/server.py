@@ -640,6 +640,138 @@ def validate_assets(project_path: str) -> str:
     return json.dumps(_validate(project_path), indent=2)
 
 
+@mcp.tool(
+    name="psd_summary",
+    description="Get a quick overview of a PSD/PSB file without exporting anything. "
+    "Returns canvas dimensions, layer counts by type (group/text/image/fillcolor), "
+    "and a compact layer tree with names and types. Text layer content is included (up to 50 chars). "
+    "Use this to understand PSD structure before deciding how to process it. "
+    "Runs locally using psd-tools (no Unity needed).",
+)
+def psd_summary(
+    psd_path: str,
+) -> str:
+    from .tools.psd_parser import get_psd_summary
+
+    return json.dumps(get_psd_summary(psd_path), indent=2, ensure_ascii=False)
+
+
+@mcp.tool(
+    name="psd_layer_detail",
+    description="Get detailed info about a specific layer in a PSD/PSB file by path. "
+    "Path format: 'groupName/layerName' (e.g. '组 110/活动'). "
+    "Returns full properties: position, size, opacity, blend mode, type, "
+    "text content/font/color (for text layers), fill color (for fill layers), "
+    "child list (for groups). Runs locally (no Unity needed).",
+)
+def psd_layer_detail(
+    psd_path: str,
+    layer_path: str,
+) -> str:
+    from .tools.psd_parser import get_psd_layer_detail
+
+    return json.dumps(get_psd_layer_detail(psd_path, layer_path), indent=2, ensure_ascii=False)
+
+
+@mcp.tool(
+    name="psd_parse",
+    description="Parse a PSD/PSB file and return the full layer tree structure. "
+    "Optionally export layer images as PNG (set export_images=false to skip). "
+    "Runs locally using psd-tools (no Unity needed). The returned layer tree can be passed to "
+    "psd_create_ui to generate Unity UI. Each layer includes: name, type (image/text/group/fillcolor), "
+    "position, size, uiType, textProperties (for text), fillColor (for fillcolor), "
+    "imagePath (for images, only when export_images=true), children (for groups). "
+    "Smart object layers wrapping text are automatically detected as text layers.",
+)
+def psd_parse(
+    psd_path: str,
+    image_output_dir: str = None,
+    unity_project_path: str = None,
+    export_images: bool = True,
+) -> str:
+    from .tools.psd_parser import parse_psd
+
+    return json.dumps(
+        parse_psd(psd_path, image_output_dir, unity_project_path, export_images),
+        indent=2, ensure_ascii=False,
+    )
+
+
+@mcp.tool(
+    name="psd_to_ui",
+    description="One-step PSD to Unity UI conversion. Parses the PSD file (Python-side), "
+    "exports layer images, then calls Unity to create the UI hierarchy and save as a prefab. "
+    "Supports custom component mapping via component_map to use project-specific UI components. "
+    "Returns the list of created objects and exported images with hierarchy paths for AI renaming. "
+    "After calling this tool, use asset_move to rename exported images and gameobject_modify to rename objects.",
+)
+async def psd_to_ui(
+    psd_path: str,
+    image_output_dir: str,
+    prefab_path: str,
+    unity_project_path: str = None,
+    component_map: dict = None,
+) -> str:
+    """One-step PSD to Unity UI conversion.
+
+    Args:
+        psd_path: Absolute path to the PSD/PSB file.
+        image_output_dir: Unity Assets-relative path for exported images.
+        prefab_path: Prefab save path (e.g. Assets/Prefab/MyUI.prefab).
+        unity_project_path: Unity project root. If None, image_output_dir is absolute.
+        component_map: Component mapping table. Maps uiType names to full C# type names.
+            If the type exists in the project, it will be used; otherwise falls back to defaults.
+            Example: {"Text": "MyGame.UI.CustomText, Assembly-CSharp",
+                      "Image": "MyGame.UI.CustomImage, Assembly-CSharp"}
+            Supported keys: Text, TMPText, Image, RawImage, FillColor, Button, TMPButton.
+    """
+    from .tools.psd_parser import parse_psd
+
+    # Step 1: Parse PSD and export images (Python-side)
+    parsed = parse_psd(psd_path, image_output_dir, unity_project_path)
+    if "error" in parsed:
+        return json.dumps(parsed, indent=2, ensure_ascii=False)
+
+    # Step 2: Call Unity to create UI from parsed data
+    arguments = {
+        "layers": parsed["layers"],
+        "prefabPath": prefab_path,
+        "imageDir": image_output_dir,
+        "canvasWidth": parsed["canvasWidth"],
+        "canvasHeight": parsed["canvasHeight"],
+    }
+    if component_map:
+        arguments["componentMap"] = component_map
+
+    await _ensure_connected()
+    result = await unity.send_request("tools/call", {
+        "name": "psd_create_ui",
+        "arguments": arguments,
+    })
+
+    if "error" in result:
+        error = result["error"]
+        msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+        return json.dumps({"error": msg, "parsedLayers": parsed}, indent=2, ensure_ascii=False)
+
+    mcp_result = result.get("result", {})
+    is_error = mcp_result.get("isError", False)
+    if is_error:
+        for item in mcp_result.get("content", []):
+            if isinstance(item, dict) and item.get("type") == "text":
+                return json.dumps(
+                    {"error": item.get("text"), "parsedLayers": parsed},
+                    indent=2, ensure_ascii=False,
+                )
+
+    # Extract text content from Unity response
+    for item in mcp_result.get("content", []):
+        if isinstance(item, dict) and item.get("type") == "text":
+            return item.get("text", "{}")
+
+    return json.dumps(mcp_result, indent=2, ensure_ascii=False)
+
+
 @mcp.resource("unity://server/status")
 def server_status() -> str:
     """Python MCP server status and connection info."""
