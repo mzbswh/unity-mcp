@@ -772,6 +772,145 @@ async def psd_to_ui(
     return json.dumps(mcp_result, indent=2, ensure_ascii=False)
 
 
+# --- Lanhu design platform tools ---
+
+_LANHU_NO_COOKIE_MSG = json.dumps({
+    "error": "Lanhu cookie not configured",
+    "action": "Please call lanhu_set_cookie with your Lanhu session cookie first. "
+    "You can get the cookie from browser DevTools (F12 → Network → any lanhuapp.com request → Cookie header).",
+}, ensure_ascii=False)
+
+
+@mcp.tool(
+    name="lanhu_set_cookie",
+    description="Set and save the Lanhu session cookie for authentication. "
+    "Cookie is saved to ~/.unity-mcp/lanhu.json for future use. "
+    "Optionally provide a test_url (Lanhu project URL) to verify the cookie works. "
+    "Get the cookie from browser DevTools: F12 → Network → any lanhuapp.com request → Cookie header.",
+)
+async def lanhu_set_cookie(cookie: str, test_url: str = None) -> str:
+    from .tools.lanhu import LanhuClient
+    from .config import save_lanhu_cookie
+
+    client = LanhuClient(cookie=cookie)
+    try:
+        result = await client.verify_cookie(test_url=test_url)
+        if result["valid"]:
+            save_lanhu_cookie(cookie)
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    finally:
+        await client.close()
+
+
+@mcp.tool(
+    name="lanhu_get_designs",
+    description="Get the list of UI design images from a Lanhu project. "
+    "Provide a Lanhu project URL (with tid and pid params). "
+    "Returns design names, IDs, dimensions, and preview URLs. "
+    "Call this first before using lanhu_analyze_design or lanhu_get_slices. "
+    "Requires lanhu_set_cookie to be called first if cookie is not configured.",
+)
+async def lanhu_get_designs(url: str) -> str:
+    from .tools.lanhu import LanhuClient, NoCookieError
+
+    try:
+        client = LanhuClient()
+    except NoCookieError:
+        return _LANHU_NO_COOKIE_MSG
+    try:
+        result = await client.get_designs(url)
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    finally:
+        await client.close()
+
+
+@mcp.tool(
+    name="lanhu_analyze_design",
+    description="Download Lanhu design images for AI visual analysis. "
+    "Provide a Lanhu project URL and design_names ('all', a name, an index number, "
+    "or a list of names/indexes from lanhu_get_designs). "
+    "Images are saved to output_dir as PNG files. "
+    "Returns file paths for each downloaded design image. "
+    "Requires lanhu_set_cookie to be called first if cookie is not configured.",
+)
+async def lanhu_analyze_design(
+    url: str,
+    design_names: str,
+    output_dir: str,
+) -> str:
+    from .tools.lanhu import LanhuClient, NoCookieError
+
+    try:
+        client = LanhuClient()
+    except NoCookieError:
+        return _LANHU_NO_COOKIE_MSG
+
+    names = design_names
+    if "," in design_names:
+        names = [n.strip() for n in design_names.split(",")]
+
+    try:
+        result = await client.download_design_images(url, names, output_dir)
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    finally:
+        await client.close()
+
+
+@mcp.tool(
+    name="lanhu_get_slices",
+    description="Get slice/asset info (download URLs, text layers) from a Lanhu design. "
+    "One-step: internally fetches design list, finds the target by name, then extracts slices. "
+    "No need to call lanhu_get_designs first. "
+    "Returns slice download URLs, text content, positions, fonts, and optional metadata. "
+    "Requires lanhu_set_cookie to be called first if cookie is not configured.",
+)
+async def lanhu_get_slices(
+    url: str,
+    design_name: str,
+    include_metadata: bool = True,
+) -> str:
+    from .tools.lanhu import LanhuClient, NoCookieError
+
+    try:
+        client = LanhuClient()
+    except NoCookieError:
+        return _LANHU_NO_COOKIE_MSG
+
+    try:
+        result = await client.get_design_slices(url, design_name, include_metadata)
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    finally:
+        await client.close()
+
+
+@mcp.tool(
+    name="lanhu_download_slices",
+    description="Batch download all slices/assets from a Lanhu design to a local directory. "
+    "One-step: fetches design list, finds the target, extracts slice URLs, downloads all images. "
+    "No need to call lanhu_get_designs or lanhu_get_slices first. "
+    "Files are named based on layer_path by default (e.g. TopBar_Icon.png). "
+    "Requires lanhu_set_cookie to be called first if cookie is not configured.",
+)
+async def lanhu_download_slices(
+    url: str,
+    design_name: str,
+    output_dir: str,
+    name_pattern: str = "layer_path",
+) -> str:
+    from .tools.lanhu import LanhuClient, NoCookieError
+
+    try:
+        client = LanhuClient()
+    except NoCookieError:
+        return _LANHU_NO_COOKIE_MSG
+
+    try:
+        result = await client.download_slices(url, design_name, output_dir, name_pattern)
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    finally:
+        await client.close()
+
+
 @mcp.resource("unity://server/status")
 def server_status() -> str:
     """Python MCP server status and connection info."""
