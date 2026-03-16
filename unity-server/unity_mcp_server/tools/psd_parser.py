@@ -170,6 +170,11 @@ def _extract_layer_detail(layer) -> dict:
     if ui_type:
         detail["uiType"] = ui_type
 
+    # Extract layer effects
+    layer_effects = _extract_layer_effects(layer)
+    if layer_effects:
+        detail["effects"] = layer_effects
+
     inner_text = _get_inner_text_layer(layer)
 
     if layer.is_group():
@@ -361,9 +366,17 @@ def _extract_text_properties(layer) -> dict:
                         "a": round(float(color_values[0]), 3),
                     }
 
-                font_set = style_data.get('Font')
-                if font_set is not None:
-                    props["fontName"] = str(font_set)
+                font_index = style_data.get('Font')
+                if font_index is not None:
+                    try:
+                        font_set = layer.resource_dict.get('FontSet', [])
+                        idx = int(font_index)
+                        if 0 <= idx < len(font_set):
+                            props["fontName"] = str(font_set[idx].get('Name', '')).strip("'")
+                        else:
+                            props["fontName"] = str(font_index)
+                    except (ValueError, IndexError, TypeError, AttributeError):
+                        props["fontName"] = str(font_index)
 
                 # Bold / Italic
                 face_name = style_data.get('FauxBold')
@@ -372,6 +385,23 @@ def _extract_text_properties(layer) -> dict:
                 face_italic = style_data.get('FauxItalic')
                 if face_italic:
                     props["italic"] = True
+
+                # Stroke color from character panel
+                stroke_color = style_data.get('StrokeColor', {})
+                stroke_values = stroke_color.get('Values', [])
+                if len(stroke_values) >= 4:
+                    props["strokeColor"] = {
+                        "r": round(float(stroke_values[1]), 3),
+                        "g": round(float(stroke_values[2]), 3),
+                        "b": round(float(stroke_values[3]), 3),
+                        "a": round(float(stroke_values[0]), 3),
+                    }
+
+                # Underline / Strikethrough
+                if style_data.get('Underline'):
+                    props["underline"] = True
+                if style_data.get('Strikethrough'):
+                    props["strikethrough"] = True
 
                 # Character spacing (tracking)
                 tracking = style_data.get('Tracking')
@@ -402,6 +432,124 @@ def _extract_text_properties(layer) -> dict:
     return props
 
 
+def _extract_layer_effects(layer) -> list:
+    """Extract enabled layer effects (stroke, shadow, color/gradient overlay)."""
+    effects_list = []
+    try:
+        effects = layer.effects
+        if not effects:
+            return effects_list
+
+        for e in effects:
+            if not e.enabled:
+                continue
+
+            if e.name == 'Stroke':
+                fx = {
+                    "type": "stroke",
+                    "size": round(float(e.size), 1),
+                    "position": {b'OutF': 'outside', b'InsF': 'inside', b'CtrF': 'center'}.get(e.position, 'outside'),
+                    "opacity": round(float(e.opacity), 1),
+                    "blendMode": _decode_blend_mode(e.blend_mode),
+                    "fillType": {b'SClr': 'color', b'GrFl': 'gradient', b'Ptrn': 'pattern'}.get(e.fill_type, 'color'),
+                }
+                if e.fill_type == b'SClr' and e.color:
+                    fx["color"] = _parse_effect_color(e.color)
+                elif e.fill_type == b'GrFl' and e.gradient:
+                    fx["gradient"] = _parse_gradient(e.gradient)
+                effects_list.append(fx)
+
+            elif e.name == 'DropShadow':
+                fx = {
+                    "type": "dropShadow",
+                    "color": _parse_effect_color(e.color) if e.color else {"r": 0, "g": 0, "b": 0, "a": 1},
+                    "opacity": round(float(e.opacity), 1),
+                    "angle": round(float(e.angle), 1),
+                    "distance": round(float(e.distance), 1),
+                    "size": round(float(e.size), 1),
+                    "choke": round(float(e.choke), 1),
+                }
+                effects_list.append(fx)
+
+            elif e.name == 'ColorOverlay':
+                fx = {
+                    "type": "colorOverlay",
+                    "color": _parse_effect_color(e.color) if e.color else {"r": 1, "g": 1, "b": 1, "a": 1},
+                    "opacity": round(float(e.opacity), 1),
+                    "blendMode": _decode_blend_mode(e.blend_mode),
+                }
+                effects_list.append(fx)
+
+            elif e.name == 'GradientOverlay':
+                fx = {
+                    "type": "gradientOverlay",
+                    "opacity": round(float(e.opacity), 1),
+                    "angle": round(float(e.angle), 1),
+                    "scale": round(float(e.scale), 1),
+                    "reversed": bool(e.reversed),
+                    "blendMode": _decode_blend_mode(e.blend_mode),
+                    "gradientType": {b'Lnr ': 'linear', b'Rdl ': 'radial'}.get(e.type, 'linear'),
+                }
+                if e.gradient:
+                    fx["gradient"] = _parse_gradient(e.gradient)
+                effects_list.append(fx)
+
+    except Exception:
+        pass
+    return effects_list
+
+
+def _parse_effect_color(color_dict) -> dict:
+    """Parse PSD effect color {b'Rd  ': float, b'Grn ': float, b'Bl  ': float} to normalized dict."""
+    return {
+        "r": round(color_dict.get(b'Rd  ', 0) / 255.0, 3),
+        "g": round(color_dict.get(b'Grn ', 0) / 255.0, 3),
+        "b": round(color_dict.get(b'Bl  ', 0) / 255.0, 3),
+        "a": 1.0,
+    }
+
+
+def _parse_gradient(gradient) -> dict:
+    """Parse PSD gradient descriptor to a serializable dict."""
+    result = {"colorStops": [], "transparencyStops": []}
+    try:
+        color_stops = gradient.get(b'Clrs', [])
+        for cs in color_stops:
+            clr = cs.get(b'Clr ', {})
+            stop = {
+                "location": round(cs.get(b'Lctn', 0) / 4096.0, 3),
+                "midpoint": round(cs.get(b'Mdpn', 50) / 100.0, 3),
+                "color": {
+                    "r": round(clr.get(b'Rd  ', 0) / 255.0, 3),
+                    "g": round(clr.get(b'Grn ', 0) / 255.0, 3),
+                    "b": round(clr.get(b'Bl  ', 0) / 255.0, 3),
+                },
+            }
+            result["colorStops"].append(stop)
+
+        trans_stops = gradient.get(b'Trns', [])
+        for ts in trans_stops:
+            stop = {
+                "location": round(ts.get(b'Lctn', 0) / 4096.0, 3),
+                "midpoint": round(ts.get(b'Mdpn', 50) / 100.0, 3),
+                "opacity": round(ts.get(b'Opct', 100) / 100.0, 3),
+            }
+            result["transparencyStops"].append(stop)
+    except Exception:
+        pass
+    return result
+
+
+def _decode_blend_mode(mode) -> str:
+    """Decode PSD blend mode bytes to readable string."""
+    mode_map = {
+        b'Nrml': 'normal', b'Mltp': 'multiply', b'Scrn': 'screen',
+        b'Ovrl': 'overlay', b'Dslv': 'dissolve', b'Drkn': 'darken',
+        b'Lghn': 'lighten', b'HrdL': 'hardLight', b'SftL': 'softLight',
+    }
+    return mode_map.get(mode, 'normal')
+
+
 def _parse_layers(group, result_list, abs_output_dir, rel_output_dir,
                   counter, exported_images, image_hash_map, export_images=True):
     """Recursively parse PSD layers into a structured list."""
@@ -430,6 +578,11 @@ def _parse_layers(group, result_list, abs_output_dir, rel_output_dir,
 
         if ui_type:
             layer_info["uiType"] = ui_type
+
+        # Extract layer effects (stroke, shadow, overlays)
+        layer_effects = _extract_layer_effects(layer)
+        if layer_effects:
+            layer_info["effects"] = layer_effects
 
         # Check for text layer (including smart objects wrapping text)
         inner_text = _get_inner_text_layer(layer)

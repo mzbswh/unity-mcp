@@ -432,6 +432,8 @@ namespace UnityMcp.Editor.Tools
 
                 var font = FindFont(fontName);
                 if (font != null) text.font = font;
+
+                ApplyLayerEffects(go, layerToken);
                 return;
             }
 
@@ -480,6 +482,9 @@ namespace UnityMcp.Editor.Tools
 
             // Font lookup
             SetFontByReflection(comp, componentType, fontName);
+
+            // Apply layer effects (Outline, Shadow, etc.)
+            ApplyLayerEffects(go, layerToken);
         }
 
         private static void SetTextAlignment(object comp, System.Type componentType, string alignment)
@@ -593,6 +598,129 @@ namespace UnityMcp.Editor.Tools
                         fontProp.SetValue(comp, fontAsset);
                         return;
                     }
+                }
+            }
+        }
+
+        #endregion
+
+        #region Effects
+
+        private static void ApplyLayerEffects(GameObject go, JToken layerToken)
+        {
+            var effectsArray = layerToken["effects"] as JArray;
+            if (effectsArray == null || effectsArray.Count == 0) return;
+
+            foreach (var fx in effectsArray)
+            {
+                string fxType = fx["type"]?.ToString() ?? "";
+                switch (fxType)
+                {
+                    case "stroke":
+                        ApplyStrokeEffect(go, fx);
+                        break;
+                    case "dropShadow":
+                        ApplyDropShadowEffect(go, fx);
+                        break;
+                    case "colorOverlay":
+                        ApplyColorOverlay(go, fx);
+                        break;
+                }
+            }
+        }
+
+        private static void ApplyStrokeEffect(GameObject go, JToken fx)
+        {
+            float size = fx["size"]?.ToObject<float>() ?? 1f;
+            var colorToken = fx["color"];
+            Color color = Color.black;
+            if (colorToken != null)
+            {
+                color = new Color(
+                    colorToken["r"]?.ToObject<float>() ?? 0f,
+                    colorToken["g"]?.ToObject<float>() ?? 0f,
+                    colorToken["b"]?.ToObject<float>() ?? 0f,
+                    (fx["opacity"]?.ToObject<float>() ?? 100f) / 100f
+                );
+            }
+
+            // Unity Outline component approximates PSD stroke
+            var outline = go.AddComponent<Outline>();
+            Undo.RegisterCreatedObjectUndo(outline, "Add Outline");
+            outline.effectColor = color;
+            // Outline effectDistance is in pixels; PSD stroke size maps roughly
+            float dist = Mathf.Max(size * 0.5f, 1f);
+            outline.effectDistance = new Vector2(dist, dist);
+        }
+
+        private static void ApplyDropShadowEffect(GameObject go, JToken fx)
+        {
+            var colorToken = fx["color"];
+            Color color = Color.black;
+            if (colorToken != null)
+            {
+                color = new Color(
+                    colorToken["r"]?.ToObject<float>() ?? 0f,
+                    colorToken["g"]?.ToObject<float>() ?? 0f,
+                    colorToken["b"]?.ToObject<float>() ?? 0f,
+                    (fx["opacity"]?.ToObject<float>() ?? 75f) / 100f
+                );
+            }
+
+            float angle = fx["angle"]?.ToObject<float>() ?? 120f;
+            float distance = fx["distance"]?.ToObject<float>() ?? 5f;
+
+            // Convert PSD angle+distance to Unity Shadow offset (X, Y)
+            float rad = angle * Mathf.Deg2Rad;
+            float offsetX = Mathf.Round(Mathf.Cos(rad) * distance);
+            float offsetY = Mathf.Round(Mathf.Sin(rad) * distance);
+
+            var shadow = go.AddComponent<Shadow>();
+            Undo.RegisterCreatedObjectUndo(shadow, "Add Shadow");
+            shadow.effectColor = color;
+            shadow.effectDistance = new Vector2(offsetX, -offsetY);
+        }
+
+        private static void ApplyColorOverlay(GameObject go, JToken fx)
+        {
+            // ColorOverlay overrides the text/graphic color
+            var colorToken = fx["color"];
+            if (colorToken == null) return;
+
+            float opacity = (fx["opacity"]?.ToObject<float>() ?? 100f) / 100f;
+            Color color = new Color(
+                colorToken["r"]?.ToObject<float>() ?? 1f,
+                colorToken["g"]?.ToObject<float>() ?? 1f,
+                colorToken["b"]?.ToObject<float>() ?? 1f,
+                opacity
+            );
+
+            // Apply to Text component
+            var text = go.GetComponent<Text>();
+            if (text != null)
+            {
+                text.color = color;
+                return;
+            }
+
+            // Apply to any component with a 'color' property (e.g. TMP)
+            var graphic = go.GetComponent<MaskableGraphic>();
+            if (graphic != null)
+            {
+                graphic.color = color;
+                return;
+            }
+
+            // Fallback: reflection for TMP or other custom components
+            foreach (var comp in go.GetComponents<Component>())
+            {
+                if (comp == null) continue;
+                var colorProp = comp.GetType().GetProperty("color",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (colorProp != null && colorProp.PropertyType == typeof(Color))
+                {
+                    colorProp.SetValue(comp, color);
+                    break;
                 }
             }
         }
