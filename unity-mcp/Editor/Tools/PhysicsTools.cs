@@ -11,135 +11,6 @@ namespace UnityMcp.Editor.Tools
     [McpToolGroup("Physics")]
     public static class PhysicsTools
     {
-        [McpTool("physics_add_rigidbody", "Add a Rigidbody (3D) or Rigidbody2D to a GameObject",
-            Group = "physics")]
-        public static ToolResult AddRigidbody(
-            [Desc("Name or path of the target GameObject")] string target,
-            [Desc("Use 2D physics (Rigidbody2D)")] bool is2D = false,
-            [Desc("Mass")] float mass = 1f,
-            [Desc("Use gravity")] bool useGravity = true,
-            [Desc("Is kinematic")] bool isKinematic = false,
-            [Desc("Drag")] float drag = 0f,
-            [Desc("Angular drag")] float angularDrag = 0.05f)
-        {
-            var go = GameObjectTools.FindGameObject(target, null);
-            if (go == null)
-                return ToolResult.Error($"GameObject not found: {target}");
-
-            if (is2D)
-            {
-                if (go.GetComponent<Rigidbody2D>() != null)
-                    return ToolResult.Error($"Rigidbody2D already exists on '{target}'");
-
-                var rb = Undo.AddComponent<Rigidbody2D>(go);
-                rb.mass = mass;
-                rb.gravityScale = useGravity ? 1f : 0f;
-                rb.bodyType = isKinematic ? RigidbodyType2D.Kinematic : RigidbodyType2D.Dynamic;
-                rb.drag = drag;
-                rb.angularDrag = angularDrag;
-            }
-            else
-            {
-                if (go.GetComponent<Rigidbody>() != null)
-                    return ToolResult.Error($"Rigidbody already exists on '{target}'");
-
-                var rb = Undo.AddComponent<Rigidbody>(go);
-                rb.mass = mass;
-                rb.useGravity = useGravity;
-                rb.isKinematic = isKinematic;
-                rb.drag = drag;
-                rb.angularDrag = angularDrag;
-            }
-
-            return ToolResult.Text($"Added {(is2D ? "Rigidbody2D" : "Rigidbody")} to '{go.name}'");
-        }
-
-        [McpTool("physics_add_collider", "Add a collider to a GameObject",
-            Group = "physics")]
-        public static ToolResult AddCollider(
-            [Desc("Name or path of the target GameObject")] string target,
-            [Desc("Collider type: Box, Sphere, Capsule, Mesh, Box2D, Circle2D, Polygon2D, Edge2D")] string type,
-            [Desc("Is trigger")] bool isTrigger = false,
-            [Desc("Center offset")] Vector3? center = null,
-            [Desc("Size for BoxCollider")] Vector3? size = null,
-            [Desc("Radius for Sphere/Circle")] float? radius = null,
-            [Desc("Height for CapsuleCollider")] float? height = null,
-            [Desc("PhysicMaterial asset path")] string material = null)
-        {
-            var go = GameObjectTools.FindGameObject(target, null);
-            if (go == null)
-                return ToolResult.Error($"GameObject not found: {target}");
-
-            Collider col3D = null;
-            Collider2D col2D = null;
-
-            switch (type?.ToLower())
-            {
-                case "box":
-                    var box = Undo.AddComponent<BoxCollider>(go);
-                    if (center.HasValue) box.center = center.Value;
-                    if (size.HasValue) box.size = size.Value;
-                    col3D = box;
-                    break;
-                case "sphere":
-                    var sphere = Undo.AddComponent<SphereCollider>(go);
-                    if (center.HasValue) sphere.center = center.Value;
-                    if (radius.HasValue) sphere.radius = radius.Value;
-                    col3D = sphere;
-                    break;
-                case "capsule":
-                    var capsule = Undo.AddComponent<CapsuleCollider>(go);
-                    if (center.HasValue) capsule.center = center.Value;
-                    if (radius.HasValue) capsule.radius = radius.Value;
-                    if (height.HasValue) capsule.height = height.Value;
-                    col3D = capsule;
-                    break;
-                case "mesh":
-                    var mesh = Undo.AddComponent<MeshCollider>(go);
-                    col3D = mesh;
-                    break;
-                case "box2d":
-                    var box2d = Undo.AddComponent<BoxCollider2D>(go);
-                    if (size.HasValue) box2d.size = new Vector2(size.Value.x, size.Value.y);
-                    col2D = box2d;
-                    break;
-                case "circle2d":
-                    var circle = Undo.AddComponent<CircleCollider2D>(go);
-                    if (radius.HasValue) circle.radius = radius.Value;
-                    col2D = circle;
-                    break;
-                case "polygon2d":
-                    col2D = Undo.AddComponent<PolygonCollider2D>(go);
-                    break;
-                case "edge2d":
-                    col2D = Undo.AddComponent<EdgeCollider2D>(go);
-                    break;
-                default:
-                    return ToolResult.Error($"Unknown collider type: {type}. Use: Box, Sphere, Capsule, Mesh, Box2D, Circle2D, Polygon2D, Edge2D");
-            }
-
-            if (col3D != null)
-            {
-                col3D.isTrigger = isTrigger;
-                if (!string.IsNullOrEmpty(material))
-                {
-                    var mat = AssetDatabase.LoadAssetAtPath<PhysicMaterial>(material);
-                    if (mat != null) col3D.sharedMaterial = mat;
-                }
-            }
-            if (col2D != null)
-            {
-                col2D.isTrigger = isTrigger;
-                if (!string.IsNullOrEmpty(material))
-                {
-                    var mat2d = AssetDatabase.LoadAssetAtPath<PhysicsMaterial2D>(material);
-                    if (mat2d != null) col2D.sharedMaterial = mat2d;
-                }
-            }
-
-            return ToolResult.Text($"Added {type} collider to '{go.name}'");
-        }
-
         [McpTool("physics_create_material", "Create a PhysicMaterial or PhysicsMaterial2D asset",
             Group = "physics")]
         public static ToolResult CreateMaterial(
@@ -260,10 +131,40 @@ namespace UnityMcp.Editor.Tools
         {
             if (is2D)
             {
+                var physics2DManager = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/Physics2DSettings.asset")
+                    .FirstOrDefault();
+                if (physics2DManager != null)
+                {
+                    var so = new SerializedObject(physics2DManager);
+                    var prop = so.FindProperty("m_Gravity");
+                    if (prop != null)
+                    {
+                        Undo.RecordObject(physics2DManager, "Set 2D Gravity");
+                        prop.vector2Value = new Vector2(gravity.x, gravity.y);
+                        so.ApplyModifiedProperties();
+                        return ToolResult.Text($"Set 2D gravity to ({gravity.x}, {gravity.y})");
+                    }
+                }
+                // Fallback
                 Physics2D.gravity = new Vector2(gravity.x, gravity.y);
                 return ToolResult.Text($"Set 2D gravity to ({gravity.x}, {gravity.y})");
             }
 
+            var physicsManager = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/DynamicsManager.asset")
+                .FirstOrDefault();
+            if (physicsManager != null)
+            {
+                var so = new SerializedObject(physicsManager);
+                var prop = so.FindProperty("m_Gravity");
+                if (prop != null)
+                {
+                    Undo.RecordObject(physicsManager, "Set Gravity");
+                    prop.vector3Value = gravity;
+                    so.ApplyModifiedProperties();
+                    return ToolResult.Text($"Set gravity to ({gravity.x}, {gravity.y}, {gravity.z})");
+                }
+            }
+            // Fallback
             Physics.gravity = gravity;
             return ToolResult.Text($"Set gravity to ({gravity.x}, {gravity.y}, {gravity.z})");
         }

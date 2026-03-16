@@ -268,36 +268,6 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Text($"'{go.name}' now looking at ({point.x}, {point.y}, {point.z})");
         }
 
-        [McpTool("gameobject_move_relative", "Move a GameObject by a relative offset (in world or local space)",
-            Group = "gameobject")]
-        public static ToolResult MoveRelative(
-            [Desc("Name or path of the GameObject")] string target,
-            [Desc("Instance ID")] int? instanceId = null,
-            [Desc("Offset to move {x,y,z}")] Vector3? offset = null,
-            [Desc("Use local space instead of world space")] bool localSpace = false)
-        {
-            var go = FindGameObject(target, instanceId);
-            if (go == null)
-                return ToolResult.Error($"GameObject not found: {target ?? instanceId?.ToString()}");
-
-            if (!offset.HasValue)
-                return ToolResult.Error("Offset is required");
-
-            UndoHelper.RecordObject(go.transform, "Move Relative");
-
-            if (localSpace)
-                go.transform.Translate(offset.Value, Space.Self);
-            else
-                go.transform.Translate(offset.Value, Space.World);
-
-            var pos = go.transform.position;
-            return ToolResult.Json(new
-            {
-                gameObject = go.name,
-                newPosition = new { x = pos.x, y = pos.y, z = pos.z }
-            });
-        }
-
         [McpTool("gameobject_set_sibling_index", "Set the sibling index (order among siblings) of a GameObject in the hierarchy",
             Group = "gameobject")]
         public static ToolResult SetSiblingIndex(

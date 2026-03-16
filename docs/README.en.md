@@ -92,8 +92,8 @@ If it returns the scene hierarchy, you're all set.
 
 ## Features
 
-- **190 Editor Tools** — GameObject, Component, Scene, Asset, Material, Animation, Prefab, Script, UI Toolkit, VFX, Audio, Camera, Graphics, Lighting, NavMesh, Physics, Terrain, Shader, Texture, Build, Package, Test, Screenshot, Console, ProBuilder, and more
-- **12 Python-Side Tools** — Script analysis, asset validation, PSD parsing/export/flatten/UI generation, Lanhu design fetching/slice downloading (runs without Unity connection)
+- **146 Editor Tools** — GameObject, Scene, Asset, Material, Animation, Prefab, UI Toolkit, VFX, Graphics, Lighting, NavMesh, Physics, Terrain, Shader, Texture, Build, Package, Test, Screenshot, Console, ProBuilder, and more
+- **11 Python-Side Tools** — PSD parsing/export/flatten/UI generation, Lanhu design fetching/slice downloading (runs without Unity connection)
 - **13 Resource Endpoints** — Read-only data queries (scene hierarchy, project info, editor state, console logs, current selection, etc.)
 - **48 Prompt Templates** — Unity best-practice guides (architecture, scripting, performance, shaders, XR, ECS, networking, etc.)
 - **PSD → UI Workflow** — Parse PSD/PSB file structure, export layer images, auto-generate Unity UI hierarchy
@@ -113,7 +113,7 @@ If it returns the scene hierarchy, you're all set.
 ## Tools Overview
 
 <details>
-<summary><b>GameObject & Component (15 tools)</b></summary>
+<summary><b>GameObject & Component (14 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -125,13 +125,12 @@ If it returns the scene hierarchy, you're all set.
 | `gameobject_duplicate` | Duplicate GameObject |
 | `gameobject_get_components` | Get component list |
 | `gameobject_look_at` | Look at target |
-| `gameobject_move_relative` | Move relative |
 | `gameobject_set_sibling_index` | Set sibling order |
-| `component_add` | Add component |
-| `component_remove` | Remove component |
-| `component_get` | View component properties |
-| `component_modify` | Modify component properties |
-| `component_copy_values` | Copy component values |
+| `gameobject_add_component` | Add component |
+| `gameobject_remove_component` | Remove component |
+| `gameobject_get_component` | View component properties |
+| `gameobject_modify_component` | Modify component properties |
+| `gameobject_copy_component` | Copy component values |
 
 </details>
 
@@ -165,7 +164,7 @@ If it returns the scene hierarchy, you're all set.
 </details>
 
 <details>
-<summary><b>Material & Shader (13 tools)</b></summary>
+<summary><b>Material & Shader (8 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -173,17 +172,7 @@ If it returns the scene hierarchy, you're all set.
 | `material_set_render_mode` | Set render mode |
 | `material_get_keywords` / `material_set_keywords` | Material keyword management |
 | `shader_list` / `shader_get_properties` | Shader queries |
-| `shader_create` / `shader_read` / `shader_update` / `shader_delete` | Shader CRUD |
 | `shader_info` | Shader detailed info |
-
-</details>
-
-<details>
-<summary><b>Script (3 tools)</b></summary>
-
-| Tool | Description |
-|------|-------------|
-| `script_create` / `script_read` / `script_update` | C# script CRUD |
 
 </details>
 
@@ -193,7 +182,7 @@ If it returns the scene hierarchy, you're all set.
 | Tool | Description |
 |------|-------------|
 | `prefab_create` / `prefab_instantiate` | Prefab workflow |
-| `prefab_open` / `prefab_save_close` | Prefab editing mode |
+| `prefab_open` / `prefab_close` | Prefab editing mode |
 | `prefab_get_hierarchy` / `prefab_get_stage_objects` | Prefab hierarchy viewing |
 | `prefab_modify_contents` | Modify prefab contents |
 | `prefab_apply_overrides` / `prefab_revert_overrides` | Override management |
@@ -216,11 +205,11 @@ If it returns the scene hierarchy, you're all set.
 </details>
 
 <details>
-<summary><b>UI Toolkit (7 tools)</b></summary>
+<summary><b>UI Toolkit (4 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `uitoolkit_create` / `uitoolkit_read` / `uitoolkit_update` / `uitoolkit_delete` | UXML/USS CRUD |
+| `uitoolkit_create` | UXML/USS creation |
 | `uitoolkit_list` | List UI assets |
 | `uitoolkit_attach` | Attach UIDocument |
 | `uitoolkit_get_visual_tree` | Get runtime visual tree |
@@ -228,21 +217,16 @@ If it returns the scene hierarchy, you're all set.
 </details>
 
 <details>
-<summary><b>VFX & Audio (12 tools)</b></summary>
+<summary><b>VFX (1 tool)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `vfx_create_particle` / `vfx_modify_particle` | Particle systems |
-| `vfx_create_graph` / `vfx_get_info` | VFX Graph |
-| `vfx_create_line` / `vfx_modify_line` / `vfx_create_trail` | Lines and trails |
-| `audio_create_source` / `audio_modify_source` / `audio_get_source_info` | Audio source management |
-| `audio_set_clip_import` | Audio import settings |
-| `audio_create_listener` | Audio listener |
+| `vfx_create_graph` | VFX Graph creation |
 
 </details>
 
 <details>
-<summary><b>Graphics & Lighting (21 tools)</b></summary>
+<summary><b>Graphics (11 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -252,39 +236,29 @@ If it returns the scene hierarchy, you're all set.
 | `graphics_get_render_pipeline` | Render pipeline info |
 | `graphics_get_quality` / `graphics_set_quality` | Quality settings |
 | `graphics_get_stats` | Graphics stats |
-| `graphics_bake_lighting` / `graphics_get_lightmap_settings` | Lightmap baking |
-| `light_create` / `light_modify` / `light_get_info` | Light management |
-| `lighting_get_environment` / `lighting_set_environment` | Environment lighting |
-| `lighting_bake` / `lighting_get_bake_status` / `lighting_cancel_bake` | Bake control |
-| `light_create_probe` | Light probe |
+| `graphics_get_lightmap_settings` | Lightmap settings |
 
 </details>
 
 <details>
-<summary><b>Camera (4 tools)</b></summary>
+<summary><b>Lighting (2 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `camera_create` | Create camera |
-| `camera_configure` | Configure camera parameters |
-| `camera_get_info` | Get camera info |
-| `camera_look_at` | Point camera at target |
+| `lighting_bake` | Lightmap baking |
+| `lighting_cancel_bake` | Cancel baking |
 
 </details>
 
 <details>
-<summary><b>Physics & NavMesh (13 tools)</b></summary>
+<summary><b>Physics & NavMesh (6 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `physics_add_rigidbody` / `physics_add_collider` | Physics components |
 | `physics_create_material` | Physics material |
 | `physics_raycast` | Raycast |
 | `physics_get_settings` / `physics_set_gravity` | Physics settings |
-| `navmesh_add_agent` / `navmesh_modify_agent` | Navigation agents |
-| `navmesh_add_obstacle` / `navmesh_add_surface` | NavMesh obstacles and surfaces |
 | `navmesh_bake` / `navmesh_clear` | NavMesh baking |
-| `navmesh_get_info` | NavMesh info |
 
 </details>
 
@@ -302,12 +276,11 @@ If it returns the scene hierarchy, you're all set.
 </details>
 
 <details>
-<summary><b>Texture (3 tools)</b></summary>
+<summary><b>Texture (2 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `texture_get_info` | Get texture info |
-| `texture_set_import` | Modify texture import settings |
 | `texture_search` | Search texture assets |
 
 </details>
@@ -341,7 +314,6 @@ If it returns the scene hierarchy, you're all set.
 | `editor_selection_get` / `editor_selection_set` | Selection management |
 | `editor_undo` / `editor_redo` | Undo/Redo |
 | `editor_open_window` | Open editor window |
-| `editor_refresh` | Refresh AssetDatabase |
 | `editor_get_compile_status` | Script compile status |
 | `screenshot_scene` / `screenshot_game` | Scene/Game view screenshots (returns MCP images) |
 | `console_get_logs` | Console logs |
@@ -440,7 +412,7 @@ unity-mcp/
 │   ├── Editor/
 │   │   ├── Core/               # McpServer, TcpTransport, RequestHandler, ToolRegistry
 │   │   │                         ToolCallLogger, DependencyChecker, PackageUpdateChecker
-│   │   ├── Tools/              # 190 built-in tools (33 tool files)
+│   │   ├── Tools/              # 146 built-in tools
 │   │   ├── Resources/          # 13 read-only resources
 │   │   ├── Prompts/            # 48 best-practice prompts
 │   │   ├── Utils/              # Editor utilities
@@ -459,7 +431,7 @@ unity-mcp/
 │   │   ├── server.py           # FastMCP entry point + dynamic tool discovery
 │   │   ├── unity_connection.py # TCP connection management + auto-reconnect
 │   │   ├── config.py           # Environment variable configuration
-│   │   └── tools/              # Python-side tools (PSD parser, Lanhu integration, script analyzer, etc.)
+│   │   └── tools/              # Python-side tools (PSD parser, Lanhu integration, etc.)
 │   ├── pyproject.toml          # PyPI package configuration
 │   ├── Dockerfile              # Docker deployment
 │   └── docker-compose.yml

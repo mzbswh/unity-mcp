@@ -47,64 +47,6 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
-        [McpTool("uitoolkit_read", "Read the contents of a UXML or USS file",
-            Group = "uitoolkit", ReadOnly = true)]
-        public static ToolResult Read(
-            [Desc("Asset path (e.g. Assets/UI/MainMenu.uxml)")] string path)
-        {
-            var pv = PathValidator.QuickValidate(path);
-            if (!pv.IsValid) return ToolResult.Error(pv.Error);
-
-            if (!File.Exists(path))
-                return ToolResult.Error($"File not found: {path}");
-
-            var ext = Path.GetExtension(path)?.ToLowerInvariant();
-            var source = File.ReadAllText(path);
-
-            return ToolResult.Json(new
-            {
-                path,
-                type = ext == ".uxml" ? "UXML" : ext == ".uss" ? "USS" : "unknown",
-                source,
-            });
-        }
-
-        [McpTool("uitoolkit_update", "Update the contents of an existing UXML or USS file",
-            Group = "uitoolkit")]
-        public static ToolResult Update(
-            [Desc("Asset path")] string path,
-            [Desc("New file contents")] string contents)
-        {
-            var pv = PathValidator.QuickValidate(path);
-            if (!pv.IsValid) return ToolResult.Error(pv.Error);
-
-            if (!File.Exists(path))
-                return ToolResult.Error($"File not found: {path}");
-
-            if (string.IsNullOrEmpty(contents))
-                return ToolResult.Error("Contents cannot be empty");
-
-            File.WriteAllText(path, contents);
-            AssetDatabase.Refresh();
-
-            return ToolResult.Json(new { path, updated = true });
-        }
-
-        [McpTool("uitoolkit_delete", "Delete a UXML or USS file",
-            Group = "uitoolkit")]
-        public static ToolResult Delete(
-            [Desc("Asset path")] string path)
-        {
-            var pv = PathValidator.QuickValidate(path);
-            if (!pv.IsValid) return ToolResult.Error(pv.Error);
-
-            if (!File.Exists(path))
-                return ToolResult.Error($"File not found: {path}");
-
-            AssetDatabase.DeleteAsset(path);
-            return ToolResult.Json(new { deleted = path });
-        }
-
         [McpTool("uitoolkit_list", "List all UXML and USS files in the project",
             Group = "uitoolkit", ReadOnly = true)]
         public static ToolResult List(

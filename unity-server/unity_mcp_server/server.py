@@ -629,12 +629,6 @@ def _register_dynamic_prompt(server: FastMCP, name: str, prompt_def: dict):
 
 # --- Python-side tools (no Unity connection needed) ---
 
-@mcp.tool(name="analyze_script", description="Analyze a C# script for common issues and patterns (runs locally, no Unity needed)")
-def analyze_script(file_path: str) -> str:
-    from .tools.script_analyzer import analyze_script as _analyze
-    return json.dumps(_analyze(file_path), indent=2)
-
-
 @mcp.tool(name="validate_assets", description="Validate asset naming conventions and folder structure (runs locally, no Unity needed)")
 def validate_assets(project_path: str) -> str:
     from .tools.asset_validator import validate_assets as _validate

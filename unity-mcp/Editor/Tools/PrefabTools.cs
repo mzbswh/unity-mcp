@@ -102,19 +102,30 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Text($"Opened prefab: {path}");
         }
 
-        [McpTool("prefab_save_close", "Save and close the currently open Prefab edit mode",
+        [McpTool("prefab_close", "Close the currently open Prefab edit mode",
             Group = "prefab")]
-        public static ToolResult SaveClose()
+        public static ToolResult SaveClose(
+            [Desc("Save changes before closing (default true)")] bool save = true)
         {
             var stage = UnityEditor.SceneManagement.PrefabStageUtility.GetCurrentPrefabStage();
             if (stage == null)
                 return ToolResult.Error("No prefab is currently open for editing");
 
             var prefabPath = stage.assetPath;
-            // Save is automatic when exiting prefab mode
+
+            if (!save)
+            {
+                // Discard changes by clearing dirty flag before exiting
+                var prefabRoot = stage.prefabContentsRoot;
+                if (prefabRoot != null)
+                    EditorUtility.ClearDirty(prefabRoot);
+            }
+
             UnityEditor.SceneManagement.StageUtility.GoToMainStage();
 
-            return ToolResult.Text($"Saved and closed prefab: {prefabPath}");
+            return save
+                ? ToolResult.Text($"Saved and closed prefab: {prefabPath}")
+                : ToolResult.Text($"Closed prefab without saving: {prefabPath}");
         }
 
         [McpTool("prefab_get_hierarchy", "Get the hierarchy of objects inside a Prefab asset (without opening it in the editor). Returns names, paths, active state, and components for each object.",

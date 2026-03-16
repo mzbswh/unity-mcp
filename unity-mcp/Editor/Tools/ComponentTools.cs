@@ -10,11 +10,11 @@ using UnityMcp.Shared.Models;
 
 namespace UnityMcp.Editor.Tools
 {
-    [McpToolGroup("Component")]
+    [McpToolGroup("GameObject")]
     public static class ComponentTools
     {
-        [McpTool("component_add", "Add a component to a GameObject",
-            Group = "component")]
+        [McpTool("gameobject_add_component", "Add a component to a GameObject",
+            Group = "gameobject")]
         public static ToolResult Add(
             [Desc("Name or path of the target GameObject")] string target,
             [Desc("Component type name (e.g. Rigidbody, BoxCollider, AudioSource)")] string type)
@@ -36,8 +36,8 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
-        [McpTool("component_remove", "Remove a component from a GameObject",
-            Group = "component")]
+        [McpTool("gameobject_remove_component", "Remove a component from a GameObject",
+            Group = "gameobject")]
         public static ToolResult Remove(
             [Desc("Name or path of the target GameObject")] string target,
             [Desc("Component type name to remove")] string type)
@@ -58,8 +58,8 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Text($"Removed {type} from '{go.name}'");
         }
 
-        [McpTool("component_get", "Get serialized field values of a component. ObjectReference fields return asset paths, array fields return JSON arrays.",
-            Group = "component", ReadOnly = true)]
+        [McpTool("gameobject_get_component", "Get serialized field values of a component. ObjectReference fields return asset paths, array fields return JSON arrays.",
+            Group = "gameobject", ReadOnly = true)]
         public static ToolResult Get(
             [Desc("Name or path of the target GameObject")] string target,
             [Desc("Component type name")] string type)
@@ -88,8 +88,8 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Json(new { gameObject = go.name, component = type, fields });
         }
 
-        [McpTool("component_modify", "Modify serialized field values of a component. Supports int, float, bool, string, enum, Vector2/3/4, Quaternion, Rect, Bounds, Color, ObjectReference (pass asset path like 'Assets/Materials/X.mat'), and arrays (pass JSON array). Field names are matched flexibly: you can use the C# property name (e.g. 'sprite'), the serialized field name (e.g. 'm_Sprite'), or camelCase (e.g. 'color'). Supports nested fields via dot-path (e.g. 'UVModule.tilesX') or nested JSON objects (e.g. {\"UVModule\": {\"enabled\": true, \"tilesX\": 8}}). This is especially useful for ParticleSystem submodules. Use component_get to see available field names.",
-            Group = "component")]
+        [McpTool("gameobject_modify_component", "Modify serialized field values of a component. Supports int, float, bool, string, enum, Vector2/3/4, Quaternion, Rect, Bounds, Color, ObjectReference (pass asset path like 'Assets/Materials/X.mat'), and arrays (pass JSON array). Field names are matched flexibly: you can use the C# property name (e.g. 'sprite'), the serialized field name (e.g. 'm_Sprite'), or camelCase (e.g. 'color'). Supports nested fields via dot-path (e.g. 'UVModule.tilesX') or nested JSON objects (e.g. {\"UVModule\": {\"enabled\": true, \"tilesX\": 8}}). This is especially useful for ParticleSystem submodules. Use gameobject_get_component to see available field names.",
+            Group = "gameobject")]
         public static ToolResult Modify(
             [Desc("Name or path of the target GameObject")] string target,
             [Desc("Component type name")] string type,
@@ -136,8 +136,8 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Text($"{type} on '{go.name}' updated: {string.Join(", ", changes)}");
         }
 
-        [McpTool("component_copy_values", "Copy all serialized property values from one component to another component of the same type (on a different GameObject)",
-            Group = "component")]
+        [McpTool("gameobject_copy_component", "Copy all serialized property values from one component to another component of the same type (on a different GameObject)",
+            Group = "gameobject")]
         public static ToolResult CopyValues(
             [Desc("Name or path of the source GameObject")] string source,
             [Desc("Component type name on the source")] string type,

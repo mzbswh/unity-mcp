@@ -92,8 +92,8 @@ MCP 客户端配置示例（以 Cursor 为例）：
 
 ## 特性
 
-- **190 个编辑器工具** — GameObject、Component、Scene、Asset、Material、Animation、Prefab、Script、UI Toolkit、VFX、Audio、Camera、Graphics、Lighting、NavMesh、Physics、Terrain、Shader、Texture、Build、Package、Test、Screenshot、Console、ProBuilder 等
-- **12 个 Python 端工具** — 脚本分析、资源校验、PSD 解析/导出/合成/转 UI、蓝湖设计稿获取/切图下载（无需 Unity 连接即可运行）
+- **146 个编辑器工具** — GameObject、Scene、Asset、Material、Animation、Prefab、UI Toolkit、VFX、Graphics、Lighting、NavMesh、Physics、Terrain、Shader、Texture、Build、Package、Test、Screenshot、Console、ProBuilder 等
+- **11 个 Python 端工具** — PSD 解析/导出/合成/转 UI、蓝湖设计稿获取/切图下载（无需 Unity 连接即可运行）
 - **13 个资源端点** — 只读数据查询（场景层级、项目信息、编辑器状态、控制台日志、当前选中等）
 - **48 个提示词模板** — Unity 最佳实践指南（架构、脚本、性能、Shader、XR、ECS、网络等）
 - **PSD → UI 工作流** — 解析 PSD/PSB 文件结构，导出图层图片，自动生成 Unity UI 层级
@@ -113,7 +113,7 @@ MCP 客户端配置示例（以 Cursor 为例）：
 ## 工具一览
 
 <details>
-<summary><b>GameObject & Component (15 tools)</b></summary>
+<summary><b>GameObject & Component (14 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
@@ -125,13 +125,12 @@ MCP 客户端配置示例（以 Cursor 为例）：
 | `gameobject_duplicate` | 复制 GameObject |
 | `gameobject_get_components` | 获取组件列表 |
 | `gameobject_look_at` | 朝向目标 |
-| `gameobject_move_relative` | 相对移动 |
 | `gameobject_set_sibling_index` | 设置同级排序 |
-| `component_add` | 添加组件 |
-| `component_remove` | 移除组件 |
-| `component_get` | 查看组件属性 |
-| `component_modify` | 修改组件属性 |
-| `component_copy_values` | 复制组件值 |
+| `gameobject_add_component` | 添加组件 |
+| `gameobject_remove_component` | 移除组件 |
+| `gameobject_get_component` | 查看组件属性 |
+| `gameobject_modify_component` | 修改组件属性 |
+| `gameobject_copy_component` | 复制组件值 |
 
 </details>
 
@@ -165,7 +164,7 @@ MCP 客户端配置示例（以 Cursor 为例）：
 </details>
 
 <details>
-<summary><b>Material & Shader (13 tools)</b></summary>
+<summary><b>Material & Shader (8 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
@@ -173,17 +172,7 @@ MCP 客户端配置示例（以 Cursor 为例）：
 | `material_set_render_mode` | 设置渲染模式 |
 | `material_get_keywords` / `material_set_keywords` | 材质关键字管理 |
 | `shader_list` / `shader_get_properties` | Shader 查询 |
-| `shader_create` / `shader_read` / `shader_update` / `shader_delete` | Shader CRUD |
 | `shader_info` | Shader 详细信息 |
-
-</details>
-
-<details>
-<summary><b>Script (3 tools)</b></summary>
-
-| 工具 | 说明 |
-|------|------|
-| `script_create` / `script_read` / `script_update` | C# 脚本增删改查 |
 
 </details>
 
@@ -193,7 +182,7 @@ MCP 客户端配置示例（以 Cursor 为例）：
 | 工具 | 说明 |
 |------|------|
 | `prefab_create` / `prefab_instantiate` | Prefab 工作流 |
-| `prefab_open` / `prefab_save_close` | Prefab 编辑模式 |
+| `prefab_open` / `prefab_close` | Prefab 编辑模式 |
 | `prefab_get_hierarchy` / `prefab_get_stage_objects` | Prefab 层级查看 |
 | `prefab_modify_contents` | 修改 Prefab 内容 |
 | `prefab_apply_overrides` / `prefab_revert_overrides` | 覆盖管理 |
@@ -216,11 +205,11 @@ MCP 客户端配置示例（以 Cursor 为例）：
 </details>
 
 <details>
-<summary><b>UI Toolkit (7 tools)</b></summary>
+<summary><b>UI Toolkit (4 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
-| `uitoolkit_create` / `uitoolkit_read` / `uitoolkit_update` / `uitoolkit_delete` | UXML/USS CRUD |
+| `uitoolkit_create` | UXML/USS 创建 |
 | `uitoolkit_list` | 列出 UI 资源 |
 | `uitoolkit_attach` | 绑定 UIDocument |
 | `uitoolkit_get_visual_tree` | 获取运行时视觉树 |
@@ -228,21 +217,16 @@ MCP 客户端配置示例（以 Cursor 为例）：
 </details>
 
 <details>
-<summary><b>VFX & Audio (12 tools)</b></summary>
+<summary><b>VFX (1 tool)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
-| `vfx_create_particle` / `vfx_modify_particle` | 粒子系统 |
-| `vfx_create_graph` / `vfx_get_info` | VFX Graph |
-| `vfx_create_line` / `vfx_modify_line` / `vfx_create_trail` | 线条和拖尾 |
-| `audio_create_source` / `audio_modify_source` / `audio_get_source_info` | 音频源管理 |
-| `audio_set_clip_import` | 音频导入设置 |
-| `audio_create_listener` | 音频监听器 |
+| `vfx_create_graph` | VFX Graph 创建 |
 
 </details>
 
 <details>
-<summary><b>Graphics & Lighting (21 tools)</b></summary>
+<summary><b>Graphics (11 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
@@ -252,39 +236,29 @@ MCP 客户端配置示例（以 Cursor 为例）：
 | `graphics_get_render_pipeline` | 渲染管线信息 |
 | `graphics_get_quality` / `graphics_set_quality` | 画质设置 |
 | `graphics_get_stats` | 图形统计 |
-| `graphics_bake_lighting` / `graphics_get_lightmap_settings` | 光照烘焙 |
-| `light_create` / `light_modify` / `light_get_info` | 灯光管理 |
-| `lighting_get_environment` / `lighting_set_environment` | 环境光照 |
-| `lighting_bake` / `lighting_get_bake_status` / `lighting_cancel_bake` | 烘焙控制 |
-| `light_create_probe` | 光照探针 |
+| `graphics_get_lightmap_settings` | 光照贴图设置 |
 
 </details>
 
 <details>
-<summary><b>Camera (4 tools)</b></summary>
+<summary><b>Lighting (2 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
-| `camera_create` | 创建摄像机 |
-| `camera_configure` | 配置摄像机参数 |
-| `camera_get_info` | 获取摄像机信息 |
-| `camera_look_at` | 摄像机朝向目标 |
+| `lighting_bake` | 光照烘焙 |
+| `lighting_cancel_bake` | 取消烘焙 |
 
 </details>
 
 <details>
-<summary><b>Physics & NavMesh (13 tools)</b></summary>
+<summary><b>Physics & NavMesh (6 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
-| `physics_add_rigidbody` / `physics_add_collider` | 物理组件 |
 | `physics_create_material` | 物理材质 |
 | `physics_raycast` | 射线检测 |
 | `physics_get_settings` / `physics_set_gravity` | 物理设置 |
-| `navmesh_add_agent` / `navmesh_modify_agent` | 导航代理 |
-| `navmesh_add_obstacle` / `navmesh_add_surface` | 导航障碍和表面 |
 | `navmesh_bake` / `navmesh_clear` | 导航网格烘焙 |
-| `navmesh_get_info` | 导航网格信息 |
 
 </details>
 
@@ -302,12 +276,11 @@ MCP 客户端配置示例（以 Cursor 为例）：
 </details>
 
 <details>
-<summary><b>Texture (3 tools)</b></summary>
+<summary><b>Texture (2 tools)</b></summary>
 
 | 工具 | 说明 |
 |------|------|
 | `texture_get_info` | 获取纹理信息 |
-| `texture_set_import` | 修改纹理导入设置 |
 | `texture_search` | 搜索纹理资源 |
 
 </details>
@@ -341,7 +314,6 @@ MCP 客户端配置示例（以 Cursor 为例）：
 | `editor_selection_get` / `editor_selection_set` | 选中对象管理 |
 | `editor_undo` / `editor_redo` | 撤销/重做 |
 | `editor_open_window` | 打开编辑器窗口 |
-| `editor_refresh` | 刷新 AssetDatabase |
 | `editor_get_compile_status` | 脚本编译状态 |
 | `screenshot_scene` / `screenshot_game` | Scene/Game 视图截图（返回 MCP 图片） |
 | `console_get_logs` | 控制台日志 |
@@ -440,7 +412,7 @@ unity-mcp/
 │   ├── Editor/
 │   │   ├── Core/               # McpServer, TcpTransport, RequestHandler, ToolRegistry
 │   │   │                         ToolCallLogger, DependencyChecker, PackageUpdateChecker
-│   │   ├── Tools/              # 190 个内置工具（33 个工具文件）
+│   │   ├── Tools/              # 146 个内置工具
 │   │   ├── Resources/          # 13 个只读资源
 │   │   ├── Prompts/            # 48 个最佳实践提示词
 │   │   ├── Utils/              # 编辑器辅助工具
@@ -459,7 +431,7 @@ unity-mcp/
 │   │   ├── server.py           # FastMCP 入口 + 动态工具发现注册
 │   │   ├── unity_connection.py # TCP 连接管理 + 自动重连
 │   │   ├── config.py           # 环境变量配置
-│   │   └── tools/              # Python 端工具（PSD 解析、蓝湖集成、脚本分析等）
+│   │   └── tools/              # Python 端工具（PSD 解析、蓝湖集成等）
 │   ├── pyproject.toml          # PyPI 包配置
 │   ├── Dockerfile              # Docker 部署
 │   └── docker-compose.yml

@@ -177,11 +177,11 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
-        [McpTool("asset_set_import_settings", "Set import settings for an asset. Primarily for textures: set textureType to 'Sprite' for UI images, configure sprite settings, compression, etc.",
+        [McpTool("asset_set_import_settings", "Set import settings for an asset (texture or audio). For textures: textureType, spriteImportMode, spritePixelsPerUnit, maxTextureSize, textureCompression, filterMode, wrapMode, sRGBTexture, alphaIsTransparency, isReadable, mipmapEnabled. For audio: forceToMono, loadInBackground, preloadAudioData, loadType (DecompressOnLoad/CompressedInMemory/Streaming), compressionFormat (PCM/Vorbis/ADPCM), quality (0-1).",
             Group = "asset")]
         public static ToolResult SetImportSettings(
-            [Desc("Asset path (e.g. Assets/Textures/icon.png)")] string path,
-            [Desc("Import settings as JSON. For textures: textureType (Default/Sprite/NormalMap/GUI), spriteImportMode (Single/Multiple), spritePixelsPerUnit, maxTextureSize, textureCompression (Uncompressed/Compressed/CompressedHQ/CompressedLQ), filterMode (Point/Bilinear/Trilinear), wrapMode (Repeat/Clamp), sRGBTexture, alphaIsTransparency, isReadable, mipmapEnabled")] Newtonsoft.Json.Linq.JObject settings)
+            [Desc("Asset path (e.g. Assets/Textures/icon.png or Assets/Audio/bgm.wav)")] string path,
+            [Desc("Import settings as JSON")] Newtonsoft.Json.Linq.JObject settings)
         {
             var pv = PathValidator.QuickValidate(path);
             if (!pv.IsValid) return ToolResult.Error(pv.Error);
@@ -193,7 +193,10 @@ namespace UnityMcp.Editor.Tools
             if (importer is TextureImporter texImporter)
                 return ApplyTextureImportSettings(texImporter, settings, path);
 
-            return ToolResult.Error($"Unsupported importer type: {importer.GetType().Name}. Currently only TextureImporter is supported.");
+            if (importer is AudioImporter audioImporter)
+                return ApplyAudioImportSettings(audioImporter, settings, path);
+
+            return ToolResult.Error($"Unsupported importer type: {importer.GetType().Name}. Supported: TextureImporter, AudioImporter.");
         }
 
         [McpTool("asset_set_model_import", "Set import settings for a model asset (FBX, OBJ, etc.)",
@@ -354,6 +357,36 @@ namespace UnityMcp.Editor.Tools
 
             importer.SaveAndReimport();
             return ToolResult.Text($"Applied {applied} import settings to '{path}' (importer: TextureImporter)");
+        }
+
+        private static ToolResult ApplyAudioImportSettings(AudioImporter importer, Newtonsoft.Json.Linq.JObject settings, string path)
+        {
+            int applied = 0;
+
+            if (settings["forceToMono"] != null)
+            { importer.forceToMono = settings["forceToMono"].ToObject<bool>(); applied++; }
+            if (settings["loadInBackground"] != null)
+            { importer.loadInBackground = settings["loadInBackground"].ToObject<bool>(); applied++; }
+            if (settings["preloadAudioData"] != null)
+            { importer.preloadAudioData = settings["preloadAudioData"].ToObject<bool>(); applied++; }
+
+            var sampleSettings = importer.defaultSampleSettings;
+            if (settings["loadType"] != null)
+            {
+                if (System.Enum.TryParse<AudioClipLoadType>(settings["loadType"].ToString(), true, out var lt))
+                { sampleSettings.loadType = lt; applied++; }
+            }
+            if (settings["compressionFormat"] != null)
+            {
+                if (System.Enum.TryParse<AudioCompressionFormat>(settings["compressionFormat"].ToString(), true, out var cf))
+                { sampleSettings.compressionFormat = cf; applied++; }
+            }
+            if (settings["quality"] != null)
+            { sampleSettings.quality = settings["quality"].ToObject<float>(); applied++; }
+
+            importer.defaultSampleSettings = sampleSettings;
+            importer.SaveAndReimport();
+            return ToolResult.Text($"Applied {applied} import settings to '{path}' (importer: AudioImporter)");
         }
     }
 }

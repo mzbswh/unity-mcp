@@ -87,10 +87,7 @@ See `Samples~/CustomTools/MyCustomToolExample.cs` for a complete example.
 `scene_create`, `scene_open`, `scene_save`, `scene_get_hierarchy`
 
 ### GameObject
-`gameobject_create`, `gameobject_destroy`, `gameobject_find` (paginated), `gameobject_get_info`, `gameobject_modify`, `gameobject_duplicate`, `gameobject_set_parent`
-
-### Component
-`component_add`, `component_remove`, `component_modify`, `component_list`
+`gameobject_create`, `gameobject_destroy`, `gameobject_find` (paginated), `gameobject_get_info`, `gameobject_modify`, `gameobject_duplicate`, `gameobject_set_parent`, `gameobject_add_component`, `gameobject_remove_component`, `gameobject_get_component`, `gameobject_modify_component`, `gameobject_copy_component`
 
 ### Asset
 `asset_find` (paginated), `asset_create_folder`, `asset_move`, `asset_delete`, `asset_get_info`
@@ -104,9 +101,6 @@ See `Samples~/CustomTools/MyCustomToolExample.cs` for a complete example.
 ### Material
 `material_create`, `material_modify`, `material_get_info`
 
-### Script
-`script_create`, `script_read`, `script_search`
-
 ### Prefab
 `prefab_create`, `prefab_instantiate`, `prefab_unpack`, `prefab_apply`
 
@@ -114,7 +108,7 @@ See `Samples~/CustomTools/MyCustomToolExample.cs` for a complete example.
 `so_create`, `so_read`, `so_modify`, `so_list`
 
 ### Texture
-`texture_get_info`, `texture_set_import`, `texture_search` (paginated)
+`texture_get_info`, `texture_search` (paginated)
 
 ### Screenshot
 `screenshot_scene`, `screenshot_game` — supports `maxResolution` for AI-friendly downsampling (recommended: 640-1024)
@@ -123,22 +117,22 @@ See `Samples~/CustomTools/MyCustomToolExample.cs` for a complete example.
 `animation_create_clip`, `animation_add_keyframe`
 
 ### Lighting
-`lighting_create_light`, `lighting_configure`
+`lighting_bake`, `lighting_cancel_bake`
 
 ### Physics
-`physics_add_rigidbody`, `physics_add_collider`, `physics_raycast`
+`physics_create_material`, `physics_get_settings`, `physics_set_gravity`, `physics_raycast`
 
 ### Build
 `build_player`, `build_get_settings`
 
 ### Shader
-`shader_create`, `shader_read`, `shader_update`, `shader_delete`, `shader_info`, `shader_list`
+`shader_info`, `shader_list`
 
 ### UI Toolkit
-`uitoolkit_create`, `uitoolkit_read`, `uitoolkit_update`, `uitoolkit_delete`, `uitoolkit_list`, `uitoolkit_attach`, `uitoolkit_get_visual_tree`
+`uitoolkit_create`, `uitoolkit_list`, `uitoolkit_attach`, `uitoolkit_get_visual_tree`
 
 ### Graphics
-`graphics_get_skybox`, `graphics_set_skybox`, `graphics_get_fog`, `graphics_set_fog`, `graphics_get_ambient`, `graphics_set_ambient`, `graphics_get_render_pipeline`, `graphics_get_quality`, `graphics_set_quality`, `graphics_get_stats`, `graphics_bake_lighting`, `graphics_get_lightmap_settings`
+`graphics_get_skybox`, `graphics_set_skybox`, `graphics_get_fog`, `graphics_set_fog`, `graphics_get_ambient`, `graphics_set_ambient`, `graphics_get_render_pipeline`, `graphics_get_quality`, `graphics_set_quality`, `graphics_get_stats`, `graphics_get_lightmap_settings`
 
 ### ProBuilder (conditional: PROBUILDER_ENABLED)
 `probuilder_create_shape`, `probuilder_get_mesh_info`, `probuilder_extrude_faces`, `probuilder_set_material`

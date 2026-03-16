@@ -231,26 +231,6 @@ namespace UnityMcp.Editor.Tools
             });
         }
 
-        // --- Light Baking ---
-
-        [McpTool("graphics_bake_lighting", "Start lightmap baking for the current scene",
-            Group = "graphics")]
-        public static ToolResult BakeLighting(
-            [Desc("If true, clear baked data first")] bool clearFirst = false)
-        {
-            if (clearFirst)
-                Lightmapping.Clear();
-
-            Lightmapping.BakeAsync();
-
-            return ToolResult.Json(new
-            {
-                started = true,
-                isRunning = Lightmapping.isRunning,
-                message = "Lightmap baking started asynchronously",
-            });
-        }
-
         [McpTool("graphics_get_lightmap_settings", "Get current lightmap baking settings",
             Group = "graphics", ReadOnly = true)]
         public static ToolResult GetLightmapSettings()
