@@ -60,7 +60,7 @@ namespace UnityMcp.Editor.Tools
             }
             else
             {
-                var go = GameObject.Find(cameraName);
+                var go = GameObjectTools.FindGameObject(cameraName, null);
                 if (go == null)
                     return ToolResult.Error($"GameObject '{cameraName}' not found");
                 camera = go.GetComponent<Camera>();

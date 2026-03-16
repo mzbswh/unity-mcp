@@ -91,8 +91,13 @@ namespace UnityMcp.Editor.Tools
             [Desc("Max items per page")] int pageSize = 100,
             [Desc("Cursor for pagination")] string cursor = null)
         {
-            var scene = SceneManager.GetActiveScene();
-            var roots = scene.GetRootGameObjects();
+            // In Prefab Stage, show the prefab hierarchy instead of the scene
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            GameObject[] roots;
+            if (prefabStage != null)
+                roots = new[] { prefabStage.prefabContentsRoot };
+            else
+                roots = SceneManager.GetActiveScene().GetRootGameObjects();
 
             int startIndex = 0;
             if (!string.IsNullOrEmpty(cursor) && int.TryParse(cursor, out int ci))

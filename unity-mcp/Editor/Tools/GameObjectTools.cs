@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityMcp.Editor.Utils;
 using UnityMcp.Shared.Attributes;
@@ -72,7 +73,23 @@ namespace UnityMcp.Editor.Tools
         {
             IEnumerable<GameObject> results;
 
-            if (!string.IsNullOrEmpty(path))
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (prefabStage != null)
+            {
+                // In Prefab Stage, search within prefab contents
+                var root = prefabStage.prefabContentsRoot;
+                if (!string.IsNullOrEmpty(path))
+                {
+                    var go = FindGameObject(path, null);
+                    results = go != null ? new[] { go } : System.Array.Empty<GameObject>();
+                }
+                else
+                {
+                    results = root.GetComponentsInChildren<Transform>(true)
+                        .Select(t => t.gameObject);
+                }
+            }
+            else if (!string.IsNullOrEmpty(path))
             {
                 var go = GameObject.Find(path);
                 results = go != null ? new[] { go } : System.Array.Empty<GameObject>();
@@ -219,6 +236,35 @@ namespace UnityMcp.Editor.Tools
 
             if (string.IsNullOrEmpty(nameOrPath))
                 return null;
+
+            // Check if we're in Prefab Stage
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (prefabStage != null)
+            {
+                var root = prefabStage.prefabContentsRoot;
+                // Try exact path match relative to prefab root
+                if (nameOrPath == root.name)
+                    return root;
+
+                // Try finding by path under root
+                var t = root.transform.Find(nameOrPath);
+                if (t != null) return t.gameObject;
+
+                // Try stripping root name prefix (e.g. "RootName/Child/SubChild")
+                if (nameOrPath.StartsWith(root.name + "/"))
+                {
+                    var relativePath = nameOrPath.Substring(root.name.Length + 1);
+                    t = root.transform.Find(relativePath);
+                    if (t != null) return t.gameObject;
+                }
+
+                // Fallback: search by name in all prefab children
+                foreach (var child in root.GetComponentsInChildren<Transform>(true))
+                    if (child.gameObject.name == nameOrPath)
+                        return child.gameObject;
+
+                return null;
+            }
 
             // Try exact path first
             var go = GameObject.Find(nameOrPath);
