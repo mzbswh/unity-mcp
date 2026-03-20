@@ -10,6 +10,32 @@ using UnityMcp.Shared.Models;
 
 namespace UnityMcp.Editor.Tools
 {
+    [System.Flags]
+    internal enum LogMessageFlags : int
+    {
+        NoLogMessageFlags = 0,
+        Error = 1 << 0,
+        Assert = 1 << 1,
+        Log = 1 << 2,
+        Fatal = 1 << 4,
+        AssetImportError = 1 << 6,
+        AssetImportWarning = 1 << 7,
+        ScriptingError = 1 << 8,
+        ScriptingWarning = 1 << 9,
+        ScriptingLog = 1 << 10,
+        ScriptCompileError = 1 << 11,
+        ScriptCompileWarning = 1 << 12,
+        StickyLog = 1 << 13,
+        MayIgnoreLineNumber = 1 << 14,
+        ReportBug = 1 << 15,
+        DisplayPreviousErrorInStatusBar = 1 << 16,
+        ScriptingException = 1 << 17,
+        DontExtractStacktrace = 1 << 18,
+        ScriptingAssertion = 1 << 21,
+        StacktraceIsPostprocessed = 1 << 22,
+        IsCalledFromManaged = 1 << 23,
+    }
+
     [McpToolGroup("Console")]
     public static class ConsoleTools
     {
@@ -110,12 +136,20 @@ namespace UnityMcp.Editor.Tools
 
         private static string ModeToType(int mode)
         {
-            // Unity's internal log mode flags
-            if ((mode & (1 << 0)) != 0) return "Error";
-            if ((mode & (1 << 1)) != 0) return "Assert";
-            if ((mode & (1 << 2)) != 0) return "Log";
-            if ((mode & (1 << 4)) != 0) return "Exception";
-            if ((mode & (1 << 5)) != 0) return "Warning";
+            const int errorMask = (int)(LogMessageFlags.Error | LogMessageFlags.Fatal
+                | LogMessageFlags.ScriptingError | LogMessageFlags.ScriptCompileError
+                | LogMessageFlags.AssetImportError);
+            const int exceptionMask = (int)LogMessageFlags.ScriptingException;
+            const int assertMask = (int)(LogMessageFlags.Assert | LogMessageFlags.ScriptingAssertion);
+            const int warningMask = (int)(LogMessageFlags.ScriptingWarning
+                | LogMessageFlags.ScriptCompileWarning | LogMessageFlags.AssetImportWarning);
+            const int logMask = (int)(LogMessageFlags.Log | LogMessageFlags.ScriptingLog);
+
+            if ((mode & errorMask) != 0) return "Error";
+            if ((mode & exceptionMask) != 0) return "Exception";
+            if ((mode & assertMask) != 0) return "Assert";
+            if ((mode & warningMask) != 0) return "Warning";
+            if ((mode & logMask) != 0) return "Log";
             return "Log";
         }
 
