@@ -203,7 +203,7 @@ namespace UnityMcp.Editor.Tools
                 {
                     Status = "idle",
                     IsRunning = false,
-                    TestMode = TestMode.EditMode.ToString(),
+                    TestMode = UnityEditor.TestTools.TestRunner.Api.TestMode.EditMode.ToString(),
                     Filter = "(all)",
                     StartedAtUtcValue = default,
                     Results = new List<TestCaseResult>(),
