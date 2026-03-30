@@ -27,7 +27,14 @@ namespace UnityMcp.Editor.Tools
             if (componentType == null)
                 return ToolResult.Error($"Unknown component type: {type}");
 
+            var addabilityError = ValidateAddableComponentType(go, componentType, type);
+            if (addabilityError != null)
+                return ToolResult.Error(addabilityError);
+
             var component = Undo.AddComponent(go, componentType);
+            if (component == null)
+                return ToolResult.Error($"Failed to add component '{type}' to '{go.name}'");
+
             return ToolResult.Json(new
             {
                 gameObject = go.name,
@@ -162,8 +169,14 @@ namespace UnityMcp.Editor.Tools
             var dstComp = dstGo.GetComponent(compType);
             if (dstComp == null)
             {
+                var addabilityError = ValidateAddableComponentType(dstGo, compType, type);
+                if (addabilityError != null)
+                    return ToolResult.Error(addabilityError);
+
                 // Add component if it doesn't exist on destination
                 dstComp = Undo.AddComponent(dstGo, compType);
+                if (dstComp == null)
+                    return ToolResult.Error($"Failed to add component '{type}' to '{dstGo.name}'");
             }
             else
             {
@@ -346,6 +359,33 @@ namespace UnityMcp.Editor.Tools
                     if (t != null && t.Name == typeName && typeof(Component).IsAssignableFrom(t))
                         return t;
                 }
+            }
+
+            return null;
+        }
+
+        internal static string ValidateAddableComponentType(GameObject target, Type componentType, string requestedTypeName)
+        {
+            if (componentType == null)
+                return $"Unknown component type: {requestedTypeName}";
+
+            if (!typeof(Component).IsAssignableFrom(componentType))
+                return $"Type '{requestedTypeName}' is not a Unity component";
+
+            if (componentType.IsAbstract)
+                return $"Component type '{requestedTypeName}' is abstract and cannot be added";
+
+            if (componentType.IsGenericTypeDefinition || componentType.ContainsGenericParameters)
+                return $"Component type '{requestedTypeName}' is an open generic type and cannot be added";
+
+            if (typeof(Transform).IsAssignableFrom(componentType))
+                return "Transform already exists on every GameObject and cannot be added";
+
+            if (target != null &&
+                Attribute.IsDefined(componentType, typeof(DisallowMultipleComponent)) &&
+                target.GetComponent(componentType) != null)
+            {
+                return $"Component '{requestedTypeName}' does not allow multiple instances on '{target.name}'";
             }
 
             return null;

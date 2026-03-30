@@ -269,7 +269,15 @@ namespace UnityMcp.Editor.Tools
                         var compType = ComponentTools.ResolveComponentType(typeName);
                         if (compType == null)
                         { errors.Add($"Unknown component type: {typeName}"); continue; }
-                        targetGo.AddComponent(compType);
+
+                        var addabilityError = ComponentTools.ValidateAddableComponentType(targetGo, compType, typeName);
+                        if (addabilityError != null)
+                        { errors.Add(addabilityError); continue; }
+
+                        var addedComponent = targetGo.AddComponent(compType);
+                        if (addedComponent == null)
+                        { errors.Add($"Failed to add component '{typeName}' to '{targetGo.name}'"); continue; }
+
                         modified = true;
                     }
                 }
