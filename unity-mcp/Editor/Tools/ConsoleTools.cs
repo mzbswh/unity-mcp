@@ -71,6 +71,30 @@ namespace UnityMcp.Editor.Tools
             return ToolResult.Json(new { count = result.Length, logs = result });
         }
 
+        [McpTool("console_clear_logs", "Clear all entries from the Unity Console",
+            Group = "console")]
+        public static ToolResult ClearLogs()
+        {
+            try
+            {
+                int countBefore = GetLogCount();
+                if (TryClearViaReflection())
+                {
+                    return ToolResult.Json(new
+                    {
+                        cleared = countBefore,
+                        remaining = GetLogCount()
+                    });
+                }
+
+                return ToolResult.Error("Failed to clear Unity Console logs");
+            }
+            catch (Exception ex)
+            {
+                return ToolResult.Error($"Failed to clear Unity Console logs: {ex.Message}");
+            }
+        }
+
         // Use reflection to access internal Unity LogEntries API
         private static List<LogEntry> GetLogEntries(int maxCount)
         {
@@ -132,6 +156,37 @@ namespace UnityMcp.Editor.Tools
                 });
             }
             return list;
+        }
+
+        private static int GetLogCount()
+        {
+            try
+            {
+                var logEntriesType = GetLogEntriesType();
+                var getCount = logEntriesType?.GetMethod("GetCount",
+                    BindingFlags.Public | BindingFlags.Static);
+                return getCount != null ? (int)getCount.Invoke(null, null) : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static bool TryClearViaReflection()
+        {
+            var logEntriesType = GetLogEntriesType();
+            var clear = logEntriesType?.GetMethod("Clear", BindingFlags.Public | BindingFlags.Static);
+            if (clear == null) return false;
+
+            clear.Invoke(null, null);
+            return true;
+        }
+
+        private static Type GetLogEntriesType()
+        {
+            return Type.GetType("UnityEditor.LogEntries, UnityEditor.CoreModule")
+                ?? Type.GetType("UnityEditor.LogEntries, UnityEditor");
         }
 
         private static string ModeToType(int mode)
