@@ -370,7 +370,11 @@ namespace UnityMcp.Editor.Tools
 
             var sampleSettings = importer.defaultSampleSettings;
             if (settings["preloadAudioData"] != null)
+#if UNITY_2022_2_OR_NEWER
             { sampleSettings.preloadAudioData = settings["preloadAudioData"].ToObject<bool>(); applied++; }
+#else
+            { importer.preloadAudioData = settings["preloadAudioData"].ToObject<bool>(); applied++; }
+#endif
             if (settings["loadType"] != null)
             {
                 if (System.Enum.TryParse<AudioClipLoadType>(settings["loadType"].ToString(), true, out var lt))
