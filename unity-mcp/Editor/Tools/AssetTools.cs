@@ -367,10 +367,10 @@ namespace UnityMcp.Editor.Tools
             { importer.forceToMono = settings["forceToMono"].ToObject<bool>(); applied++; }
             if (settings["loadInBackground"] != null)
             { importer.loadInBackground = settings["loadInBackground"].ToObject<bool>(); applied++; }
-            if (settings["preloadAudioData"] != null)
-            { importer.preloadAudioData = settings["preloadAudioData"].ToObject<bool>(); applied++; }
 
             var sampleSettings = importer.defaultSampleSettings;
+            if (settings["preloadAudioData"] != null)
+            { sampleSettings.preloadAudioData = settings["preloadAudioData"].ToObject<bool>(); applied++; }
             if (settings["loadType"] != null)
             {
                 if (System.Enum.TryParse<AudioClipLoadType>(settings["loadType"].ToString(), true, out var lt))
